@@ -31,16 +31,11 @@ export class AppointmentsController {
       clientTenantId?: string;
       date?: string;
       services?: string[];
+      staffId?: string | null;
     },
   ) {
-    if (!body.clientTenantId) {
-      throw new BadRequestException("Cliente mancante");
-    }
-
-    if (!body.date) {
-      throw new BadRequestException("Data mancante");
-    }
-
+    if (!body.clientTenantId) throw new BadRequestException("Cliente mancante");
+    if (!body.date) throw new BadRequestException("Data mancante");
     if (!body.services || body.services.length === 0) {
       throw new BadRequestException("Trattamenti mancanti");
     }
@@ -49,6 +44,7 @@ export class AppointmentsController {
       clientTenantId: body.clientTenantId,
       date: body.date,
       services: body.services,
+      staffId: body.staffId || null,
     });
   }
 
@@ -61,6 +57,7 @@ export class AppointmentsController {
       clientTenantId?: string;
       date?: string;
       services?: string[];
+      staffId?: string | null;
     },
   ) {
     return this.appointmentsService.update(req.user.tenantId, id, body);
@@ -70,13 +67,16 @@ export class AppointmentsController {
   move(
     @Req() req: any,
     @Param("id") id: string,
-    @Body() body: { date?: string },
+    @Body() body: { date?: string; staffId?: string | null },
   ) {
-    if (!body.date) {
-      throw new BadRequestException("Data mancante");
-    }
+    if (!body.date) throw new BadRequestException("Data mancante");
 
-    return this.appointmentsService.move(req.user.tenantId, id, body.date);
+    return this.appointmentsService.move(
+      req.user.tenantId,
+      id,
+      body.date,
+      body.staffId,
+    );
   }
 
   @Delete(":id")

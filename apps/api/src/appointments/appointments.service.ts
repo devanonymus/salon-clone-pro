@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
 
 const SERVICE_DURATIONS: Record<string, number> = {
-  "Piega": 35,
+  Piega: 35,
   "Piega Atelier Extra Styling": 45,
   "Taglio Donna": 35,
   "Taglio Donna + Piega": 60,
@@ -25,15 +25,14 @@ export class AppointmentsService {
 
   getAll(tenantId: string) {
     return this.prisma.appointment.findMany({
-      where: {
-        tenantId,
-      },
+      where: { tenantId },
       include: {
         clientTenant: {
           include: {
             clientGlobal: true,
           },
         },
+        staff: true,
         sale: true,
       },
       orderBy: {
@@ -48,6 +47,7 @@ export class AppointmentsService {
       clientTenantId: string;
       date: string;
       services: string[];
+      staffId?: string | null;
     },
   ) {
     const clientTenant = await this.prisma.clientTenant.findFirst({
@@ -61,6 +61,10 @@ export class AppointmentsService {
       throw new NotFoundException("Cliente non trovato nel salone");
     }
 
+    if (input.staffId) {
+      await this.assertStaffTenant(tenantId, input.staffId);
+    }
+
     const duration = this.calculateDuration(input.services);
     const note = input.services.join(" + ");
 
@@ -68,6 +72,7 @@ export class AppointmentsService {
       data: {
         tenantId,
         clientTenantId: input.clientTenantId,
+        staffId: input.staffId || null,
         date: new Date(input.date),
         duration,
         note,
@@ -78,6 +83,7 @@ export class AppointmentsService {
             clientGlobal: true,
           },
         },
+        staff: true,
         sale: true,
       },
     });
@@ -90,6 +96,7 @@ export class AppointmentsService {
       clientTenantId?: string;
       date?: string;
       services?: string[];
+      staffId?: string | null;
     },
   ) {
     await this.assertAppointmentTenant(tenantId, id);
@@ -97,7 +104,26 @@ export class AppointmentsService {
     const data: any = {};
 
     if (input.clientTenantId) {
+      const clientTenant = await this.prisma.clientTenant.findFirst({
+        where: {
+          id: input.clientTenantId,
+          tenantId,
+        },
+      });
+
+      if (!clientTenant) {
+        throw new NotFoundException("Cliente non trovato nel salone");
+      }
+
       data.clientTenantId = input.clientTenantId;
+    }
+
+    if (input.staffId !== undefined) {
+      if (input.staffId) {
+        await this.assertStaffTenant(tenantId, input.staffId);
+      }
+
+      data.staffId = input.staffId || null;
     }
 
     if (input.date) {
@@ -110,9 +136,7 @@ export class AppointmentsService {
     }
 
     return this.prisma.appointment.update({
-      where: {
-        id,
-      },
+      where: { id },
       data,
       include: {
         clientTenant: {
@@ -120,27 +144,37 @@ export class AppointmentsService {
             clientGlobal: true,
           },
         },
+        staff: true,
         sale: true,
       },
     });
   }
 
-  async move(tenantId: string, id: string, date: string) {
+  async move(tenantId: string, id: string, date: string, staffId?: string | null) {
     await this.assertAppointmentTenant(tenantId, id);
 
+    const data: any = {
+      date: new Date(date),
+    };
+
+    if (staffId !== undefined) {
+      if (staffId) {
+        await this.assertStaffTenant(tenantId, staffId);
+      }
+
+      data.staffId = staffId || null;
+    }
+
     return this.prisma.appointment.update({
-      where: {
-        id,
-      },
-      data: {
-        date: new Date(date),
-      },
+      where: { id },
+      data,
       include: {
         clientTenant: {
           include: {
             clientGlobal: true,
           },
         },
+        staff: true,
         sale: true,
       },
     });
@@ -150,9 +184,7 @@ export class AppointmentsService {
     await this.assertAppointmentTenant(tenantId, id);
 
     await this.prisma.appointment.delete({
-      where: {
-        id,
-      },
+      where: { id },
     });
 
     return {
@@ -173,6 +205,22 @@ export class AppointmentsService {
     }
 
     return appointment;
+  }
+
+  private async assertStaffTenant(tenantId: string, staffId: string) {
+    const staff = await this.prisma.staff.findFirst({
+      where: {
+        id: staffId,
+        tenantId,
+        active: true,
+      },
+    });
+
+    if (!staff) {
+      throw new NotFoundException("Dipendente non trovato nel salone");
+    }
+
+    return staff;
   }
 
   private calculateDuration(services: string[]) {

@@ -97,6 +97,9 @@ model Appointment {
   clientTenant   ClientTenant @relation(fields: [clientTenantId], references: [id])
   sale           Sale?
 
+  staffId String?
+staff   Staff? @relation(fields: [staffId], references: [id])
+
   @@schema("app")
 }
 
@@ -189,6 +192,19 @@ model WhatsappMessage {
   createdAt      DateTime @default(now())
 
   conversation   WhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@schema("app")
+}
+model Staff {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  role      String   @default("COLLABORATORE")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  appointments Appointment[]
 
   @@schema("app")
 }
