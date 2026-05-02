@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { CSSProperties, DragEvent, FormEvent, MouseEvent } from "react";
+import type { CSSProperties, FormEvent } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -24,30 +24,50 @@ type ClientItem = {
   };
 };
 
+type StaffItem = {
+  id: string;
+  name: string;
+  role?: string;
+};
+
 type AppointmentItem = {
   id: string;
   tenantId: string;
   clientTenantId: string;
+  staffId?: string | null;
   date: string;
   duration: number;
   note: string | null;
   createdAt: string;
-  staffId?: string | null;
   clientTenant: ClientItem;
+  staff?: StaffItem | null;
   sale?: any | null;
 };
 
-type Staff = {
-  id: string;
-  name: string;
-};
+const FALLBACK_STAFF: StaffItem[] = [
+  { id: "pamela", name: "Pamela" },
+  { id: "katia", name: "Katia" },
+  { id: "stefania", name: "Stefania" },
+  { id: "sonia", name: "Sonia" },
+  { id: "brian", name: "Brian Laddomada" },
+];
 
 const services = [
   { name: "Piega", duration: 35 },
+  { name: "Piega Atelier Extra Styling", duration: 45 },
   { name: "Taglio Donna", duration: 35 },
-  { name: "Taglio Uomo", duration: 30 },
+  { name: "Taglio Donna + Piega", duration: 60 },
+  { name: "Shampoo + Taglio Uomo", duration: 30 },
+  { name: "Barba Rifinitura", duration: 10 },
   { name: "Colore Base", duration: 35 },
-  { name: "Colore + Piega", duration: 80 },
+  { name: "Colore Base + Piega", duration: 80 },
+  { name: "Colore Base + Taglio + Piega", duration: 105 },
+  { name: "Tonalizzante/Gloss", duration: 25 },
+  { name: "Tonalizzante + Piega", duration: 70 },
+  { name: "Decapaggio Colore", duration: 45 },
+  { name: "Decapaggio + Piega", duration: 140 },
+  { name: "Schiariture Parziali Meches Light", duration: 90 },
+  { name: "Colpi di Sole/Meches + Piega", duration: 120 },
 ];
 
 function getMonday(date: Date) {
@@ -60,14 +80,54 @@ function getMonday(date: Date) {
 }
 
 function toInputDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatDay(date: Date) {
   return date.toLocaleDateString("it-IT", {
     day: "2-digit",
     month: "2-digit",
+    year: "numeric",
   });
+}
+
+function isToday(date: Date) {
+  return toInputDate(new Date()) === toInputDate(date);
+}
+
+function getAppointmentColor(note: string | null, sold?: boolean) {
+  if (sold) return "linear-gradient(135deg,#16a34a,#22c55e)";
+  if (!note) return "linear-gradient(135deg,#d4af37,#facc15)";
+
+  const value = note.toLowerCase();
+
+  if (
+    value.includes("colore") ||
+    value.includes("tonalizzante") ||
+    value.includes("gloss") ||
+    value.includes("decapaggio") ||
+    value.includes("schiariture") ||
+    value.includes("meches")
+  ) {
+    return "linear-gradient(135deg,#f97316,#fb923c)";
+  }
+
+  if (value.includes("taglio") || value.includes("barba")) {
+    return "linear-gradient(135deg,#3b82f6,#60a5fa)";
+  }
+
+  if (
+    value.includes("ricostruzione") ||
+    value.includes("trattamento") ||
+    value.includes("plex")
+  ) {
+    return "linear-gradient(135deg,#10b981,#34d399)";
+  }
+
+  return "linear-gradient(135deg,#8b5cf6,#a78bfa)";
 }
 
 export default function AgendaPage() {
@@ -75,20 +135,22 @@ export default function AgendaPage() {
 
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
-  const [staff, setStaff] = useState<Staff[]>([]);
+  const [staff, setStaff] = useState<StaffItem[]>(FALLBACK_STAFF);
 
   const [viewMode, setViewMode] = useState<"all" | "staff">("all");
-  const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+  const [selectedStaffId, setSelectedStaffId] = useState(FALLBACK_STAFF[0].id);
 
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
-
   const [modalOpen, setModalOpen] = useState(false);
 
   const [clientTenantId, setClientTenantId] = useState("");
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("");
-  const [selectedStaffForBooking, setSelectedStaffForBooking] = useState("");
+  const [appointmentStaffId, setAppointmentStaffId] = useState(FALLBACK_STAFF[0].id);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => {
@@ -99,59 +161,102 @@ export default function AgendaPage() {
   }, [weekStart]);
 
   const hours = useMemo(() => {
-    return Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+    const list: number[] = [];
+    for (let h = START_HOUR; h < END_HOUR; h++) list.push(h);
+    return list;
   }, []);
 
+  const totalDuration = useMemo(() => {
+    return selectedServices.reduce((sum, serviceName) => {
+      const service = services.find((item) => item.name === serviceName);
+      return sum + (service?.duration || 30);
+    }, 0);
+  }, [selectedServices]);
+
   async function fetchWithAuth(path: string, options?: RequestInit) {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("salonpro_token") || localStorage.getItem("token");
+
     if (!token) {
       router.push("/login");
-      return;
+      throw new Error("Token mancante");
     }
 
     const res = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
+        ...(options?.headers || {}),
         Authorization: `Bearer ${token}`,
       },
     });
 
-    return res.json();
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+
+    if (!res.ok) {
+      throw new Error(data?.message || text || "Errore richiesta");
+    }
+
+    return data;
   }
 
   async function loadData() {
-    const [clientsData, appointmentsData, staffData] = await Promise.all([
-      fetchWithAuth("/clients"),
-      fetchWithAuth("/appointments"),
-      fetchWithAuth("/staff"),
-    ]);
+    try {
+      setError("");
 
-    setClients(clientsData || []);
-    setAppointments(appointmentsData || []);
-    setStaff(staffData || []);
+      const [clientsData, appointmentsData] = await Promise.all([
+        fetchWithAuth("/clients"),
+        fetchWithAuth("/appointments"),
+      ]);
 
-    if (staffData?.length) {
-      setSelectedStaffId(staffData[0].id);
-      setSelectedStaffForBooking(staffData[0].id);
+      setClients(clientsData || []);
+      setAppointments(appointmentsData || []);
+
+      if (clientsData?.length && !clientTenantId) {
+        setClientTenantId(clientsData[0].id);
+      }
+
+      try {
+        const staffData = await fetchWithAuth("/staff");
+        if (staffData?.length) {
+          setStaff(staffData);
+          setSelectedStaffId((prev) => prev || staffData[0].id);
+          setAppointmentStaffId((prev) => prev || staffData[0].id);
+        }
+      } catch {
+        setStaff(FALLBACK_STAFF);
+      }
+    } catch (err: any) {
+      setError(err.message || "Errore caricamento agenda");
     }
   }
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function staffMatchesAppointment(appointment: AppointmentItem) {
+    if (appointment.staffId) return appointment.staffId === selectedStaffId;
+
+    const staffName = staff.find((s) => s.id === selectedStaffId)?.name.toLowerCase();
+    const appointmentStaffName = appointment.staff?.name?.toLowerCase();
+
+    return staffName && appointmentStaffName === staffName;
+  }
 
   function appointmentsOfDay(day: Date) {
     const key = toInputDate(day);
 
-    return appointments.filter((a) => {
-      const sameDay = toInputDate(new Date(a.date)) === key;
+    return appointments.filter((appointment) => {
+      const sameDay = toInputDate(new Date(appointment.date)) === key;
+      if (!sameDay) return false;
 
       if (viewMode === "staff") {
-        return sameDay && a.staffId === selectedStaffId;
+        return staffMatchesAppointment(appointment);
       }
 
-      return sameDay;
+      return true;
     });
   }
 
@@ -161,13 +266,7 @@ export default function AgendaPage() {
   }
 
   function heightFromDuration(duration: number) {
-    return Math.max(40, (duration / 60) * HOUR_HEIGHT);
-  }
-
-  function openSlot(day: Date, hour: number) {
-    setAppointmentDate(toInputDate(day));
-    setAppointmentTime(`${hour}:00`);
-    setModalOpen(true);
+    return Math.max(38, (duration / 60) * HOUR_HEIGHT);
   }
 
   function moveWeek(delta: number) {
@@ -176,52 +275,59 @@ export default function AgendaPage() {
     setWeekStart(next);
   }
 
+  function openSlot(day: Date, hour: number) {
+    setAppointmentDate(toInputDate(day));
+    setAppointmentTime(`${String(hour).padStart(2, "0")}:00`);
+    setSelectedServices([]);
+    setAppointmentStaffId(viewMode === "staff" ? selectedStaffId : staff[0]?.id || "");
+    setModalOpen(true);
+  }
+
   function toggleService(serviceName: string) {
     setSelectedServices((prev) =>
       prev.includes(serviceName)
-        ? prev.filter((s) => s !== serviceName)
+        ? prev.filter((item) => item !== serviceName)
         : [...prev, serviceName],
     );
   }
 
   async function createAppointment(e: FormEvent) {
     e.preventDefault();
+    setLoading(true);
+    setError("");
 
-    if (!clientTenantId) return alert("Seleziona cliente");
-    if (!appointmentDate) return alert("Seleziona data");
-    if (!appointmentTime) return alert("Seleziona ora");
-    if (selectedServices.length === 0) return alert("Seleziona almeno un servizio");
+    try {
+      if (!clientTenantId) throw new Error("Seleziona un cliente");
+      if (!appointmentDate) throw new Error("Seleziona data");
+      if (!appointmentTime) throw new Error("Seleziona ora");
+      if (selectedServices.length === 0) throw new Error("Seleziona almeno un trattamento");
 
-    const dateIso = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
+      const dateIso = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
 
-    const created = await fetchWithAuth("/appointments", {
-      method: "POST",
-      body: JSON.stringify({
-        clientTenantId,
-        date: dateIso,
-        services: selectedServices,
-        staffId: selectedStaffForBooking,
-      }),
-    });
+      await fetchWithAuth("/appointments", {
+        method: "POST",
+        body: JSON.stringify({
+          clientTenantId,
+          date: dateIso,
+          services: selectedServices,
+          staffId: appointmentStaffId || null,
+        }),
+      });
 
-    const normalized = {
-      ...created,
-      staffId: selectedStaffForBooking,
-    };
-
-    setAppointments((prev) => [...prev, normalized]);
-
-    setModalOpen(false);
-    setClientTenantId("");
-    setSelectedServices([]);
-    setAppointmentDate("");
-    setAppointmentTime("");
+      setModalOpen(false);
+      setSelectedServices([]);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Errore creazione appuntamento");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const visibleTitle =
     viewMode === "all"
       ? "Agenda principale"
-      : `Agenda ${staff.find((s) => s.id === selectedStaffId)?.name || ""}`;
+      : `Agenda ${staff.find((s) => s.id === selectedStaffId)?.name || "dipendente"}`;
 
   return (
     <main className="sp-page">
@@ -231,7 +337,7 @@ export default function AgendaPage() {
             <div style={eyebrow}>Agenda Appuntamenti</div>
             <h1 className="sp-title">{visibleTitle}</h1>
             <p className="sp-muted" style={{ marginTop: 8 }}>
-              Vista generale del salone oppure agenda filtrata per collaboratore.
+              Vista principale con tutti i dipendenti oppure agenda filtrata per collaboratore.
             </p>
           </div>
 
@@ -255,13 +361,13 @@ export default function AgendaPage() {
               value={selectedStaffId}
               onChange={(e) => {
                 setSelectedStaffId(e.target.value);
-                setSelectedStaffForBooking(e.target.value);
+                setAppointmentStaffId(e.target.value);
                 setViewMode("staff");
               }}
             >
-              {staff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
+              {staff.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
                 </option>
               ))}
             </select>
@@ -280,16 +386,17 @@ export default function AgendaPage() {
           </div>
         </header>
 
+        {error ? <div style={errorBox}>⚠️ {error}</div> : null}
+
         <section style={calendarWrap}>
           <div style={calendarHeader}>
             <div style={headerCell}>ORA</div>
-
             {days.map((day) => (
               <div key={day.toISOString()} style={headerCell}>
-                <strong>
+                <div style={{ color: isToday(day) ? "#d4af37" : "#fff", fontWeight: 900 }}>
                   {day.toLocaleDateString("it-IT", { weekday: "short" }).toUpperCase()}
-                </strong>
-                <div style={{ color: "#b8bfd0", marginTop: 4 }}>{formatDay(day)}</div>
+                </div>
+                <div style={{ marginTop: 4, color: "#b8bfd0" }}>{formatDay(day)}</div>
               </div>
             ))}
           </div>
@@ -297,7 +404,7 @@ export default function AgendaPage() {
           <div style={calendarBody}>
             <div style={timeColumn}>
               {hours.map((hour) => (
-                <div key={hour} style={timeCell}>
+                <div key={hour} style={timeHourCell}>
                   {String(hour).padStart(2, "0")}:00
                 </div>
               ))}
@@ -308,19 +415,27 @@ export default function AgendaPage() {
                 {hours.map((hour) => (
                   <div
                     key={`${day.toISOString()}-${hour}`}
-                    style={hourCell}
+                    style={{
+                      ...hourCell,
+                      background: isToday(day)
+                        ? "rgba(212,175,55,0.045)"
+                        : "rgba(255,255,255,0.02)",
+                    }}
                     onClick={() => openSlot(day, hour)}
                   >
-                    <span style={{ color: "rgba(255,255,255,0.12)", fontWeight: 900 }}>
+                    <div style={{ color: "rgba(255,255,255,0.12)", fontWeight: 900 }}>
                       +
-                    </span>
+                    </div>
                   </div>
                 ))}
 
                 {appointmentsOfDay(day).map((appointment) => {
                   const top = topFromDate(appointment.date);
                   const height = heightFromDuration(appointment.duration);
-                  const assignedStaff = staff.find((s) => s.id === appointment.staffId);
+                  const staffName =
+                    appointment.staff?.name ||
+                    staff.find((s) => s.id === appointment.staffId)?.name ||
+                    "Non assegnato";
 
                   return (
                     <div
@@ -332,23 +447,25 @@ export default function AgendaPage() {
                         background: getAppointmentColor(appointment.note, !!appointment.sale),
                       }}
                     >
-                      <strong>{appointment.clientTenant?.clientGlobal?.name || "Cliente"}</strong>
+                      <strong style={{ fontSize: 13, fontWeight: 900 }}>
+                        {appointment.clientTenant?.clientGlobal?.name || "Cliente"}
+                      </strong>
 
                       <small>
+                        🕒{" "}
                         {new Date(appointment.date).toLocaleTimeString("it-IT", {
                           hour: "2-digit",
                           minute: "2-digit",
-                        })}
-                        {" · "}
-                        {appointment.duration} min
+                        })}{" "}
+                        · {appointment.duration} min
                       </small>
 
-                      {assignedStaff ? <small>👤 {assignedStaff.name}</small> : null}
+                      <small>👤 {staffName}</small>
 
-                      <div style={tagWrap}>
-                        {(appointment.note?.split(" + ") || ["Appuntamento"]).map((s, i) => (
-                          <span key={i} style={tag}>
-                            {s}
+                      <div style={appointmentTags}>
+                        {(appointment.note?.split(" + ") || ["Appuntamento"]).map((service, index) => (
+                          <span key={index} style={appointmentTag}>
+                            {service}
                           </span>
                         ))}
                       </div>
@@ -364,7 +481,9 @@ export default function AgendaPage() {
       {modalOpen ? (
         <div style={modalBackdrop}>
           <form style={modalCard} onSubmit={createAppointment}>
-            <h2 style={{ marginTop: 0, color: "#0f172a" }}>Nuovo appuntamento</h2>
+            <h2 style={{ marginTop: 0, color: "#0f172a", fontWeight: 900 }}>
+              Nuovo appuntamento
+            </h2>
 
             <div style={modalGrid}>
               <select
@@ -373,21 +492,21 @@ export default function AgendaPage() {
                 onChange={(e) => setClientTenantId(e.target.value)}
               >
                 <option value="">Cliente...</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.clientGlobal.name} - {c.clientGlobal.phone}
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.clientGlobal.name} - {client.clientGlobal.phone}
                   </option>
                 ))}
               </select>
 
               <select
                 style={inputLight}
-                value={selectedStaffForBooking}
-                onChange={(e) => setSelectedStaffForBooking(e.target.value)}
+                value={appointmentStaffId}
+                onChange={(e) => setAppointmentStaffId(e.target.value)}
               >
-                {staff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
+                {staff.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
                   </option>
                 ))}
               </select>
@@ -432,10 +551,14 @@ export default function AgendaPage() {
                   );
                 })}
               </div>
+
+              <div style={{ marginTop: 14, color: "#0f172a", fontWeight: 900 }}>
+                Durata totale: {totalDuration} min
+              </div>
             </div>
 
-            <button style={confirmButton} type="submit">
-              CONFERMA DATA IN AGENDA
+            <button style={confirmButton} disabled={loading} type="submit">
+              {loading ? "SALVATAGGIO..." : "CONFERMA DATA IN AGENDA"}
             </button>
 
             <button type="button" style={cancelButton} onClick={() => setModalOpen(false)}>
@@ -514,6 +637,16 @@ const weekBadge: CSSProperties = {
   color: "#fff",
 };
 
+const errorBox: CSSProperties = {
+  marginBottom: 18,
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(239,68,68,0.14)",
+  border: "1px solid rgba(239,68,68,0.35)",
+  color: "#fecaca",
+  fontWeight: 900,
+};
+
 const calendarWrap: CSSProperties = {
   border: "1px solid rgba(212,175,55,0.22)",
   borderRadius: 24,
@@ -552,7 +685,7 @@ const timeColumn: CSSProperties = {
   background: "rgba(0,0,0,0.42)",
 };
 
-const timeCell: CSSProperties = {
+const timeHourCell: CSSProperties = {
   height: HOUR_HEIGHT,
   padding: 9,
   color: "#d4af37",
@@ -590,13 +723,13 @@ const appointmentCard: CSSProperties = {
   fontSize: 12,
 };
 
-const tagWrap: CSSProperties = {
+const appointmentTags: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: 4,
 };
 
-const tag: CSSProperties = {
+const appointmentTag: CSSProperties = {
   background: "rgba(255,255,255,0.18)",
   padding: "2px 7px",
   borderRadius: 999,
