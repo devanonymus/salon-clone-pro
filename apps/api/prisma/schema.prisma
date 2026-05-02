@@ -8,33 +8,33 @@ datasource db {
 }
 
 model Tenant {
-  id            String        @id @default(uuid())
-  name          String
-  code          String        @unique
-  createdAt     DateTime      @default(now())
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  createdAt DateTime @default(now())
 
-  users         User[]
-  clients       Client[]
-  clientTenants ClientTenant[]
-  appointments  Appointment[]
-  sales         Sale[]
-  fiscalReceipts FiscalReceipt[]
- 
- whatsappConfig        TenantWhatsappConfig?
-whatsappConversations WhatsappConversation[]
+  users                 User[]
+  clients               Client[]
+  clientTenants         ClientTenant[]
+  appointments          Appointment[]
+  sales                 Sale[]
+  fiscalReceipts        FiscalReceipt[]
+  staff                 Staff[]
+  whatsappConfig        TenantWhatsappConfig?
+  whatsappConversations WhatsappConversation[]
 
   @@schema("app")
 }
 
 model User {
-  id        String   @id @default(uuid())
-  username  String
-  pinHash   String
-  role      String
-  active    Boolean  @default(true)
+  id       String  @id @default(uuid())
+  username String
+  pinHash  String
+  role     String
+  active   Boolean @default(true)
 
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -43,13 +43,13 @@ model User {
 }
 
 model Client {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String?
-  email     String?
+  id    String  @id @default(uuid())
+  name  String
+  phone String?
+  email String?
 
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -63,77 +63,90 @@ model ClientGlobal {
   email     String?
   createdAt DateTime @default(now())
 
-  tenants   ClientTenant[]
-  sales     Sale[]
+  tenants ClientTenant[]
+  sales   Sale[]
 
   @@schema("app")
 }
 
 model ClientTenant {
-  id             String        @id @default(uuid())
+  id             String   @id @default(uuid())
   tenantId       String
   clientGlobalId String
   notes          String?
-  createdAt      DateTime      @default(now())
+  createdAt      DateTime @default(now())
 
-  tenant         Tenant        @relation(fields: [tenantId], references: [id])
-  clientGlobal   ClientGlobal  @relation(fields: [clientGlobalId], references: [id])
-  appointments   Appointment[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  clientGlobal ClientGlobal  @relation(fields: [clientGlobalId], references: [id])
+  appointments Appointment[]
 
   @@unique([tenantId, clientGlobalId])
   @@schema("app")
 }
 
+model Staff {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  role      String   @default("COLLABORATORE")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  appointments Appointment[]
+
+  @@schema("app")
+}
+
 model Appointment {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   tenantId       String
   clientTenantId String
+  staffId        String?
   date           DateTime
   duration       Int
   note           String?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime @default(now())
 
-  tenant         Tenant       @relation(fields: [tenantId], references: [id])
-  clientTenant   ClientTenant @relation(fields: [clientTenantId], references: [id])
-  sale           Sale?
-
-  staffId String?
-staff   Staff? @relation(fields: [staffId], references: [id])
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  clientTenant ClientTenant @relation(fields: [clientTenantId], references: [id])
+  staff        Staff?       @relation(fields: [staffId], references: [id])
+  sale         Sale?
 
   @@schema("app")
 }
 
 model Sale {
-  id             String        @id @default(uuid())
+  id             String   @id @default(uuid())
   tenantId       String
   clientGlobalId String
-  appointmentId  String?       @unique
+  appointmentId  String?  @unique
   total          Float
   paymentMethod  String?
-  createdAt      DateTime      @default(now())
+  fiscalStatus   String   @default("NOT_ISSUED")
+  createdAt      DateTime @default(now())
 
-  tenant         Tenant        @relation(fields: [tenantId], references: [id])
-  clientGlobal   ClientGlobal  @relation(fields: [clientGlobalId], references: [id])
-  appointment    Appointment?  @relation(fields: [appointmentId], references: [id])
-
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  clientGlobal   ClientGlobal    @relation(fields: [clientGlobalId], references: [id])
+  appointment    Appointment?    @relation(fields: [appointmentId], references: [id])
   items          SaleItem[]
   fiscalReceipts FiscalReceipt[]
-  fiscalStatus String @default("NOT_ISSUED")
 
   @@schema("app")
 }
 
 model SaleItem {
-  id        String   @id @default(uuid())
-  saleId    String
-  name      String
-  price     Float
-  quantity  Int      @default(1)
+  id       String @id @default(uuid())
+  saleId   String
+  name     String
+  price    Float
+  quantity Int    @default(1)
 
-  sale      Sale     @relation(fields: [saleId], references: [id])
+  sale Sale @relation(fields: [saleId], references: [id])
 
   @@schema("app")
 }
+
 model FiscalReceipt {
   id        String   @id @default(uuid())
   tenantId  String
@@ -144,23 +157,24 @@ model FiscalReceipt {
   response  Json?
   createdAt DateTime @default(now())
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  sale      Sale     @relation(fields: [saleId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  sale   Sale   @relation(fields: [saleId], references: [id])
 
   @@schema("app")
 }
-model TenantWhatsappConfig {
-  id                  String   @id @default(uuid())
-  tenantId            String   @unique
-  phoneNumberId       String
-  businessAccountId   String?
-  accessTokenEncrypted String
-  apiVersion          String   @default("v21.0")
-  enabled             Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
 
-  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+model TenantWhatsappConfig {
+  id                   String   @id @default(uuid())
+  tenantId             String   @unique
+  phoneNumberId        String
+  businessAccountId    String?
+  accessTokenEncrypted String
+  apiVersion           String   @default("v21.0")
+  enabled              Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@schema("app")
 }
@@ -175,8 +189,8 @@ model WhatsappConversation {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  messages    WhatsappMessage[]
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  messages WhatsappMessage[]
 
   @@unique([tenantId, phone])
   @@schema("app")
@@ -191,20 +205,7 @@ model WhatsappMessage {
   providerId     String?
   createdAt      DateTime @default(now())
 
-  conversation   WhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@schema("app")
-}
-model Staff {
-  id        String   @id @default(uuid())
-  tenantId  String
-  name      String
-  role      String   @default("COLLABORATORE")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  tenant       Tenant        @relation(fields: [tenantId], references: [id])
-  appointments Appointment[]
+  conversation WhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@schema("app")
 }
