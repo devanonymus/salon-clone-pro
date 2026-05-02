@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { CSSProperties, DragEvent, FormEvent, MouseEvent } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const START_HOUR = 9;
 const END_HOUR = 20;
-const HOUR_HEIGHT = 96;
+const HOUR_HEIGHT = 88;
 
 type ClientItem = {
   id: string;
@@ -63,7 +64,10 @@ function getMonday(date: Date) {
 }
 
 function toInputDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatDay(date: Date) {
@@ -172,7 +176,8 @@ export default function AgendaPage() {
   }, [selectedServices]);
 
   async function fetchWithAuth(path: string, options?: RequestInit) {
-    const token = localStorage.getItem("salonpro_token");
+    const token =
+      localStorage.getItem("salonpro_token") || localStorage.getItem("token");
 
     if (!token) {
       router.push("/login");
@@ -222,6 +227,7 @@ export default function AgendaPage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function toggleService(serviceName: string) {
@@ -295,7 +301,7 @@ export default function AgendaPage() {
     return found?.id || clientTenantId;
   }
 
-  async function createAppointment(e: React.FormEvent) {
+  async function createAppointment(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -333,7 +339,7 @@ export default function AgendaPage() {
     }
   }
 
-  async function updateAppointment(e: React.FormEvent) {
+  async function updateAppointment(e: FormEvent) {
     e.preventDefault();
     if (!selectedAppointment) return;
 
@@ -429,14 +435,14 @@ export default function AgendaPage() {
     return appointments.filter((a) => toInputDate(new Date(a.date)) === key);
   }
 
-  function getMinuteFromMouse(e: React.MouseEvent<HTMLDivElement>, hour: number) {
+  function getMinuteFromMouse(e: MouseEvent<HTMLDivElement>, hour: number) {
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const minute = Math.max(0, Math.min(59, Math.round((y / HOUR_HEIGHT) * 60)));
     return { hour, minute };
   }
 
-  function getMinuteFromDrag(e: React.DragEvent<HTMLDivElement>, hour: number) {
+  function getMinuteFromDrag(e: DragEvent<HTMLDivElement>, hour: number) {
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const minute = Math.max(0, Math.min(59, Math.round((y / HOUR_HEIGHT) * 60)));
@@ -460,36 +466,17 @@ export default function AgendaPage() {
 
   return (
     <main className="sp-page">
-      <div className="sp-shell">
-        <header
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-            marginBottom: 22,
-            flexWrap: "wrap",
-          }}
-        >
+      <div className="sp-shell" style={{ maxWidth: 1540 }}>
+        <header style={pageHeader}>
           <div>
-            <div
-              style={{
-                color: "#d4af37",
-                fontWeight: 900,
-                fontSize: 13,
-                letterSpacing: 2,
-                textTransform: "uppercase",
-              }}
-            >
-              Agenda Appuntamenti
-            </div>
+            <div style={eyebrow}>Agenda Appuntamenti</div>
             <h1 className="sp-title">Settimana salone</h1>
             <p className="sp-muted" style={{ marginTop: 8 }}>
               Clicca per creare. Clicca su un appuntamento per modificarlo o eliminarlo.
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={weekControls}>
             <button style={purpleButton} onClick={() => moveWeek(-1)}>
               ←
             </button>
@@ -502,21 +489,7 @@ export default function AgendaPage() {
           </div>
         </header>
 
-        {error ? (
-          <div
-            style={{
-              marginBottom: 18,
-              padding: 16,
-              borderRadius: 18,
-              background: "rgba(239,68,68,0.14)",
-              border: "1px solid rgba(239,68,68,0.35)",
-              color: "#fecaca",
-              fontWeight: 900,
-            }}
-          >
-            ⚠️ {error}
-          </div>
-        ) : null}
+        {error ? <div style={errorBox}>⚠️ {error}</div> : null}
 
         <section style={calendarWrap}>
           <div style={calendarHeader}>
@@ -527,7 +500,7 @@ export default function AgendaPage() {
                   {day.toLocaleDateString("it-IT", { weekday: "short" }).toUpperCase()}
                 </div>
                 <div style={{ marginTop: 4, color: "#b8bfd0" }}>
-                  {day.toLocaleDateString("it-IT")}
+                  {formatDay(day)}
                 </div>
               </div>
             ))}
@@ -605,11 +578,11 @@ export default function AgendaPage() {
                       style={{
                         position: "absolute",
                         top,
-                        left: 8,
-                        right: 8,
+                        left: 7,
+                        right: 7,
                         height,
                         minHeight: 38,
-                        padding: 10,
+                        padding: 9,
                         borderRadius: 14,
                         overflow: "hidden",
                         background: getAppointmentColor(appointment.note, !!appointment.sale),
@@ -620,11 +593,11 @@ export default function AgendaPage() {
                         zIndex: 4,
                       }}
                     >
-                      <strong style={{ fontSize: 14, fontWeight: 900 }}>
+                      <strong style={{ fontSize: 13, fontWeight: 900 }}>
                         {appointment.clientTenant.clientGlobal.name}
                       </strong>
 
-                      <div style={{ fontSize: 12, marginTop: 4, opacity: 0.9 }}>
+                      <div style={{ fontSize: 11, marginTop: 4, opacity: 0.9 }}>
                         🕒{" "}
                         {new Date(appointment.date).toLocaleTimeString("it-IT", {
                           hour: "2-digit",
@@ -632,31 +605,15 @@ export default function AgendaPage() {
                         })}
                       </div>
 
-                      <div
-                        style={{
-                          fontSize: 12,
-                          marginTop: 6,
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: 4,
-                        }}
-                      >
+                      <div style={appointmentTags}>
                         {(appointment.note?.split(" + ") || ["Appuntamento"]).map((s, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              background: "rgba(255,255,255,0.18)",
-                              padding: "2px 8px",
-                              borderRadius: 999,
-                              fontWeight: 700,
-                            }}
-                          >
+                          <span key={i} style={appointmentTag}>
                             {s}
                           </span>
                         ))}
                       </div>
 
-                      <div style={{ fontSize: 12, marginTop: 6, opacity: 0.95 }}>
+                      <div style={{ fontSize: 11, marginTop: 6, opacity: 0.95 }}>
                         {appointment.sale ? "Venduto" : `${appointment.duration} min`}
                       </div>
                     </div>
@@ -751,7 +708,7 @@ function AppointmentModal(props: {
   newClientPhone: string;
   setNewClientPhone: (v: string) => void;
   loading: boolean;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: FormEvent) => void;
   onAutoOra: () => void;
   onClose: () => void;
   submitLabel: string;
@@ -805,7 +762,7 @@ function AppointmentModal(props: {
             Trattamenti
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", maxHeight: 190, overflowY: "auto" }}>
+          <div style={serviceList}>
             {services.map((service) => {
               const selected = props.selectedServices.includes(service.name);
 
@@ -815,7 +772,7 @@ function AppointmentModal(props: {
                   type="button"
                   onClick={() => props.toggleService(service.name)}
                   style={{
-                    padding: "11px 15px",
+                    padding: "10px 14px",
                     borderRadius: 999,
                     border: selected ? "1px solid #8b5cf6" : "1px solid #cbd5e1",
                     background: selected
@@ -848,7 +805,7 @@ function AppointmentModal(props: {
             </button>
 
             {props.newClientOpen ? (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
+              <div style={newClientGrid}>
                 <input
                   placeholder="Nome nuovo cliente"
                   value={props.newClientName}
@@ -892,8 +849,32 @@ function AppointmentModal(props: {
   );
 }
 
-const purpleButton: React.CSSProperties = {
-  padding: "12px 18px",
+const pageHeader: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 16,
+  marginBottom: 22,
+  flexWrap: "wrap",
+};
+
+const eyebrow: CSSProperties = {
+  color: "#d4af37",
+  fontWeight: 900,
+  fontSize: 13,
+  letterSpacing: 2,
+  textTransform: "uppercase",
+};
+
+const weekControls: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
+const purpleButton: CSSProperties = {
+  padding: "11px 16px",
   borderRadius: 14,
   background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
   color: "#fff",
@@ -901,8 +882,8 @@ const purpleButton: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const weekBadge: React.CSSProperties = {
-  padding: "12px 16px",
+const weekBadge: CSSProperties = {
+  padding: "11px 15px",
   borderRadius: 14,
   background: "rgba(255,255,255,0.06)",
   border: "1px solid rgba(212,175,55,0.24)",
@@ -910,52 +891,63 @@ const weekBadge: React.CSSProperties = {
   color: "#fff",
 };
 
-const calendarWrap: React.CSSProperties = {
+const errorBox: CSSProperties = {
+  marginBottom: 18,
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(239,68,68,0.14)",
+  border: "1px solid rgba(239,68,68,0.35)",
+  color: "#fecaca",
+  fontWeight: 900,
+};
+
+const calendarWrap: CSSProperties = {
   border: "1px solid rgba(212,175,55,0.22)",
   borderRadius: 24,
   overflow: "auto",
   background: "rgba(255,255,255,0.035)",
   boxShadow: "0 24px 70px rgba(0,0,0,0.35)",
-  maxHeight: "calc(100vh - 230px)",
+  maxHeight: "calc(100vh - 220px)",
+  width: "100%",
 };
 
-const calendarHeader: React.CSSProperties = {
+const calendarHeader: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "82px repeat(7, minmax(170px, 1fr))",
+  gridTemplateColumns: "70px repeat(7, minmax(138px, 1fr))",
   background: "rgba(0,0,0,0.72)",
   borderBottom: "1px solid rgba(212,175,55,0.22)",
   position: "sticky",
   top: 0,
   zIndex: 10,
-  minWidth: 1270,
+  minWidth: 1036,
 };
 
-const calendarBody: React.CSSProperties = {
+const calendarBody: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "82px repeat(7, minmax(170px, 1fr))",
-  minWidth: 1270,
+  gridTemplateColumns: "70px repeat(7, minmax(138px, 1fr))",
+  minWidth: 1036,
 };
 
-const timeColumn: React.CSSProperties = {
+const timeColumn: CSSProperties = {
   background: "rgba(0,0,0,0.42)",
 };
 
-const timeHourCell: React.CSSProperties = {
+const timeHourCell: CSSProperties = {
   height: HOUR_HEIGHT,
-  padding: 10,
+  padding: 9,
   color: "#d4af37",
   fontWeight: 900,
   borderBottom: "1px solid rgba(255,255,255,0.08)",
   fontSize: 12,
 };
 
-const dayColumn: React.CSSProperties = {
+const dayColumn: CSSProperties = {
   position: "relative",
   minHeight: (END_HOUR - START_HOUR) * HOUR_HEIGHT,
   borderLeft: "1px solid rgba(255,255,255,0.08)",
 };
 
-const hourCell: React.CSSProperties = {
+const hourCell: CSSProperties = {
   position: "relative",
   height: HOUR_HEIGHT,
   borderBottom: "1px solid rgba(255,255,255,0.08)",
@@ -963,7 +955,7 @@ const hourCell: React.CSSProperties = {
   cursor: "pointer",
 };
 
-const minuteLine25: React.CSSProperties = {
+const minuteLine25: CSSProperties = {
   position: "absolute",
   left: 0,
   right: 0,
@@ -971,7 +963,7 @@ const minuteLine25: React.CSSProperties = {
   borderTop: "1px dashed rgba(255,255,255,0.05)",
 };
 
-const minuteLine50: React.CSSProperties = {
+const minuteLine50: CSSProperties = {
   position: "absolute",
   left: 0,
   right: 0,
@@ -979,14 +971,29 @@ const minuteLine50: React.CSSProperties = {
   borderTop: "1px dashed rgba(255,255,255,0.05)",
 };
 
-const headerCell: React.CSSProperties = {
-  padding: 12,
+const headerCell: CSSProperties = {
+  padding: 11,
   textAlign: "center",
   borderLeft: "1px solid rgba(255,255,255,0.07)",
-  fontSize: 13,
+  fontSize: 12,
 };
 
-const modalBackdrop: React.CSSProperties = {
+const appointmentTags: CSSProperties = {
+  fontSize: 11,
+  marginTop: 6,
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 4,
+};
+
+const appointmentTag: CSSProperties = {
+  background: "rgba(255,255,255,0.18)",
+  padding: "2px 7px",
+  borderRadius: 999,
+  fontWeight: 700,
+};
+
+const modalBackdrop: CSSProperties = {
   position: "fixed",
   inset: 0,
   background: "rgba(15,23,42,0.62)",
@@ -997,24 +1004,24 @@ const modalBackdrop: React.CSSProperties = {
   zIndex: 100,
 };
 
-const modalCard: React.CSSProperties = {
+const modalCard: CSSProperties = {
   width: "100%",
-  maxWidth: 1180,
+  maxWidth: 1120,
   background: "#fff",
   borderRadius: 24,
-  padding: 26,
+  padding: 24,
   boxShadow: "0 30px 90px rgba(15,23,42,0.35)",
 };
 
-const modalGridTop: React.CSSProperties = {
+const modalGridTop: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "2fr 0.9fr 0.7fr 0.55fr",
   gap: 12,
 };
 
-const bigInput: React.CSSProperties = {
+const bigInput: CSSProperties = {
   width: "100%",
-  padding: "16px 18px",
+  padding: "15px 17px",
   borderRadius: 14,
   border: "1px solid #cbd5e1",
   fontSize: 16,
@@ -1022,7 +1029,7 @@ const bigInput: React.CSSProperties = {
   background: "#fff",
 };
 
-const servicesBox: React.CSSProperties = {
+const servicesBox: CSSProperties = {
   marginTop: 18,
   padding: 16,
   borderRadius: 14,
@@ -1030,8 +1037,16 @@ const servicesBox: React.CSSProperties = {
   background: "#fff",
 };
 
-const autoButton: React.CSSProperties = {
-  padding: "16px 18px",
+const serviceList: CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  maxHeight: 180,
+  overflowY: "auto",
+};
+
+const autoButton: CSSProperties = {
+  padding: "15px 17px",
   borderRadius: 12,
   border: "1px solid #cbd5e1",
   background: "#e8eef8",
@@ -1039,7 +1054,7 @@ const autoButton: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const newClientBox: React.CSSProperties = {
+const newClientBox: CSSProperties = {
   marginTop: 18,
   padding: 18,
   borderRadius: 14,
@@ -1047,7 +1062,7 @@ const newClientBox: React.CSSProperties = {
   background: "#f8fafc",
 };
 
-const newClientTitle: React.CSSProperties = {
+const newClientTitle: CSSProperties = {
   width: "100%",
   display: "flex",
   justifyContent: "space-between",
@@ -1059,7 +1074,14 @@ const newClientTitle: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const smallButton: React.CSSProperties = {
+const newClientGrid: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 12,
+  marginTop: 14,
+};
+
+const smallButton: CSSProperties = {
   background: "#e8eef8",
   color: "#0f172a",
   padding: "7px 14px",
@@ -1067,10 +1089,10 @@ const smallButton: React.CSSProperties = {
   fontSize: 13,
 };
 
-const confirmButton: React.CSSProperties = {
+const confirmButton: CSSProperties = {
   width: "100%",
   marginTop: 16,
-  padding: 18,
+  padding: 17,
   borderRadius: 12,
   background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
   color: "#fff",
@@ -1079,7 +1101,7 @@ const confirmButton: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const cancelButton: React.CSSProperties = {
+const cancelButton: CSSProperties = {
   width: "100%",
   marginTop: 10,
   padding: 12,

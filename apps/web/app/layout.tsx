@@ -15,7 +15,7 @@ const navItems = [
   { href: '/ruota', label: 'RUOTA DELLA FORTUNA' },
   { href: '/magazzino', label: 'MAGAZZINO PROFITTO' },
   { href: '/team', label: 'TEAM KPI' },
-  { href: '/dashboard', label: 'DASHBOARD COACH' },
+  { href: '/dashboardcoach', label: 'DASHBOARD COACH' },
   { href: '/configurazione', label: 'CONFIGURAZIONE' },
 ];
 
