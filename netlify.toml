@@ -1,0 +1,7 @@
+[build]
+  base = "apps/web"
+  command = "pnpm build"
+  publish = ".next"
+
+[build.environment]
+  NETLIFY_NEXT_SKEW_PROTECTION = "true"

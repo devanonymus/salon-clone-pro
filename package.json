@@ -1,0 +1,18 @@
+{
+  "name": "salon-clone-pro",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api start:dev",
+    "dev": "pnpm -r --parallel dev"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "tsx": "^4.21.0"
+  }
+}
