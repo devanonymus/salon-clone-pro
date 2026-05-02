@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { CSSProperties, FormEvent } from "react";
+import type { CSSProperties, DragEvent, FormEvent, MouseEvent } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -141,7 +141,11 @@ export default function AgendaPage() {
   const [selectedStaffId, setSelectedStaffId] = useState(FALLBACK_STAFF[0].id);
 
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
+
   const [modalOpen, setModalOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<AppointmentItem | null>(null);
 
   const [clientTenantId, setClientTenantId] = useState("");
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -149,6 +153,7 @@ export default function AgendaPage() {
   const [appointmentTime, setAppointmentTime] = useState("");
   const [appointmentStaffId, setAppointmentStaffId] = useState(FALLBACK_STAFF[0].id);
 
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -252,9 +257,7 @@ export default function AgendaPage() {
       const sameDay = toInputDate(new Date(appointment.date)) === key;
       if (!sameDay) return false;
 
-      if (viewMode === "staff") {
-        return staffMatchesAppointment(appointment);
-      }
+      if (viewMode === "staff") return staffMatchesAppointment(appointment);
 
       return true;
     });
@@ -275,12 +278,48 @@ export default function AgendaPage() {
     setWeekStart(next);
   }
 
-  function openSlot(day: Date, hour: number) {
+  function getMinuteFromMouse(e: MouseEvent<HTMLDivElement>, hour: number) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const minute = Math.max(0, Math.min(59, Math.round((y / HOUR_HEIGHT) * 60)));
+    return { hour, minute };
+  }
+
+  function getMinuteFromDrag(e: DragEvent<HTMLDivElement>, hour: number) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const minute = Math.max(0, Math.min(59, Math.round((y / HOUR_HEIGHT) * 60)));
+    return { hour, minute };
+  }
+
+  function openSlot(day: Date, hour: number, minute: number) {
+    if (draggingId) return;
+
     setAppointmentDate(toInputDate(day));
-    setAppointmentTime(`${String(hour).padStart(2, "0")}:00`);
+    setAppointmentTime(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
     setSelectedServices([]);
+    setSelectedAppointment(null);
     setAppointmentStaffId(viewMode === "staff" ? selectedStaffId : staff[0]?.id || "");
     setModalOpen(true);
+  }
+
+  function openEditAppointment(appointment: AppointmentItem) {
+    const d = new Date(appointment.date);
+
+    setSelectedAppointment(appointment);
+    setClientTenantId(appointment.clientTenantId);
+    setAppointmentDate(toInputDate(d));
+    setAppointmentTime(
+      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+    );
+    setAppointmentStaffId(appointment.staffId || staff[0]?.id || "");
+    setSelectedServices(
+      appointment.note && appointment.note !== "Appuntamento"
+        ? appointment.note.split(" + ")
+        : [],
+    );
+
+    setEditOpen(true);
   }
 
   function toggleService(serviceName: string) {
@@ -321,6 +360,104 @@ export default function AgendaPage() {
       setError(err.message || "Errore creazione appuntamento");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function updateAppointment(e: FormEvent) {
+    e.preventDefault();
+    if (!selectedAppointment) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      if (!clientTenantId) throw new Error("Seleziona un cliente");
+      if (!appointmentDate) throw new Error("Seleziona data");
+      if (!appointmentTime) throw new Error("Seleziona ora");
+      if (selectedServices.length === 0) throw new Error("Seleziona almeno un trattamento");
+
+      const dateIso = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
+
+      await fetchWithAuth(`/appointments/${selectedAppointment.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          clientTenantId,
+          date: dateIso,
+          services: selectedServices,
+          staffId: appointmentStaffId || null,
+        }),
+      });
+
+      setEditOpen(false);
+      setSelectedAppointment(null);
+      setSelectedServices([]);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Errore modifica appuntamento");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteAppointment() {
+    if (!selectedAppointment) return;
+
+    const ok = confirm("Vuoi eliminare questo appuntamento?");
+    if (!ok) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      await fetchWithAuth(`/appointments/${selectedAppointment.id}`, {
+        method: "DELETE",
+      });
+
+      setEditOpen(false);
+      setSelectedAppointment(null);
+      setSelectedServices([]);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Errore eliminazione appuntamento");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function moveAppointment(
+    appointmentId: string,
+    day: Date,
+    hour: number,
+    minute: number,
+    staffId?: string | null,
+  ) {
+    try {
+      setError("");
+
+      const dateIso = new Date(
+        `${toInputDate(day)}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`,
+      ).toISOString();
+
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a.id === appointmentId
+            ? { ...a, date: dateIso, staffId: staffId !== undefined ? staffId : a.staffId }
+            : a,
+        ),
+      );
+
+      await fetchWithAuth(`/appointments/${appointmentId}/move`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          date: dateIso,
+          staffId: staffId !== undefined ? staffId : undefined,
+        }),
+      });
+    } catch (err: any) {
+      setError(err.message || "Errore spostamento appuntamento");
+      await loadData();
+    } finally {
+      setDraggingId(null);
     }
   }
 
@@ -415,13 +552,38 @@ export default function AgendaPage() {
                 {hours.map((hour) => (
                   <div
                     key={`${day.toISOString()}-${hour}`}
+                    onClick={(e) => {
+                      if (draggingId) return;
+                      const pos = getMinuteFromMouse(e, hour);
+                      openSlot(day, pos.hour, pos.minute);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+
+                      const appointmentId = e.dataTransfer.getData("appointmentId");
+                      const pos = getMinuteFromDrag(e, hour);
+
+                      if (appointmentId) {
+                        moveAppointment(
+                          appointmentId,
+                          day,
+                          pos.hour,
+                          pos.minute,
+                          viewMode === "staff" ? selectedStaffId : undefined,
+                        );
+                      }
+                    }}
                     style={{
                       ...hourCell,
                       background: isToday(day)
                         ? "rgba(212,175,55,0.045)"
                         : "rgba(255,255,255,0.02)",
                     }}
-                    onClick={() => openSlot(day, hour)}
                   >
                     <div style={{ color: "rgba(255,255,255,0.12)", fontWeight: 900 }}>
                       +
@@ -440,11 +602,28 @@ export default function AgendaPage() {
                   return (
                     <div
                       key={appointment.id}
+                      draggable={!appointment.sale}
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("appointmentId", appointment.id);
+                        setDraggingId(appointment.id);
+                      }}
+                      onDragEnd={(e) => {
+                        e.stopPropagation();
+                        setTimeout(() => setDraggingId(null), 50);
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditAppointment(appointment);
+                      }}
                       style={{
                         ...appointmentCard,
                         top,
                         height,
                         background: getAppointmentColor(appointment.note, !!appointment.sale),
+                        opacity: draggingId === appointment.id ? 0.55 : 1,
+                        cursor: appointment.sale ? "not-allowed" : "pointer",
                       }}
                     >
                       <strong style={{ fontSize: 13, fontWeight: 900 }}>
@@ -469,6 +648,8 @@ export default function AgendaPage() {
                           </span>
                         ))}
                       </div>
+
+                      {appointment.sale ? <small>Venduto</small> : null}
                     </div>
                   );
                 })}
@@ -479,95 +660,182 @@ export default function AgendaPage() {
       </div>
 
       {modalOpen ? (
-        <div style={modalBackdrop}>
-          <form style={modalCard} onSubmit={createAppointment}>
-            <h2 style={{ marginTop: 0, color: "#0f172a", fontWeight: 900 }}>
-              Nuovo appuntamento
-            </h2>
+        <AppointmentModal
+          title="Nuovo appuntamento"
+          clients={clients}
+          staff={staff}
+          clientTenantId={clientTenantId}
+          setClientTenantId={setClientTenantId}
+          appointmentStaffId={appointmentStaffId}
+          setAppointmentStaffId={setAppointmentStaffId}
+          appointmentDate={appointmentDate}
+          setAppointmentDate={setAppointmentDate}
+          appointmentTime={appointmentTime}
+          setAppointmentTime={setAppointmentTime}
+          selectedServices={selectedServices}
+          toggleService={toggleService}
+          totalDuration={totalDuration}
+          loading={loading}
+          onSubmit={createAppointment}
+          onClose={() => setModalOpen(false)}
+          submitLabel="CONFERMA DATA IN AGENDA"
+        />
+      ) : null}
 
-            <div style={modalGrid}>
-              <select
-                style={inputLight}
-                value={clientTenantId}
-                onChange={(e) => setClientTenantId(e.target.value)}
-              >
-                <option value="">Cliente...</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.clientGlobal.name} - {client.clientGlobal.phone}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                style={inputLight}
-                value={appointmentStaffId}
-                onChange={(e) => setAppointmentStaffId(e.target.value)}
-              >
-                {staff.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                style={inputLight}
-                type="date"
-                value={appointmentDate}
-                onChange={(e) => setAppointmentDate(e.target.value)}
-              />
-
-              <input
-                style={inputLight}
-                type="time"
-                value={appointmentTime}
-                onChange={(e) => setAppointmentTime(e.target.value)}
-              />
-            </div>
-
-            <div style={servicesBox}>
-              <strong style={{ color: "#0f172a" }}>Trattamenti</strong>
-
-              <div style={servicesList}>
-                {services.map((service) => {
-                  const active = selectedServices.includes(service.name);
-
-                  return (
-                    <button
-                      key={service.name}
-                      type="button"
-                      onClick={() => toggleService(service.name)}
-                      style={{
-                        ...serviceButton,
-                        background: active
-                          ? "linear-gradient(135deg,#8b5cf6,#a78bfa)"
-                          : "#f8fafc",
-                        color: active ? "#fff" : "#0f172a",
-                      }}
-                    >
-                      {service.name} · {service.duration}m
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div style={{ marginTop: 14, color: "#0f172a", fontWeight: 900 }}>
-                Durata totale: {totalDuration} min
-              </div>
-            </div>
-
-            <button style={confirmButton} disabled={loading} type="submit">
-              {loading ? "SALVATAGGIO..." : "CONFERMA DATA IN AGENDA"}
-            </button>
-
-            <button type="button" style={cancelButton} onClick={() => setModalOpen(false)}>
-              Annulla
-            </button>
-          </form>
-        </div>
+      {editOpen && selectedAppointment ? (
+        <AppointmentModal
+          title="Modifica appuntamento"
+          clients={clients}
+          staff={staff}
+          clientTenantId={clientTenantId}
+          setClientTenantId={setClientTenantId}
+          appointmentStaffId={appointmentStaffId}
+          setAppointmentStaffId={setAppointmentStaffId}
+          appointmentDate={appointmentDate}
+          setAppointmentDate={setAppointmentDate}
+          appointmentTime={appointmentTime}
+          setAppointmentTime={setAppointmentTime}
+          selectedServices={selectedServices}
+          toggleService={toggleService}
+          totalDuration={totalDuration}
+          loading={loading}
+          onSubmit={updateAppointment}
+          onClose={() => {
+            setEditOpen(false);
+            setSelectedAppointment(null);
+            setSelectedServices([]);
+          }}
+          submitLabel="SALVA MODIFICHE"
+          onDelete={deleteAppointment}
+        />
       ) : null}
     </main>
+  );
+}
+
+function AppointmentModal(props: {
+  title: string;
+  clients: ClientItem[];
+  staff: StaffItem[];
+  clientTenantId: string;
+  setClientTenantId: (v: string) => void;
+  appointmentStaffId: string;
+  setAppointmentStaffId: (v: string) => void;
+  appointmentDate: string;
+  setAppointmentDate: (v: string) => void;
+  appointmentTime: string;
+  setAppointmentTime: (v: string) => void;
+  selectedServices: string[];
+  toggleService: (v: string) => void;
+  totalDuration: number;
+  loading: boolean;
+  onSubmit: (e: FormEvent) => void;
+  onClose: () => void;
+  submitLabel: string;
+  onDelete?: () => void;
+}) {
+  return (
+    <div style={modalBackdrop}>
+      <form style={modalCard} onSubmit={props.onSubmit}>
+        <h2 style={{ marginTop: 0, color: "#0f172a", fontWeight: 900 }}>
+          {props.title}
+        </h2>
+
+        <div style={modalGrid}>
+          <select
+            style={inputLight}
+            value={props.clientTenantId}
+            onChange={(e) => props.setClientTenantId(e.target.value)}
+          >
+            <option value="">Cliente...</option>
+            {props.clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.clientGlobal.name} - {client.clientGlobal.phone}
+              </option>
+            ))}
+          </select>
+
+          <select
+            style={inputLight}
+            value={props.appointmentStaffId}
+            onChange={(e) => props.setAppointmentStaffId(e.target.value)}
+          >
+            {props.staff.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
+              </option>
+            ))}
+          </select>
+
+          <input
+            style={inputLight}
+            type="date"
+            value={props.appointmentDate}
+            onChange={(e) => props.setAppointmentDate(e.target.value)}
+          />
+
+          <input
+            style={inputLight}
+            type="time"
+            value={props.appointmentTime}
+            onChange={(e) => props.setAppointmentTime(e.target.value)}
+          />
+        </div>
+
+        <div style={servicesBox}>
+          <strong style={{ color: "#0f172a" }}>Trattamenti</strong>
+
+          <div style={servicesList}>
+            {services.map((service) => {
+              const active = props.selectedServices.includes(service.name);
+
+              return (
+                <button
+                  key={service.name}
+                  type="button"
+                  onClick={() => props.toggleService(service.name)}
+                  style={{
+                    ...serviceButton,
+                    background: active
+                      ? "linear-gradient(135deg,#8b5cf6,#a78bfa)"
+                      : "#f8fafc",
+                    color: active ? "#fff" : "#0f172a",
+                  }}
+                >
+                  {service.name} · {service.duration}m
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: 14, color: "#0f172a", fontWeight: 900 }}>
+            Durata totale: {props.totalDuration} min
+          </div>
+        </div>
+
+        <button style={confirmButton} disabled={props.loading} type="submit">
+          {props.loading ? "SALVATAGGIO..." : props.submitLabel}
+        </button>
+
+        {props.onDelete ? (
+          <button
+            type="button"
+            disabled={props.loading}
+            onClick={props.onDelete}
+            style={{
+              ...confirmButton,
+              background: "linear-gradient(135deg,#ef4444,#dc2626)",
+            }}
+          >
+            ELIMINA APPUNTAMENTO
+          </button>
+        ) : null}
+
+        <button type="button" style={cancelButton} onClick={props.onClose}>
+          Annulla
+        </button>
+      </form>
+    </div>
   );
 }
 
@@ -701,6 +969,7 @@ const dayColumn: CSSProperties = {
 };
 
 const hourCell: CSSProperties = {
+  position: "relative",
   height: HOUR_HEIGHT,
   borderBottom: "1px solid rgba(255,255,255,0.08)",
   padding: 7,
