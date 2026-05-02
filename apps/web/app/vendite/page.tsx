@@ -114,6 +114,8 @@ const PRODUCTS: ProductSuggestion[] = [
   },
 ];
 
+const SERVICE_OPTIONS = Object.keys(SERVICE_PRICES);
+
 export default function VenditePage() {
   const router = useRouter();
 
@@ -126,6 +128,12 @@ export default function VenditePage() {
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [manualType, setManualType] = useState<"service" | "product">("service");
+  const [manualName, setManualName] = useState("");
+  const [manualPrice, setManualPrice] = useState("");
+  const [manualCost, setManualCost] = useState("");
+  const [manualQuantity, setManualQuantity] = useState("1");
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
 
@@ -156,9 +164,7 @@ export default function VenditePage() {
       tags.push("colore");
     }
 
-    if (text.includes("piega") || text.includes("styling")) {
-      tags.push("piega");
-    }
+    if (text.includes("piega") || text.includes("styling")) tags.push("piega");
 
     if (
       text.includes("ricostruzione") ||
@@ -183,7 +189,7 @@ export default function VenditePage() {
   }, [cart]);
 
   async function fetchWithAuth(path: string, options?: RequestInit) {
-    const token = localStorage.getItem("salonpro_token");
+    const token = localStorage.getItem("salonpro_token") || localStorage.getItem("token");
 
     if (!token) {
       router.push("/login");
@@ -251,9 +257,7 @@ export default function VenditePage() {
         autoLoadAppointment(ready[0], clientsData);
       }
 
-      if (ready.length === 0) {
-        setMessage("");
-      }
+      if (ready.length === 0) setMessage("");
     } catch (err: any) {
       setMessage(`⚠️ ${err.message || "Errore caricamento cassa"}`);
     }
@@ -273,9 +277,7 @@ export default function VenditePage() {
       (c) => c.clientGlobal.id === appointment.clientTenant.clientGlobal.id,
     );
 
-    if (client) {
-      setSelectedClientId(client.id);
-    }
+    if (client) setSelectedClientId(client.id);
 
     const services =
       appointment.note && appointment.note !== "Appuntamento"
@@ -302,17 +304,92 @@ export default function VenditePage() {
   }
 
   function addSuggestion(product: ProductSuggestion) {
+    addCartItem({
+      type: "product",
+      name: product.name,
+      price: product.price,
+      cost: product.cost,
+      quantity: 1,
+    });
+  }
+
+  function addCartItem(item: Omit<CartItem, "id">) {
     setCart((prev) => [
       ...prev,
       {
         id: crypto.randomUUID(),
-        type: "product",
-        name: product.name,
-        price: product.price,
-        cost: product.cost,
-        quantity: 1,
+        ...item,
       },
     ]);
+  }
+
+  function addServiceByName(serviceName: string) {
+    const priceData = SERVICE_PRICES[serviceName] || { price: 30, cost: 5 };
+
+    addCartItem({
+      type: "service",
+      name: serviceName,
+      price: priceData.price,
+      cost: priceData.cost,
+      quantity: 1,
+    });
+  }
+
+  function addManualItem() {
+    if (!manualName.trim()) {
+      setMessage("⚠️ Inserisci nome servizio/prodotto.");
+      return;
+    }
+
+    const price = Number(String(manualPrice || 0).replace(",", "."));
+    const cost = Number(String(manualCost || 0).replace(",", "."));
+    const quantity = Math.max(1, Number(String(manualQuantity || 1).replace(",", ".")));
+
+    if (price <= 0) {
+      setMessage("⚠️ Inserisci un prezzo maggiore di zero.");
+      return;
+    }
+
+    addCartItem({
+      type: manualType,
+      name: manualName.trim(),
+      price,
+      cost,
+      quantity,
+    });
+
+    setManualName("");
+    setManualPrice("");
+    setManualCost("");
+    setManualQuantity("1");
+    setMessage("✅ Voce aggiunta al carrello.");
+  }
+
+  function updateItem(id: string, field: keyof CartItem, value: string) {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+
+        if (field === "price" || field === "cost" || field === "quantity") {
+          return {
+            ...item,
+            [field]: field === "quantity" ? Math.max(1, Number(value)) : Number(value),
+          };
+        }
+
+        if (field === "type") {
+          return {
+            ...item,
+            type: value as "service" | "product",
+          };
+        }
+
+        return {
+          ...item,
+          [field]: value,
+        };
+      }),
+    );
   }
 
   function removeItem(id: string) {
@@ -380,8 +457,7 @@ export default function VenditePage() {
             <div style={eyebrow}>Cassa & Checkout</div>
             <h1 className="sp-title">Cassa automatica da appuntamento</h1>
             <p className="sp-muted" style={{ marginTop: 8 }}>
-              Gli appuntamenti di oggi e ieri non ancora pagati vengono caricati in
-              automatico.
+              Carica l’appuntamento e aggiungi servizi o prodotti extra prima del pagamento.
             </p>
           </div>
 
@@ -425,6 +501,21 @@ export default function VenditePage() {
                 })
               )}
             </div>
+
+            <h2 style={{ ...title, marginTop: 24 }}>Cliente manuale</h2>
+
+            <select
+              className="sp-input"
+              value={selectedClientId}
+              onChange={(e) => setSelectedClientId(e.target.value)}
+            >
+              <option value="">Seleziona cliente...</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.clientGlobal.name} - {client.clientGlobal.phone}
+                </option>
+              ))}
+            </select>
           </aside>
 
           <section className="sp-card" style={card}>
@@ -441,7 +532,62 @@ export default function VenditePage() {
               <div style={emptyBox}>Nessun appuntamento caricato.</div>
             )}
 
-            <h2 style={{ ...title, marginTop: 22 }}>Carrello automatico</h2>
+            <h2 style={{ ...title, marginTop: 22 }}>Aggiungi extra</h2>
+
+            <div style={quickServices}>
+              {SERVICE_OPTIONS.map((name) => (
+                <button key={name} style={quickBtn} onClick={() => addServiceByName(name)}>
+                  + {name}
+                </button>
+              ))}
+            </div>
+
+            <div style={manualBox}>
+              <div style={manualGrid}>
+                <select
+                  className="sp-input"
+                  value={manualType}
+                  onChange={(e) => setManualType(e.target.value as "service" | "product")}
+                >
+                  <option value="service">Servizio</option>
+                  <option value="product">Prodotto</option>
+                </select>
+
+                <input
+                  className="sp-input"
+                  placeholder="Nome voce"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                />
+
+                <input
+                  className="sp-input"
+                  placeholder="Prezzo €"
+                  value={manualPrice}
+                  onChange={(e) => setManualPrice(e.target.value)}
+                />
+
+                <input
+                  className="sp-input"
+                  placeholder="Costo €"
+                  value={manualCost}
+                  onChange={(e) => setManualCost(e.target.value)}
+                />
+
+                <input
+                  className="sp-input"
+                  placeholder="Q.tà"
+                  value={manualQuantity}
+                  onChange={(e) => setManualQuantity(e.target.value)}
+                />
+              </div>
+
+              <button style={addManualBtn} onClick={addManualItem}>
+                + Aggiungi voce manuale
+              </button>
+            </div>
+
+            <h2 style={{ ...title, marginTop: 22 }}>Carrello</h2>
 
             {cart.length === 0 ? (
               <div style={emptyBox}>Il carrello verrà compilato dall’appuntamento.</div>
@@ -449,16 +595,45 @@ export default function VenditePage() {
               <div style={{ display: "grid", gap: 10 }}>
                 {cart.map((item) => (
                   <div key={item.id} style={cartRow}>
-                    <div>
-                      <strong>{item.name}</strong>
-                      <div className="sp-muted">
-                        {item.type === "service"
-                          ? "Servizio appuntamento"
-                          : "Prodotto consigliato"}
-                      </div>
+                    <div style={cartEditGrid}>
+                      <select
+                        className="sp-input"
+                        value={item.type}
+                        onChange={(e) => updateItem(item.id, "type", e.target.value)}
+                      >
+                        <option value="service">Servizio</option>
+                        <option value="product">Prodotto</option>
+                      </select>
+
+                      <input
+                        className="sp-input"
+                        value={item.name}
+                        onChange={(e) => updateItem(item.id, "name", e.target.value)}
+                      />
+
+                      <input
+                        className="sp-input"
+                        type="number"
+                        value={item.price}
+                        onChange={(e) => updateItem(item.id, "price", e.target.value)}
+                      />
+
+                      <input
+                        className="sp-input"
+                        type="number"
+                        value={item.cost}
+                        onChange={(e) => updateItem(item.id, "cost", e.target.value)}
+                      />
+
+                      <input
+                        className="sp-input"
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(item.id, "quantity", e.target.value)}
+                      />
                     </div>
 
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <div style={cartTotalBox}>
                       <strong style={{ color: "#d4af37" }}>
                         € {(item.price * item.quantity).toFixed(2)}
                       </strong>
@@ -478,7 +653,7 @@ export default function VenditePage() {
             <div style={coachBox}>
               {selectedAppointment
                 ? `Proposte basate su: ${selectedAppointment.note || "servizio effettuato"}`
-                : "Carica un appuntamento per generare proposte automatiche."}
+                : "Carica un appuntamento o aggiungi servizi per generare proposte automatiche."}
             </div>
 
             <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
@@ -570,7 +745,7 @@ const messageBox: React.CSSProperties = {
 
 const mainGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "0.8fr 1.05fr 0.9fr",
+  gridTemplateColumns: "0.78fr 1.25fr 0.92fr",
   gap: 20,
 };
 
@@ -611,14 +786,68 @@ const selectedBox: React.CSSProperties = {
   gap: 6,
 };
 
+const quickServices: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginBottom: 14,
+};
+
+const quickBtn: React.CSSProperties = {
+  border: "1px solid rgba(212,175,55,0.26)",
+  borderRadius: 999,
+  background: "rgba(212,175,55,0.10)",
+  color: "#f5d76e",
+  padding: "9px 12px",
+  fontWeight: 900,
+  fontSize: 12,
+};
+
+const manualBox: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.045)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const manualGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "0.8fr 1.4fr 0.75fr 0.75fr 0.55fr",
+  gap: 10,
+};
+
+const addManualBtn: React.CSSProperties = {
+  width: "100%",
+  marginTop: 10,
+  padding: 13,
+  borderRadius: 14,
+  border: 0,
+  background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
+  color: "#fff",
+  fontWeight: 900,
+};
+
 const cartRow: React.CSSProperties = {
   padding: 14,
   borderRadius: 16,
   background: "rgba(255,255,255,0.045)",
-  display: "flex",
-  justifyContent: "space-between",
+  display: "grid",
+  gridTemplateColumns: "1fr auto",
+  alignItems: "center",
   color: "#fff",
   gap: 12,
+};
+
+const cartEditGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "0.8fr 1.5fr 0.65fr 0.65fr 0.55fr",
+  gap: 8,
+};
+
+const cartTotalBox: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  alignItems: "center",
 };
 
 const miniDanger: React.CSSProperties = {
