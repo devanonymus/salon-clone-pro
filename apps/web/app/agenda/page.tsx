@@ -12,22 +12,18 @@ const HOUR_HEIGHT = 88;
 
 type ClientItem = {
   id: string;
-  tenantId: string;
-  clientGlobalId: string;
-  createdAt: string;
   clientGlobal: {
     id: string;
     name: string;
     phone: string;
-    email?: string | null;
-    createdAt: string;
   };
 };
 
 type StaffItem = {
   id: string;
   name: string;
-  role?: string;
+  role: string;
+  color?: string;
 };
 
 type AppointmentItem = {
@@ -38,19 +34,10 @@ type AppointmentItem = {
   date: string;
   duration: number;
   note: string | null;
-  createdAt: string;
   clientTenant: ClientItem;
   staff?: StaffItem | null;
   sale?: any | null;
 };
-
-const FALLBACK_STAFF: StaffItem[] = [
-  { id: "pamela", name: "Pamela" },
-  { id: "katia", name: "Katia" },
-  { id: "stefania", name: "Stefania" },
-  { id: "sonia", name: "Sonia" },
-  { id: "brian", name: "Brian Laddomada" },
-];
 
 const services = [
   { name: "Piega", duration: 35 },
@@ -80,10 +67,10 @@ function getMonday(date: Date) {
 }
 
 function toInputDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function formatDay(date: Date) {
@@ -98,60 +85,33 @@ function isToday(date: Date) {
   return toInputDate(new Date()) === toInputDate(date);
 }
 
-function getAppointmentColor(note: string | null, sold?: boolean) {
-  if (sold) return "linear-gradient(135deg,#16a34a,#22c55e)";
-  if (!note) return "linear-gradient(135deg,#d4af37,#facc15)";
-
-  const value = note.toLowerCase();
-
-  if (
-    value.includes("colore") ||
-    value.includes("tonalizzante") ||
-    value.includes("gloss") ||
-    value.includes("decapaggio") ||
-    value.includes("schiariture") ||
-    value.includes("meches")
-  ) {
-    return "linear-gradient(135deg,#f97316,#fb923c)";
-  }
-
-  if (value.includes("taglio") || value.includes("barba")) {
-    return "linear-gradient(135deg,#3b82f6,#60a5fa)";
-  }
-
-  if (
-    value.includes("ricostruzione") ||
-    value.includes("trattamento") ||
-    value.includes("plex")
-  ) {
-    return "linear-gradient(135deg,#10b981,#34d399)";
-  }
-
-  return "linear-gradient(135deg,#8b5cf6,#a78bfa)";
+function hexToGradient(hex?: string) {
+  const color = hex || "#8b5cf6";
+  return `linear-gradient(135deg, ${color}, ${color}cc)`;
 }
 
 export default function AgendaPage() {
   const router = useRouter();
 
   const [clients, setClients] = useState<ClientItem[]>([]);
+  const [staff, setStaff] = useState<StaffItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
-  const [staff, setStaff] = useState<StaffItem[]>(FALLBACK_STAFF);
 
-  const [viewMode, setViewMode] = useState<"all" | "staff">("all");
-  const [selectedStaffId, setSelectedStaffId] = useState(FALLBACK_STAFF[0].id);
-
+  const [viewMode, setViewMode] = useState<"week" | "day">("week");
+  const [agendaMode, setAgendaMode] = useState<"all" | "staff">("all");
+  const [selectedStaffId, setSelectedStaffId] = useState("");
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
+  const [selectedDay, setSelectedDay] = useState(new Date());
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] =
-    useState<AppointmentItem | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null);
 
   const [clientTenantId, setClientTenantId] = useState("");
+  const [appointmentStaffId, setAppointmentStaffId] = useState("");
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("");
-  const [appointmentStaffId, setAppointmentStaffId] = useState(FALLBACK_STAFF[0].id);
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -170,6 +130,8 @@ export default function AgendaPage() {
     for (let h = START_HOUR; h < END_HOUR; h++) list.push(h);
     return list;
   }, []);
+
+  const selectedStaff = staff.find((s) => s.id === selectedStaffId);
 
   const totalDuration = useMemo(() => {
     return selectedServices.reduce((sum, serviceName) => {
@@ -209,27 +171,23 @@ export default function AgendaPage() {
     try {
       setError("");
 
-      const [clientsData, appointmentsData] = await Promise.all([
+      const [clientsData, appointmentsData, staffData] = await Promise.all([
         fetchWithAuth("/clients"),
         fetchWithAuth("/appointments"),
+        fetchWithAuth("/staff"),
       ]);
 
       setClients(clientsData || []);
       setAppointments(appointmentsData || []);
+      setStaff(staffData || []);
 
       if (clientsData?.length && !clientTenantId) {
         setClientTenantId(clientsData[0].id);
       }
 
-      try {
-        const staffData = await fetchWithAuth("/staff");
-        if (staffData?.length) {
-          setStaff(staffData);
-          setSelectedStaffId((prev) => prev || staffData[0].id);
-          setAppointmentStaffId((prev) => prev || staffData[0].id);
-        }
-      } catch {
-        setStaff(FALLBACK_STAFF);
+      if (staffData?.length) {
+        if (!selectedStaffId) setSelectedStaffId(staffData[0].id);
+        if (!appointmentStaffId) setAppointmentStaffId(staffData[0].id);
       }
     } catch (err: any) {
       setError(err.message || "Errore caricamento agenda");
@@ -241,65 +199,26 @@ export default function AgendaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function staffMatchesAppointment(appointment: AppointmentItem) {
-    if (appointment.staffId) return appointment.staffId === selectedStaffId;
-
-    const staffName = staff.find((s) => s.id === selectedStaffId)?.name.toLowerCase();
-    const appointmentStaffName = appointment.staff?.name?.toLowerCase();
-
-    return staffName && appointmentStaffName === staffName;
+  function toggleService(serviceName: string) {
+    setSelectedServices((prev) =>
+      prev.includes(serviceName)
+        ? prev.filter((item) => item !== serviceName)
+        : [...prev, serviceName],
+    );
   }
 
-  function appointmentsOfDay(day: Date) {
-    const key = toInputDate(day);
-
-    return appointments.filter((appointment) => {
-      const sameDay = toInputDate(new Date(appointment.date)) === key;
-      if (!sameDay) return false;
-
-      if (viewMode === "staff") return staffMatchesAppointment(appointment);
-
-      return true;
-    });
+  function getStaffColor(staffId?: string | null) {
+    return staff.find((s) => s.id === staffId)?.color || "#8b5cf6";
   }
 
-  function topFromDate(date: string) {
-    const d = new Date(date);
-    return (d.getHours() - START_HOUR) * HOUR_HEIGHT + (d.getMinutes() / 60) * HOUR_HEIGHT;
-  }
-
-  function heightFromDuration(duration: number) {
-    return Math.max(38, (duration / 60) * HOUR_HEIGHT);
-  }
-
-  function moveWeek(delta: number) {
-    const next = new Date(weekStart);
-    next.setDate(next.getDate() + delta * 7);
-    setWeekStart(next);
-  }
-
-  function getMinuteFromMouse(e: MouseEvent<HTMLDivElement>, hour: number) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const minute = Math.max(0, Math.min(59, Math.round((y / HOUR_HEIGHT) * 60)));
-    return { hour, minute };
-  }
-
-  function getMinuteFromDrag(e: DragEvent<HTMLDivElement>, hour: number) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const minute = Math.max(0, Math.min(59, Math.round((y / HOUR_HEIGHT) * 60)));
-    return { hour, minute };
-  }
-
-  function openSlot(day: Date, hour: number, minute: number) {
+  function openSlot(day: Date, hour: number, minute: number, targetStaffId?: string | null) {
     if (draggingId) return;
 
     setAppointmentDate(toInputDate(day));
     setAppointmentTime(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+    setAppointmentStaffId(targetStaffId || selectedStaffId || staff[0]?.id || "");
     setSelectedServices([]);
     setSelectedAppointment(null);
-    setAppointmentStaffId(viewMode === "staff" ? selectedStaffId : staff[0]?.id || "");
     setModalOpen(true);
   }
 
@@ -307,27 +226,16 @@ export default function AgendaPage() {
     const d = new Date(appointment.date);
 
     setSelectedAppointment(appointment);
-    setClientTenantId(appointment.clientTenantId);
     setAppointmentDate(toInputDate(d));
-    setAppointmentTime(
-      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
-    );
-    setAppointmentStaffId(appointment.staffId || staff[0]?.id || "");
+    setAppointmentTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
     setSelectedServices(
       appointment.note && appointment.note !== "Appuntamento"
         ? appointment.note.split(" + ")
         : [],
     );
-
+    setClientTenantId(appointment.clientTenantId);
+    setAppointmentStaffId(appointment.staffId || staff[0]?.id || "");
     setEditOpen(true);
-  }
-
-  function toggleService(serviceName: string) {
-    setSelectedServices((prev) =>
-      prev.includes(serviceName)
-        ? prev.filter((item) => item !== serviceName)
-        : [...prev, serviceName],
-    );
   }
 
   async function createAppointment(e: FormEvent) {
@@ -337,19 +245,18 @@ export default function AgendaPage() {
 
     try {
       if (!clientTenantId) throw new Error("Seleziona un cliente");
+      if (!appointmentStaffId) throw new Error("Seleziona un dipendente");
+      if (selectedServices.length === 0) throw new Error("Seleziona almeno un trattamento");
       if (!appointmentDate) throw new Error("Seleziona data");
       if (!appointmentTime) throw new Error("Seleziona ora");
-      if (selectedServices.length === 0) throw new Error("Seleziona almeno un trattamento");
-
-      const dateIso = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
 
       await fetchWithAuth("/appointments", {
         method: "POST",
         body: JSON.stringify({
           clientTenantId,
-          date: dateIso,
+          staffId: appointmentStaffId,
+          date: new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString(),
           services: selectedServices,
-          staffId: appointmentStaffId || null,
         }),
       });
 
@@ -372,19 +279,16 @@ export default function AgendaPage() {
 
     try {
       if (!clientTenantId) throw new Error("Seleziona un cliente");
-      if (!appointmentDate) throw new Error("Seleziona data");
-      if (!appointmentTime) throw new Error("Seleziona ora");
+      if (!appointmentStaffId) throw new Error("Seleziona un dipendente");
       if (selectedServices.length === 0) throw new Error("Seleziona almeno un trattamento");
-
-      const dateIso = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
 
       await fetchWithAuth(`/appointments/${selectedAppointment.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           clientTenantId,
-          date: dateIso,
+          staffId: appointmentStaffId,
+          date: new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString(),
           services: selectedServices,
-          staffId: appointmentStaffId || null,
         }),
       });
 
@@ -429,7 +333,7 @@ export default function AgendaPage() {
     day: Date,
     hour: number,
     minute: number,
-    staffId?: string | null,
+    targetStaffId?: string | null,
   ) {
     try {
       setError("");
@@ -441,7 +345,7 @@ export default function AgendaPage() {
       setAppointments((prev) =>
         prev.map((a) =>
           a.id === appointmentId
-            ? { ...a, date: dateIso, staffId: staffId !== undefined ? staffId : a.staffId }
+            ? { ...a, date: dateIso, staffId: targetStaffId === undefined ? a.staffId : targetStaffId }
             : a,
         ),
       );
@@ -450,9 +354,11 @@ export default function AgendaPage() {
         method: "PATCH",
         body: JSON.stringify({
           date: dateIso,
-          staffId: staffId !== undefined ? staffId : undefined,
+          staffId: targetStaffId === undefined ? undefined : targetStaffId,
         }),
       });
+
+      await loadData();
     } catch (err: any) {
       setError(err.message || "Errore spostamento appuntamento");
       await loadData();
@@ -461,10 +367,133 @@ export default function AgendaPage() {
     }
   }
 
-  const visibleTitle =
-    viewMode === "all"
-      ? "Agenda principale"
-      : `Agenda ${staff.find((s) => s.id === selectedStaffId)?.name || "dipendente"}`;
+  async function updateStaffColor(member: StaffItem, color: string) {
+    try {
+      setStaff((prev) => prev.map((s) => (s.id === member.id ? { ...s, color } : s)));
+
+      await fetchWithAuth(`/staff/${member.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ color }),
+      });
+
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Errore salvataggio colore dipendente");
+    }
+  }
+
+  function getMinuteFromMouse(e: MouseEvent<HTMLDivElement>, hour: number) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const minute = Math.max(0, Math.min(59, Math.round((y / HOUR_HEIGHT) * 60)));
+    return { hour, minute };
+  }
+
+  function getMinuteFromDrag(e: DragEvent<HTMLDivElement>, hour: number) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const minute = Math.max(0, Math.min(59, Math.round((y / HOUR_HEIGHT) * 60)));
+    return { hour, minute };
+  }
+
+  function topFromDate(date: string) {
+    const d = new Date(date);
+    return (d.getHours() - START_HOUR) * HOUR_HEIGHT + (d.getMinutes() / 60) * HOUR_HEIGHT;
+  }
+
+  function heightFromDuration(duration: number) {
+    return Math.max(42, (duration / 60) * HOUR_HEIGHT);
+  }
+
+  function movePeriod(delta: number) {
+    if (viewMode === "week") {
+      const next = new Date(weekStart);
+      next.setDate(next.getDate() + delta * 7);
+      setWeekStart(next);
+      return;
+    }
+
+    const next = new Date(selectedDay);
+    next.setDate(next.getDate() + delta);
+    setSelectedDay(next);
+  }
+
+  function appointmentsOfDay(day: Date, staffId?: string) {
+    const key = toInputDate(day);
+
+    return appointments.filter((a) => {
+      const sameDay = toInputDate(new Date(a.date)) === key;
+      const staffOk = agendaMode === "all" && !staffId ? true : a.staffId === (staffId || selectedStaffId);
+      return sameDay && staffOk;
+    });
+  }
+
+  function renderAppointment(appointment: AppointmentItem) {
+    const top = topFromDate(appointment.date);
+    const height = heightFromDuration(appointment.duration);
+    const color = getStaffColor(appointment.staffId);
+
+    return (
+      <div
+        key={appointment.id}
+        draggable={!appointment.sale}
+        onDragStart={(e) => {
+          e.stopPropagation();
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("appointmentId", appointment.id);
+          setDraggingId(appointment.id);
+        }}
+        onDragEnd={(e) => {
+          e.stopPropagation();
+          setTimeout(() => setDraggingId(null), 50);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          openEditAppointment(appointment);
+        }}
+        style={{
+          ...appointmentCard,
+          top,
+          height,
+          background: hexToGradient(color),
+          opacity: draggingId === appointment.id ? 0.55 : 1,
+          cursor: appointment.sale ? "not-allowed" : "pointer",
+        }}
+      >
+        <strong>{appointment.clientTenant?.clientGlobal?.name || "Cliente"}</strong>
+
+        <span>
+          🕒{" "}
+          {new Date(appointment.date).toLocaleTimeString("it-IT", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+          {" · "}
+          {appointment.staff?.name || staff.find((s) => s.id === appointment.staffId)?.name || "Senza dipendente"}
+        </span>
+
+        <div style={appointmentTags}>
+          {(appointment.note?.split(" + ") || ["Appuntamento"]).map((s, i) => (
+            <span key={i} style={appointmentTag}>
+              {s}
+            </span>
+          ))}
+        </div>
+
+        <span>{appointment.sale ? "Venduto" : `${appointment.duration} min`}</span>
+      </div>
+    );
+  }
+
+  const title =
+    agendaMode === "staff" && selectedStaff
+      ? `Agenda ${selectedStaff.name}`
+      : "Agenda principale";
+
+  const subtitle =
+    viewMode === "week"
+      ? "Vista settimanale con tutti i dipendenti oppure filtrata per collaboratore."
+      : "Vista giornaliera generale oppure per singolo collaboratore.";
 
   return (
     <main className="sp-page">
@@ -472,36 +501,22 @@ export default function AgendaPage() {
         <header style={pageHeader}>
           <div>
             <div style={eyebrow}>Agenda Appuntamenti</div>
-            <h1 className="sp-title">{visibleTitle}</h1>
+            <h1 className="sp-title">{title}</h1>
             <p className="sp-muted" style={{ marginTop: 8 }}>
-              Vista principale con tutti i dipendenti oppure agenda filtrata per collaboratore.
+              {subtitle}
             </p>
           </div>
 
           <div style={topActions}>
-            <button
-              style={viewMode === "all" ? activeButton : ghostButton}
-              onClick={() => setViewMode("all")}
-            >
+            <button style={agendaMode === "all" ? activeButton : ghostButton} onClick={() => setAgendaMode("all")}>
               Agenda principale
             </button>
 
-            <button
-              style={viewMode === "staff" ? activeButton : ghostButton}
-              onClick={() => setViewMode("staff")}
-            >
+            <button style={agendaMode === "staff" ? activeButton : ghostButton} onClick={() => setAgendaMode("staff")}>
               Per dipendente
             </button>
 
-            <select
-              style={selectDark}
-              value={selectedStaffId}
-              onChange={(e) => {
-                setSelectedStaffId(e.target.value);
-                setAppointmentStaffId(e.target.value);
-                setViewMode("staff");
-              }}
-            >
+            <select style={selectDark} value={selectedStaffId} onChange={(e) => setSelectedStaffId(e.target.value)}>
               {staff.map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.name}
@@ -509,15 +524,25 @@ export default function AgendaPage() {
               ))}
             </select>
 
-            <button style={purpleButton} onClick={() => moveWeek(-1)}>
+            <button style={viewMode === "week" ? activeButton : ghostButton} onClick={() => setViewMode("week")}>
+              Settimana
+            </button>
+
+            <button style={viewMode === "day" ? activeButton : ghostButton} onClick={() => setViewMode("day")}>
+              Giorno
+            </button>
+
+            <button style={purpleButton} onClick={() => movePeriod(-1)}>
               ←
             </button>
 
             <div style={weekBadge}>
-              {formatDay(days[0])} - {formatDay(days[6])}
+              {viewMode === "week"
+                ? `${formatDay(days[0])} - ${formatDay(days[6])}`
+                : formatDay(selectedDay)}
             </div>
 
-            <button style={purpleButton} onClick={() => moveWeek(1)}>
+            <button style={purpleButton} onClick={() => movePeriod(1)}>
               →
             </button>
           </div>
@@ -525,138 +550,161 @@ export default function AgendaPage() {
 
         {error ? <div style={errorBox}>⚠️ {error}</div> : null}
 
-        <section style={calendarWrap}>
-          <div style={calendarHeader}>
-            <div style={headerCell}>ORA</div>
-            {days.map((day) => (
-              <div key={day.toISOString()} style={headerCell}>
-                <div style={{ color: isToday(day) ? "#d4af37" : "#fff", fontWeight: 900 }}>
-                  {day.toLocaleDateString("it-IT", { weekday: "short" }).toUpperCase()}
-                </div>
-                <div style={{ marginTop: 4, color: "#b8bfd0" }}>{formatDay(day)}</div>
-              </div>
-            ))}
-          </div>
+        <section style={staffColorBar}>
+          {staff.map((member) => (
+            <div key={member.id} style={staffColorItem}>
+              <span style={{ ...staffDot, background: member.color || "#8b5cf6" }} />
+              <strong>{member.name}</strong>
+              <input
+                type="color"
+                value={member.color || "#8b5cf6"}
+                onChange={(e) => updateStaffColor(member, e.target.value)}
+                style={colorInput}
+              />
+            </div>
+          ))}
+        </section>
 
-          <div style={calendarBody}>
-            <div style={timeColumn}>
-              {hours.map((hour) => (
-                <div key={hour} style={timeHourCell}>
-                  {String(hour).padStart(2, "0")}:00
+        {viewMode === "week" ? (
+          <section style={calendarWrap}>
+            <div style={calendarHeader}>
+              <div style={headerCell}>ORA</div>
+              {days.map((day) => (
+                <div key={day.toISOString()} style={headerCell}>
+                  <div style={{ color: isToday(day) ? "#d4af37" : "#fff", fontWeight: 900 }}>
+                    {day.toLocaleDateString("it-IT", { weekday: "short" }).toUpperCase()}
+                  </div>
+                  <div style={{ marginTop: 4, color: "#b8bfd0" }}>{formatDay(day)}</div>
                 </div>
               ))}
             </div>
 
-            {days.map((day) => (
-              <div key={day.toISOString()} style={dayColumn}>
+            <div style={calendarBody}>
+              <div style={timeColumn}>
                 {hours.map((hour) => (
-                  <div
-                    key={`${day.toISOString()}-${hour}`}
-                    onClick={(e) => {
-                      if (draggingId) return;
-                      const pos = getMinuteFromMouse(e, hour);
-                      openSlot(day, pos.hour, pos.minute);
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-
-                      const appointmentId = e.dataTransfer.getData("appointmentId");
-                      const pos = getMinuteFromDrag(e, hour);
-
-                      if (appointmentId) {
-                        moveAppointment(
-                          appointmentId,
-                          day,
-                          pos.hour,
-                          pos.minute,
-                          viewMode === "staff" ? selectedStaffId : undefined,
-                        );
-                      }
-                    }}
-                    style={{
-                      ...hourCell,
-                      background: isToday(day)
-                        ? "rgba(212,175,55,0.045)"
-                        : "rgba(255,255,255,0.02)",
-                    }}
-                  >
-                    <div style={{ color: "rgba(255,255,255,0.12)", fontWeight: 900 }}>
-                      +
-                    </div>
+                  <div key={hour} style={timeHourCell}>
+                    {String(hour).padStart(2, "0")}:00
                   </div>
                 ))}
+              </div>
 
-                {appointmentsOfDay(day).map((appointment) => {
-                  const top = topFromDate(appointment.date);
-                  const height = heightFromDuration(appointment.duration);
-                  const staffName =
-                    appointment.staff?.name ||
-                    staff.find((s) => s.id === appointment.staffId)?.name ||
-                    "Non assegnato";
-
-                  return (
+              {days.map((day) => (
+                <div key={day.toISOString()} style={dayColumn}>
+                  {hours.map((hour) => (
                     <div
-                      key={appointment.id}
-                      draggable={!appointment.sale}
-                      onDragStart={(e) => {
-                        e.stopPropagation();
-                        e.dataTransfer.effectAllowed = "move";
-                        e.dataTransfer.setData("appointmentId", appointment.id);
-                        setDraggingId(appointment.id);
-                      }}
-                      onDragEnd={(e) => {
-                        e.stopPropagation();
-                        setTimeout(() => setDraggingId(null), 50);
-                      }}
+                      key={`${day.toISOString()}-${hour}`}
                       onClick={(e) => {
+                        const pos = getMinuteFromMouse(e, hour);
+                        openSlot(day, pos.hour, pos.minute, agendaMode === "staff" ? selectedStaffId : selectedStaffId);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
-                        openEditAppointment(appointment);
+
+                        const appointmentId = e.dataTransfer.getData("appointmentId");
+                        const pos = getMinuteFromDrag(e, hour);
+
+                        if (appointmentId) {
+                          moveAppointment(appointmentId, day, pos.hour, pos.minute, undefined);
+                        }
                       }}
                       style={{
-                        ...appointmentCard,
-                        top,
-                        height,
-                        background: getAppointmentColor(appointment.note, !!appointment.sale),
-                        opacity: draggingId === appointment.id ? 0.55 : 1,
-                        cursor: appointment.sale ? "not-allowed" : "pointer",
+                        ...hourCell,
+                        background: isToday(day) ? "rgba(212,175,55,0.045)" : "rgba(255,255,255,0.02)",
                       }}
                     >
-                      <strong style={{ fontSize: 13, fontWeight: 900 }}>
-                        {appointment.clientTenant?.clientGlobal?.name || "Cliente"}
-                      </strong>
-
-                      <small>
-                        🕒{" "}
-                        {new Date(appointment.date).toLocaleTimeString("it-IT", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}{" "}
-                        · {appointment.duration} min
-                      </small>
-
-                      <small>👤 {staffName}</small>
-
-                      <div style={appointmentTags}>
-                        {(appointment.note?.split(" + ") || ["Appuntamento"]).map((service, index) => (
-                          <span key={index} style={appointmentTag}>
-                            {service}
-                          </span>
-                        ))}
-                      </div>
-
-                      {appointment.sale ? <small>Venduto</small> : null}
+                      <div style={{ color: "rgba(255,255,255,0.12)", fontWeight: 900 }}>+</div>
                     </div>
-                  );
-                })}
+                  ))}
+
+                  {appointmentsOfDay(day).map(renderAppointment)}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section style={calendarWrap}>
+            <div
+              style={{
+                ...dayHeader,
+                gridTemplateColumns:
+                  agendaMode === "all"
+                    ? `70px repeat(${Math.max(staff.length, 1)}, minmax(170px, 1fr))`
+                    : "70px minmax(220px, 1fr)",
+                minWidth: agendaMode === "all" ? Math.max(900, 70 + staff.length * 190) : 520,
+              }}
+            >
+              <div style={headerCell}>ORA</div>
+              {(agendaMode === "all" ? staff : staff.filter((s) => s.id === selectedStaffId)).map((member) => (
+                <div key={member.id} style={headerCell}>
+                  <span style={{ ...staffDot, background: member.color || "#8b5cf6" }} />
+                  <strong>{member.name}</strong>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                ...dayBody,
+                gridTemplateColumns:
+                  agendaMode === "all"
+                    ? `70px repeat(${Math.max(staff.length, 1)}, minmax(170px, 1fr))`
+                    : "70px minmax(220px, 1fr)",
+                minWidth: agendaMode === "all" ? Math.max(900, 70 + staff.length * 190) : 520,
+              }}
+            >
+              <div style={timeColumn}>
+                {hours.map((hour) => (
+                  <div key={hour} style={timeHourCell}>
+                    {String(hour).padStart(2, "0")}:00
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+
+              {(agendaMode === "all" ? staff : staff.filter((s) => s.id === selectedStaffId)).map((member) => (
+                <div key={member.id} style={dayColumn}>
+                  {hours.map((hour) => (
+                    <div
+                      key={`${member.id}-${hour}`}
+                      onClick={(e) => {
+                        const pos = getMinuteFromMouse(e, hour);
+                        openSlot(selectedDay, pos.hour, pos.minute, member.id);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const appointmentId = e.dataTransfer.getData("appointmentId");
+                        const pos = getMinuteFromDrag(e, hour);
+
+                        if (appointmentId) {
+                          moveAppointment(appointmentId, selectedDay, pos.hour, pos.minute, member.id);
+                        }
+                      }}
+                      style={{
+                        ...hourCell,
+                        background:
+                          isToday(selectedDay) ? "rgba(212,175,55,0.045)" : "rgba(255,255,255,0.02)",
+                      }}
+                    >
+                      <div style={{ color: "rgba(255,255,255,0.12)", fontWeight: 900 }}>+</div>
+                    </div>
+                  ))}
+
+                  {appointmentsOfDay(selectedDay, member.id).map(renderAppointment)}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       {modalOpen ? (
@@ -737,16 +785,10 @@ function AppointmentModal(props: {
   return (
     <div style={modalBackdrop}>
       <form style={modalCard} onSubmit={props.onSubmit}>
-        <h2 style={{ marginTop: 0, color: "#0f172a", fontWeight: 900 }}>
-          {props.title}
-        </h2>
+        <h2 style={{ marginTop: 0, color: "#0f172a", fontWeight: 900 }}>{props.title}</h2>
 
         <div style={modalGrid}>
-          <select
-            style={inputLight}
-            value={props.clientTenantId}
-            onChange={(e) => props.setClientTenantId(e.target.value)}
-          >
+          <select style={inputLight} value={props.clientTenantId} onChange={(e) => props.setClientTenantId(e.target.value)}>
             <option value="">Cliente...</option>
             {props.clients.map((client) => (
               <option key={client.id} value={client.id}>
@@ -755,11 +797,7 @@ function AppointmentModal(props: {
             ))}
           </select>
 
-          <select
-            style={inputLight}
-            value={props.appointmentStaffId}
-            onChange={(e) => props.setAppointmentStaffId(e.target.value)}
-          >
+          <select style={inputLight} value={props.appointmentStaffId} onChange={(e) => props.setAppointmentStaffId(e.target.value)}>
             {props.staff.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.name}
@@ -767,19 +805,8 @@ function AppointmentModal(props: {
             ))}
           </select>
 
-          <input
-            style={inputLight}
-            type="date"
-            value={props.appointmentDate}
-            onChange={(e) => props.setAppointmentDate(e.target.value)}
-          />
-
-          <input
-            style={inputLight}
-            type="time"
-            value={props.appointmentTime}
-            onChange={(e) => props.setAppointmentTime(e.target.value)}
-          />
+          <input style={inputLight} type="date" value={props.appointmentDate} onChange={(e) => props.setAppointmentDate(e.target.value)} />
+          <input style={inputLight} type="time" value={props.appointmentTime} onChange={(e) => props.setAppointmentTime(e.target.value)} />
         </div>
 
         <div style={servicesBox}>
@@ -796,9 +823,7 @@ function AppointmentModal(props: {
                   onClick={() => props.toggleService(service.name)}
                   style={{
                     ...serviceButton,
-                    background: active
-                      ? "linear-gradient(135deg,#8b5cf6,#a78bfa)"
-                      : "#f8fafc",
+                    background: active ? "linear-gradient(135deg,#8b5cf6,#a78bfa)" : "#f8fafc",
                     color: active ? "#fff" : "#0f172a",
                   }}
                 >
@@ -915,13 +940,44 @@ const errorBox: CSSProperties = {
   fontWeight: 900,
 };
 
+const staffColorBar: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginBottom: 18,
+};
+
+const staffColorItem: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "9px 12px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(212,175,55,0.20)",
+};
+
+const staffDot: CSSProperties = {
+  display: "inline-block",
+  width: 12,
+  height: 12,
+  borderRadius: 999,
+};
+
+const colorInput: CSSProperties = {
+  width: 34,
+  height: 28,
+  border: 0,
+  background: "transparent",
+};
+
 const calendarWrap: CSSProperties = {
   border: "1px solid rgba(212,175,55,0.22)",
   borderRadius: 24,
   overflow: "auto",
   background: "rgba(255,255,255,0.035)",
   boxShadow: "0 24px 70px rgba(0,0,0,0.35)",
-  maxHeight: "calc(100vh - 230px)",
+  maxHeight: "calc(100vh - 270px)",
 };
 
 const calendarHeader: CSSProperties = {
@@ -939,6 +995,19 @@ const calendarBody: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "70px repeat(7, minmax(138px, 1fr))",
   minWidth: 1036,
+};
+
+const dayHeader: CSSProperties = {
+  display: "grid",
+  background: "rgba(0,0,0,0.72)",
+  borderBottom: "1px solid rgba(212,175,55,0.22)",
+  position: "sticky",
+  top: 0,
+  zIndex: 10,
+};
+
+const dayBody: CSSProperties = {
+  display: "grid",
 };
 
 const headerCell: CSSProperties = {
