@@ -5,16 +5,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: [
-      "https://app.acquavivastrategic.it",
-      "http://localhost:3000",
-      "http://localhost:3001",
-    ],
+    origin: true,
     credentials: true,
   });
 
-  const port = process.env.PORT || 3001;
-  await app.listen(port);
+  const port = process.env.PORT || 8080;
+
+  await app.listen(port, "0.0.0.0");
 
   console.log(`Backend Nest attivo sulla porta ${port}`);
 }
