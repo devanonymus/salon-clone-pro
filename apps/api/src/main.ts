@@ -10,6 +10,8 @@ async function bootstrap() {
     "http://localhost:3000",
   ];
 
+  console.log("CORS allowedOrigins:", allowedOrigins);
+
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
