@@ -25,6 +25,7 @@ model Tenant {
   inventoryMovements    InventoryMovement[]
   whatsappConfig        TenantWhatsappConfig?
   whatsappConversations WhatsappConversation[]
+  servicePrices         ServicePrice[]
 
   @@schema("app")
 }
@@ -269,5 +270,23 @@ model WhatsappMessage {
 
   conversation WhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+  @@schema("app")
+}
+
+model ServicePrice {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  category  String   @default("Altro")
+  duration  Int      @default(30)
+  price     Float    @default(0)
+  cost      Float    @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
   @@schema("app")
 }
