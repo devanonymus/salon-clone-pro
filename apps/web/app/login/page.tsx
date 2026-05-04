@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginApi } from "@/src/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,11 +17,45 @@ export default function LoginPage() {
       setLoading(true);
       setError("");
 
-      await loginApi({
-        tenantCode,
-        username,
-        pin,
+      const API_URL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tenantCode,
+          username,
+          pin,
+        }),
       });
+
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : null;
+
+      if (!res.ok) {
+        const msg =
+          typeof data?.message === "object"
+            ? JSON.stringify(data.message)
+            : data?.message;
+
+        throw new Error(msg || "Errore login");
+      }
+
+      const token = data?.token || data?.access_token || data?.accessToken;
+
+      if (!token) {
+        throw new Error("Token non ricevuto dal backend");
+      }
+
+      localStorage.setItem("salonpro_token", token);
+      localStorage.setItem("token", token);
+
+      if (data?.user) {
+        localStorage.setItem("salonpro_user", JSON.stringify(data.user));
+      }
 
       router.push("/agenda");
     } catch (err: any) {
@@ -98,6 +131,9 @@ export default function LoginPage() {
             placeholder="PIN"
             type="password"
             style={inputStyle}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") login();
+            }}
           />
 
           {error ? (
