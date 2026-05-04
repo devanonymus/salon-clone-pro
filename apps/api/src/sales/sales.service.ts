@@ -1,19 +1,29 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../prisma.service";
+import { InventoryService } from "../inventory/inventory.service";
 
 @Injectable()
 export class SalesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private inventory: InventoryService,
+  ) {}
 
   async create(
     tenantId: string,
     clientGlobalId: string,
     total: number,
-    items?: { name: string; price: number; quantity: number }[],
+    items?: {
+      name: string;
+      type?: string;
+      price: number;
+      cost?: number;
+      quantity: number;
+    }[],
     paymentMethod?: string,
     appointmentId?: string,
   ) {
-    return this.prisma.sale.create({
+    const sale = await this.prisma.sale.create({
       data: {
         tenantId,
         clientGlobalId,
@@ -21,7 +31,13 @@ export class SalesService {
         paymentMethod,
         appointmentId: appointmentId || null,
         items: {
-          create: items || [],
+          create: (items || []).map((item) => ({
+            name: item.name,
+            type: item.type || "service",
+            price: item.price,
+            cost: item.cost || 0,
+            quantity: item.quantity,
+          })),
         },
       },
       include: {
@@ -30,6 +46,18 @@ export class SalesService {
         appointment: true,
       },
     });
+
+    await this.inventory.consumeForSale(
+      tenantId,
+      sale.id,
+      (items || []).map((item) => ({
+        name: item.name,
+        type: item.type || "service",
+        quantity: item.quantity,
+      })),
+    );
+
+    return sale;
   }
 
   async list(tenantId: string) {
@@ -41,7 +69,7 @@ export class SalesService {
         appointment: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
   }

@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
-import { JwtGuard } from '../auth/jwt.guard';
-import { SalesService } from './sales.service';
+import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
+import { JwtGuard } from "../auth/jwt.guard";
+import { SalesService } from "./sales.service";
 
-@Controller('sales')
+@Controller("sales")
 export class SalesController {
   constructor(private service: SalesService) {}
 
@@ -16,15 +16,23 @@ export class SalesController {
       total: number | string;
       paymentMethod?: string;
       appointmentId?: string;
-      items?: { name: string; price: number | string; quantity: number | string }[];
+      items?: {
+        name: string;
+        type?: string;
+        price: number | string;
+        cost?: number | string;
+        quantity: number | string;
+      }[];
     },
   ) {
-    const total = Number(String(body.total).replace(',', '.'));
+    const total = Number(String(body.total).replace(",", "."));
 
     const items = (body.items || []).map((item) => ({
       name: item.name,
-      price: Number(String(item.price).replace(',', '.')),
-      quantity: Number(item.quantity),
+      type: item.type || "service",
+      price: Number(String(item.price).replace(",", ".")),
+      cost: Number(String(item.cost || 0).replace(",", ".")),
+      quantity: Number(item.quantity || 1),
     }));
 
     return this.service.create(
