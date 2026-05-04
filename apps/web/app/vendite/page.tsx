@@ -45,6 +45,9 @@ type ProductSuggestion = {
   reason: string;
 };
 
+type DiscountType = "none" | "percent" | "fixed";
+type ReceiptType = "FISCAL" | "NON_FISCAL";
+
 const SERVICE_PRICES: Record<string, { price: number; cost: number }> = {
   Piega: { price: 18, cost: 1.5 },
   "Piega Atelier Extra Styling": { price: 25, cost: 2 },
@@ -112,6 +115,11 @@ function money(value: number) {
   return `€ ${value.toFixed(2)}`;
 }
 
+function numberFromInput(value: string) {
+  const n = Number(String(value || 0).replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function VenditePage() {
   const router = useRouter();
 
@@ -123,23 +131,45 @@ export default function VenditePage() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("card");
+
+  const [discountType, setDiscountType] = useState<DiscountType>("none");
+  const [discountValue, setDiscountValue] = useState("");
+  const [receiptType, setReceiptType] = useState<ReceiptType>("FISCAL");
+
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
 
-  const subtotal = useMemo(() => {
+  const rowSubtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   }, [cart]);
 
-  const discountTotal = useMemo(() => {
+  const rowDiscountTotal = useMemo(() => {
     return cart.reduce((sum, item) => {
       const rowTotal = item.price * item.quantity;
       return sum + (rowTotal * item.discount) / 100;
     }, 0);
   }, [cart]);
 
-  const total = subtotal - discountTotal;
+  const subtotalAfterRowDiscount = Math.max(0, rowSubtotal - rowDiscountTotal);
+
+  const globalDiscountAmount = useMemo(() => {
+    const value = numberFromInput(discountValue);
+
+    if (discountType === "percent") {
+      return Math.min(subtotalAfterRowDiscount, subtotalAfterRowDiscount * (value / 100));
+    }
+
+    if (discountType === "fixed") {
+      return Math.min(subtotalAfterRowDiscount, value);
+    }
+
+    return 0;
+  }, [discountType, discountValue, subtotalAfterRowDiscount]);
+
+  const discountTotal = rowDiscountTotal + globalDiscountAmount;
+  const total = Math.max(0, rowSubtotal - discountTotal);
 
   const costTotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.cost * item.quantity, 0);
@@ -238,6 +268,7 @@ export default function VenditePage() {
     loadData();
     const timer = setInterval(loadData, 30000);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function addCartItem(item: Omit<CartItem, "id">) {
@@ -378,6 +409,7 @@ export default function VenditePage() {
           appointmentId: selectedAppointment?.id || undefined,
           total,
           paymentMethod,
+          fiscalStatus: receiptType === "FISCAL" ? "TO_ISSUE" : "NON_FISCAL",
           items: cart.map((item) => ({
             name: item.name,
             type: item.type,
@@ -389,10 +421,18 @@ export default function VenditePage() {
         }),
       });
 
-      setMessage("✅ Vendita registrata correttamente.");
+      setMessage(
+        receiptType === "FISCAL"
+          ? "✅ Vendita registrata. Scontrino fiscale da emettere."
+          : "✅ Vendita registrata come NON fiscale.",
+      );
+
       setCart([]);
       setSelectedAppointment(null);
       setSelectedClientId("");
+      setDiscountType("none");
+      setDiscountValue("");
+      setReceiptType("FISCAL");
       await loadData();
     } catch (err: any) {
       setMessage(`⚠️ ${err.message || "Errore registrazione vendita"}`);
@@ -418,7 +458,7 @@ export default function VenditePage() {
             <div style={eyebrow}>Cassa & Checkout</div>
             <h1 className="sp-title">Cassa PRO</h1>
             <p className="sp-muted" style={{ marginTop: 8 }}>
-              Carica l’appuntamento, aggiungi extra, modifica quantità, prezzo e sconto.
+              Carica l’appuntamento, aggiungi extra, scegli sconto e uscita fiscale/non fiscale.
             </p>
           </div>
 
@@ -533,9 +573,9 @@ export default function VenditePage() {
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {cart.map((item) => {
-                  const rowSubtotal = item.price * item.quantity;
-                  const rowDiscount = (rowSubtotal * item.discount) / 100;
-                  const rowTotal = rowSubtotal - rowDiscount;
+                  const itemSubtotal = item.price * item.quantity;
+                  const itemDiscount = (itemSubtotal * item.discount) / 100;
+                  const itemTotal = itemSubtotal - itemDiscount;
 
                   return (
                     <div key={item.id} style={cartRow}>
@@ -572,24 +612,22 @@ export default function VenditePage() {
                         />
 
                         <div style={qtyBox}>
-                          <button style={qtyBtn} onClick={() => increment(item.id, -1)}>
+                          <button type="button" style={qtyBtn} onClick={() => increment(item.id, -1)}>
                             -
                           </button>
                           <strong>{item.quantity}</strong>
-                          <button style={qtyBtn} onClick={() => increment(item.id, 1)}>
+                          <button type="button" style={qtyBtn} onClick={() => increment(item.id, 1)}>
                             +
                           </button>
                         </div>
                       </div>
 
                       <div style={rowRight}>
-                        <strong style={{ color: "#d4af37" }}>{money(rowTotal)}</strong>
+                        <strong style={{ color: "#d4af37" }}>{money(itemTotal)}</strong>
                         {item.discount > 0 ? (
-                          <small style={{ color: "#fecaca" }}>
-                            -{money(rowDiscount)}
-                          </small>
+                          <small style={{ color: "#fecaca" }}>-{money(itemDiscount)}</small>
                         ) : null}
-                        <button style={deleteButton} onClick={() => removeItem(item.id)}>
+                        <button type="button" style={deleteButton} onClick={() => removeItem(item.id)}>
                           X
                         </button>
                       </div>
@@ -619,7 +657,7 @@ export default function VenditePage() {
                   <div style={{ color: "#d4af37", fontWeight: 900 }}>
                     + {money(product.price)} · margine {money(product.price - product.cost)}
                   </div>
-                  <button style={addBtn} onClick={() => addProduct(product)}>
+                  <button type="button" style={addBtn} onClick={() => addProduct(product)}>
                     + Aggiungi alla cassa
                   </button>
                 </div>
@@ -628,22 +666,56 @@ export default function VenditePage() {
 
             <div style={summaryBox}>
               <div style={summaryRow}>
-                <span>Subtotale</span>
-                <strong>{money(subtotal)}</strong>
+                <span>Subtotale lordo</span>
+                <strong>{money(rowSubtotal)}</strong>
               </div>
 
               <div style={summaryRow}>
-                <span>Sconti</span>
+                <span>Sconti riga</span>
+                <strong style={{ color: "#fecaca" }}>-{money(rowDiscountTotal)}</strong>
+              </div>
+
+              <div style={discountPanel}>
+                <label style={label}>Sconto extra</label>
+
+                <div style={discountGrid}>
+                  <select
+                    className="sp-input"
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value as DiscountType)}
+                  >
+                    <option value="none">Nessuno</option>
+                    <option value="percent">Sconto %</option>
+                    <option value="fixed">Sconto €</option>
+                  </select>
+
+                  <input
+                    className="sp-input"
+                    placeholder={discountType === "percent" ? "Es. 10" : "Es. 5"}
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    disabled={discountType === "none"}
+                  />
+                </div>
+              </div>
+
+              <div style={summaryRow}>
+                <span>Sconto extra</span>
+                <strong style={{ color: "#fecaca" }}>-{money(globalDiscountAmount)}</strong>
+              </div>
+
+              <div style={summaryRow}>
+                <span>Sconto totale</span>
                 <strong style={{ color: "#fecaca" }}>-{money(discountTotal)}</strong>
               </div>
 
               <div style={summaryRowBig}>
-                <span>Totale</span>
+                <span>Totale finale</span>
                 <strong>{money(total)}</strong>
               </div>
 
               <div style={summaryRow}>
-                <span>Margine</span>
+                <span>Margine stimato</span>
                 <strong style={{ color: "#86efac" }}>{money(margin)}</strong>
               </div>
             </div>
@@ -662,13 +734,29 @@ export default function VenditePage() {
               </select>
             </div>
 
+            <div style={{ marginTop: 16 }}>
+              <label style={label}>Uscita documento</label>
+              <select
+                className="sp-input"
+                value={receiptType}
+                onChange={(e) => setReceiptType(e.target.value as ReceiptType)}
+              >
+                <option value="FISCAL">Scontrino FISCALE</option>
+                <option value="NON_FISCAL">Non fiscale</option>
+              </select>
+            </div>
+
             <button
               className="sp-button-purple"
               style={{ width: "100%", marginTop: 18, padding: 18 }}
               onClick={closeSale}
               disabled={loading}
             >
-              {loading ? "Salvataggio..." : "REGISTRA INCASSO"}
+              {loading
+                ? "Salvataggio..."
+                : receiptType === "FISCAL"
+                  ? "REGISTRA + SCONTRINO FISCALE"
+                  : "REGISTRA NON FISCALE"}
             </button>
           </aside>
         </section>
@@ -852,6 +940,19 @@ const summaryRowBig: React.CSSProperties = {
   color: "#fff",
   fontSize: 24,
   fontWeight: 900,
+};
+
+const discountPanel: React.CSSProperties = {
+  padding: 12,
+  borderRadius: 16,
+  background: "rgba(255,255,255,0.045)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const discountGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
 };
 
 const label: React.CSSProperties = {
