@@ -39,9 +39,9 @@ a {
 }
 
 img,
+svg,
 video,
-canvas,
-svg {
+canvas {
   max-width: 100%;
 }
 
@@ -76,7 +76,7 @@ table {
 }
 
 .sp-header-top {
-  min-height: 82px;
+  min-height: 78px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -92,7 +92,7 @@ table {
 }
 
 .sp-logo {
-  width: clamp(92px, 9vw, 142px);
+  width: clamp(96px, 9vw, 142px);
   height: auto;
   object-fit: contain;
 }
@@ -121,7 +121,8 @@ table {
   color: #fff;
 }
 
-.sp-change-button {
+.sp-change-button,
+.sp-button-purple {
   padding: 11px 18px;
   border-radius: 999px;
   border: 0;
@@ -134,23 +135,23 @@ table {
 
 .sp-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 0 clamp(12px, 2vw, 24px) 14px;
-  max-width: 100%;
+  scrollbar-width: thin;
 }
 
 .sp-nav-link {
-  flex: 1 1 auto;
-  min-width: fit-content;
-  text-align: center;
+  flex: 0 0 auto;
   white-space: nowrap;
-  padding: 13px 18px;
-  border-radius: 16px;
+  text-align: center;
+  padding: 12px 15px;
+  border-radius: 15px;
   color: #f4f4f5;
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 950;
   text-transform: uppercase;
   text-decoration: none;
@@ -175,7 +176,7 @@ table {
   width: 100%;
   max-width: 1580px;
   margin: 0 auto;
-  padding: clamp(18px, 2.4vw, 34px);
+  padding: clamp(16px, 2vw, 32px);
   overflow-x: hidden;
 }
 
@@ -209,9 +210,15 @@ table {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
 }
 
+.sp-input,
+input,
+select,
+textarea {
+  min-width: 0;
+}
+
 .sp-input {
   width: 100%;
-  min-width: 0;
   padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid rgba(212, 175, 55, 0.28);
@@ -221,29 +228,21 @@ table {
   outline: none;
 }
 
-input,
-select,
-textarea {
-  min-width: 0;
-}
-
-/* FIX GENERICO PER PAGINE CON STYLE INLINE */
+/* FIX GENERICO PER STYLE INLINE */
 
 main,
 section,
 article,
-div {
+div,
+form {
   max-width: 100%;
 }
 
-main [style*="minWidth"],
-main [style*="min-width"] {
-  max-width: 100% !important;
+main [style*="grid-template-columns"] {
+  min-width: 0;
 }
 
-main [style*="overflow: auto"],
-main [style*="overflowX"],
-main [style*="overflow-x"] {
+main [style*="overflow"] {
   max-width: 100% !important;
 }
 
@@ -256,7 +255,7 @@ main [style*="overflow-x"] {
   }
 }
 
-/* LAPTOP 13/14 POLLICI */
+/* DESKTOP / LAPTOP */
 
 @media (max-width: 1440px) {
   .sp-shell {
@@ -264,59 +263,71 @@ main [style*="overflow-x"] {
     padding-inline: 22px;
   }
 
-  .sp-nav {
-    gap: 8px;
-  }
-
   .sp-nav-link {
-    padding: 11px 13px;
-    font-size: 11px;
-  }
-}
-
-/* SMALL LAPTOP */
-
-@media (max-width: 1280px) {
-  .sp-shell {
-    padding-inline: 18px;
-  }
-
-  .sp-header-top {
-    min-height: 72px;
-  }
-
-  .sp-nav-link {
-    padding: 10px 11px;
+    padding: 10px 12px;
     font-size: 10px;
   }
-
-  main [style*="grid-template-columns"] {
-    grid-template-columns: 1fr !important;
-  }
-
-  main [style*="display: grid"] {
-    max-width: 100% !important;
-  }
 }
 
-/* TABLET */
+/* TABLET ORIZZONTALE / IPAD LANDSCAPE */
 
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
   .sp-shell {
     padding: 16px;
   }
 
   .sp-title {
     font-size: 34px;
+    line-height: 1;
+  }
+
+  .sp-header-top {
+    min-height: 68px;
+    padding: 10px 14px;
+  }
+
+  .sp-logo {
+    width: 108px;
+  }
+
+  .sp-role-badge,
+  .sp-change-button,
+  .sp-button-purple {
+    padding: 9px 13px;
+    font-size: 11px;
+  }
+
+  .sp-nav {
+    gap: 7px;
+    padding-inline: 12px;
+    padding-bottom: 10px;
+  }
+
+  .sp-nav-link {
+    padding: 9px 10px;
+    font-size: 9.5px;
+    border-radius: 12px;
+  }
+
+  main [style*="gridTemplateColumns"],
+  main [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  main table {
+    min-width: 760px !important;
+  }
+}
+
+/* TABLET ORIZZONTALE STRETTO */
+
+@media (max-width: 1024px) {
+  .sp-header {
+    position: sticky;
   }
 
   .sp-header-top {
     align-items: flex-start;
-    min-height: auto;
-  }
-
-  .sp-logo {
-    width: 112px;
   }
 
   .sp-header-actions {
@@ -327,26 +338,28 @@ main [style*="overflow-x"] {
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
-    padding-bottom: 12px;
-    scrollbar-width: thin;
   }
 
   .sp-nav-link {
     flex: 0 0 auto;
   }
 
-  main table {
-    min-width: 760px !important;
-  }
-}
-
-/* TABLET SMALL / MOBILE */
-
-@media (max-width: 768px) {
   .sp-shell {
     padding: 14px;
   }
 
+  .sp-card {
+    border-radius: 22px;
+  }
+
+  main table {
+    min-width: 720px !important;
+  }
+}
+
+/* TABLET VERTICALE / MOBILE GRANDE */
+
+@media (max-width: 768px) {
   .sp-title {
     font-size: 30px;
   }
@@ -363,35 +376,33 @@ main [style*="overflow-x"] {
 
   .sp-role-badge,
   .sp-change-button {
-    font-size: 12px;
-    padding: 9px 13px;
+    width: fit-content;
   }
 
-  .sp-nav-link {
-    padding: 10px 12px;
-    font-size: 10px;
-  }
-
-  main [style*="padding"] {
-    max-width: 100% !important;
+  main table {
+    min-width: 680px !important;
   }
 }
 
 /* MOBILE */
 
 @media (max-width: 520px) {
+  .sp-shell {
+    padding: 12px;
+  }
+
   .sp-header-actions {
     display: grid;
     grid-template-columns: 1fr;
   }
 
-  .sp-change-button,
-  .sp-role-badge {
+  .sp-role-badge,
+  .sp-change-button {
     width: 100%;
     text-align: center;
   }
 
-  main table {
-    min-width: 680px !important;
+  .sp-title {
+    font-size: 28px;
   }
 }
