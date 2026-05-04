@@ -5,7 +5,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const allowedOrigins = [
-    "https://web-production-7d413.up.railway.app",
+    "https://web-production-7d41a3.up.railway.app",
     "https://app.acquavivastrategic.it",
     "http://localhost:3000",
   ];
