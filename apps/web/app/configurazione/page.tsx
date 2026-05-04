@@ -1,43 +1,63 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 type Tab =
-  | 'accessi'
-  | 'whatsapp'
-  | 'vip'
-  | 'servizi'
-  | 'diagnostica'
-  | 'fiscale';
+  | "accessi"
+  | "whatsapp"
+  | "vip"
+  | "servizi"
+  | "diagnostica"
+  | "fiscale";
+
+type ServicePrice = {
+  id: string;
+  name: string;
+  category: string;
+  duration: number;
+  price: number;
+  cost: number;
+  active: boolean;
+};
 
 export default function ConfigurazionePage() {
   const router = useRouter();
 
-  const [tab, setTab] = useState<Tab>('whatsapp');
-  const [message, setMessage] = useState('');
+  const [tab, setTab] = useState<Tab>("whatsapp");
+  const [message, setMessage] = useState("");
 
   const [waEnabled, setWaEnabled] = useState(false);
-  const [waPhoneNumberId, setWaPhoneNumberId] = useState('');
-  const [waBusinessAccountId, setWaBusinessAccountId] = useState('');
-  const [waAccessToken, setWaAccessToken] = useState('');
-  const [waApiVersion, setWaApiVersion] = useState('v21.0');
+  const [waPhoneNumberId, setWaPhoneNumberId] = useState("");
+  const [waBusinessAccountId, setWaBusinessAccountId] = useState("");
+  const [waAccessToken, setWaAccessToken] = useState("");
+  const [waApiVersion, setWaApiVersion] = useState("v21.0");
   const [waHasToken, setWaHasToken] = useState(false);
 
-  const [testPhone, setTestPhone] = useState('');
+  const [testPhone, setTestPhone] = useState("");
   const [testMessage, setTestMessage] = useState(
-    'Ciao 💛 questo è un test automatico da Salon Pro.',
+    "Ciao 💛 questo è un test automatico da Salon Pro.",
   );
 
-  const [fiscalMode, setFiscalMode] = useState('DEMO');
-  const [diagnosticResult, setDiagnosticResult] = useState('');
+  const [services, setServices] = useState<ServicePrice[]>([]);
+  const [serviceName, setServiceName] = useState("");
+  const [serviceCategory, setServiceCategory] = useState("Piega");
+  const [servicePrice, setServicePrice] = useState("");
+  const [serviceDuration, setServiceDuration] = useState("");
+  const [serviceCost, setServiceCost] = useState("");
+
+  const [fiscalMode, setFiscalMode] = useState("DEMO");
+  const [diagnosticResult, setDiagnosticResult] = useState("");
 
   async function fetchWithAuth(url: string, options?: RequestInit) {
-    const token = localStorage.getItem('salonpro_token');
+    const token =
+      localStorage.getItem("salonpro_token") || localStorage.getItem("token");
 
     if (!token) {
-      router.push('/login');
-      throw new Error('Token mancante');
+      router.push("/login");
+      throw new Error("Token mancante");
     }
 
     const res = await fetch(url, {
@@ -48,15 +68,16 @@ export default function ConfigurazionePage() {
       },
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
 
     if (!res.ok) {
       const msg =
-        typeof data?.message === 'object'
+        typeof data?.message === "object"
           ? JSON.stringify(data.message)
           : data?.message;
 
-      throw new Error(msg || 'Errore richiesta');
+      throw new Error(msg || text || "Errore richiesta");
     }
 
     return data;
@@ -64,25 +85,25 @@ export default function ConfigurazionePage() {
 
   async function loadWhatsappConfig() {
     try {
-      const config = await fetchWithAuth('http://localhost:3001/whatsapp/config');
+      const config = await fetchWithAuth(`${API_URL}/whatsapp/config`);
 
       setWaEnabled(Boolean(config.enabled));
-      setWaPhoneNumberId(config.phoneNumberId || '');
-      setWaBusinessAccountId(config.businessAccountId || '');
-      setWaApiVersion(config.apiVersion || 'v21.0');
+      setWaPhoneNumberId(config.phoneNumberId || "");
+      setWaBusinessAccountId(config.businessAccountId || "");
+      setWaApiVersion(config.apiVersion || "v21.0");
       setWaHasToken(Boolean(config.hasToken));
     } catch (err: any) {
-      setMessage(`⚠️ ${err.message || 'Errore caricamento WhatsApp'}`);
+      setMessage(`⚠️ ${err.message || "Errore caricamento WhatsApp"}`);
     }
   }
 
   async function saveWhatsappConfig() {
     try {
-      setMessage('');
+      setMessage("");
 
-      await fetchWithAuth('http://localhost:3001/whatsapp/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetchWithAuth(`${API_URL}/whatsapp/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phoneNumberId: waPhoneNumberId,
           businessAccountId: waBusinessAccountId,
@@ -92,50 +113,137 @@ export default function ConfigurazionePage() {
         }),
       });
 
-      setWaAccessToken('');
+      setWaAccessToken("");
       setWaHasToken(true);
-      setMessage('✅ Configurazione WhatsApp salvata per questo salone.');
+      setMessage("✅ Configurazione WhatsApp salvata per questo salone.");
       await loadWhatsappConfig();
     } catch (err: any) {
-      setMessage(`⚠️ ${err.message || 'Errore salvataggio WhatsApp'}`);
+      setMessage(`⚠️ ${err.message || "Errore salvataggio WhatsApp"}`);
     }
   }
 
   async function testWhatsapp() {
     try {
-      setMessage('');
+      setMessage("");
 
-      await fetchWithAuth('http://localhost:3001/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetchWithAuth(`${API_URL}/whatsapp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: testPhone,
           message: testMessage,
         }),
       });
 
-      setMessage('✅ Messaggio WhatsApp inviato dal software.');
+      setMessage("✅ Messaggio WhatsApp inviato dal software.");
     } catch (err: any) {
-      setMessage(`⚠️ ${err.message || 'Errore test WhatsApp'}`);
+      setMessage(`⚠️ ${err.message || "Errore test WhatsApp"}`);
+    }
+  }
+
+  async function loadServices() {
+    try {
+      const data = await fetchWithAuth(`${API_URL}/service-prices`);
+      setServices(data || []);
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore caricamento listino"}`);
+    }
+  }
+
+  async function saveService() {
+    try {
+      if (!serviceName.trim()) {
+        setMessage("⚠️ Inserisci nome servizio.");
+        return;
+      }
+
+      await fetchWithAuth(`${API_URL}/service-prices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: serviceName.trim(),
+          category: serviceCategory,
+          price: Number(String(servicePrice || 0).replace(",", ".")),
+          duration: Number(serviceDuration || 30),
+          cost: Number(String(serviceCost || 0).replace(",", ".")),
+        }),
+      });
+
+      setServiceName("");
+      setServicePrice("");
+      setServiceDuration("");
+      setServiceCost("");
+      setMessage("✅ Servizio salvato nel listino.");
+      await loadServices();
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore salvataggio servizio"}`);
+    }
+  }
+
+  async function updateService(
+    id: string,
+    field: keyof ServicePrice,
+    value: string | number,
+  ) {
+    try {
+      const service = services.find((s) => s.id === id);
+      if (!service) return;
+
+      const next = {
+        ...service,
+        [field]:
+          field === "price" || field === "cost" || field === "duration"
+            ? Number(String(value || 0).replace(",", "."))
+            : value,
+      };
+
+      setServices((prev) => prev.map((s) => (s.id === id ? next : s)));
+
+      await fetchWithAuth(`${API_URL}/service-prices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore modifica servizio"}`);
+      await loadServices();
+    }
+  }
+
+  async function deleteService(id: string) {
+    try {
+      const ok = confirm("Vuoi eliminare questo servizio dal listino?");
+      if (!ok) return;
+
+      await fetchWithAuth(`${API_URL}/service-prices/${id}`, {
+        method: "DELETE",
+      });
+
+      setMessage("✅ Servizio eliminato dal listino.");
+      await loadServices();
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore eliminazione servizio"}`);
     }
   }
 
   function runDiagnostic() {
     setDiagnosticResult(
       [
-        '✅ Database connesso',
-        '✅ Auth JWT attiva',
-        '✅ Multi-salone attivo',
-        `✅ WhatsApp: ${waEnabled ? 'attivo' : 'non attivo'}`,
-        `✅ Phone Number ID: ${waPhoneNumberId || 'non configurato'}`,
-        `✅ Token WhatsApp: ${waHasToken ? 'presente' : 'mancante'}`,
+        "✅ Database connesso",
+        "✅ Auth JWT attiva",
+        "✅ Multi-salone attivo",
+        `✅ WhatsApp: ${waEnabled ? "attivo" : "non attivo"}`,
+        `✅ Phone Number ID: ${waPhoneNumberId || "non configurato"}`,
+        `✅ Token WhatsApp: ${waHasToken ? "presente" : "mancante"}`,
         `✅ Cassa fiscale: ${fiscalMode}`,
-      ].join('\n'),
+        `✅ Listino servizi: ${services.length} servizi attivi`,
+      ].join("\n"),
     );
   }
 
   useEffect(() => {
     loadWhatsappConfig();
+    loadServices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -153,20 +261,17 @@ export default function ConfigurazionePage() {
         {message ? <div style={messageBox}>{message}</div> : null}
 
         <nav style={tabsWrap}>
-          <TabButton label="Accessi" active={tab === 'accessi'} onClick={() => setTab('accessi')} />
-          <TabButton label="WhatsApp" active={tab === 'whatsapp'} onClick={() => setTab('whatsapp')} />
-          <TabButton label="VIP Clienti" active={tab === 'vip'} onClick={() => setTab('vip')} />
-          <TabButton label="Listino servizi" active={tab === 'servizi'} onClick={() => setTab('servizi')} />
-          <TabButton label="Diagnostica" active={tab === 'diagnostica'} onClick={() => setTab('diagnostica')} />
-          <TabButton label="Fiscale" active={tab === 'fiscale'} onClick={() => setTab('fiscale')} />
+          <TabButton label="Accessi" active={tab === "accessi"} onClick={() => setTab("accessi")} />
+          <TabButton label="WhatsApp" active={tab === "whatsapp"} onClick={() => setTab("whatsapp")} />
+          <TabButton label="VIP Clienti" active={tab === "vip"} onClick={() => setTab("vip")} />
+          <TabButton label="Listino servizi" active={tab === "servizi"} onClick={() => setTab("servizi")} />
+          <TabButton label="Diagnostica" active={tab === "diagnostica"} onClick={() => setTab("diagnostica")} />
+          <TabButton label="Fiscale" active={tab === "fiscale"} onClick={() => setTab("fiscale")} />
         </nav>
 
-        {tab === 'whatsapp' ? (
+        {tab === "whatsapp" ? (
           <section className="sp-card" style={cardPad}>
-            <SectionTitle
-              kicker="WhatsApp SaaS"
-              title="Configurazione WhatsApp per questo salone"
-            />
+            <SectionTitle kicker="WhatsApp SaaS" title="Configurazione WhatsApp per questo salone" />
 
             <div style={infoBox}>
               Ogni salone può collegare il proprio numero WhatsApp Business. In sviluppo puoi usare
@@ -175,42 +280,15 @@ export default function ConfigurazionePage() {
             </div>
 
             <label style={checkRow}>
-              <input
-                type="checkbox"
-                checked={waEnabled}
-                onChange={(e) => setWaEnabled(e.target.checked)}
-              />
+              <input type="checkbox" checked={waEnabled} onChange={(e) => setWaEnabled(e.target.checked)} />
               Attiva WhatsApp automatico per questo salone
             </label>
 
             <div style={grid2}>
-              <input
-                className="sp-input"
-                placeholder="Phone Number ID"
-                value={waPhoneNumberId}
-                onChange={(e) => setWaPhoneNumberId(e.target.value)}
-              />
-
-              <input
-                className="sp-input"
-                placeholder="WhatsApp Business Account ID opzionale"
-                value={waBusinessAccountId}
-                onChange={(e) => setWaBusinessAccountId(e.target.value)}
-              />
-
-              <input
-                className="sp-input"
-                placeholder={waHasToken ? 'Token già salvato - incolla nuovo token per sostituire' : 'Access Token Meta'}
-                value={waAccessToken}
-                onChange={(e) => setWaAccessToken(e.target.value)}
-              />
-
-              <input
-                className="sp-input"
-                placeholder="API Version"
-                value={waApiVersion}
-                onChange={(e) => setWaApiVersion(e.target.value)}
-              />
+              <input className="sp-input" placeholder="Phone Number ID" value={waPhoneNumberId} onChange={(e) => setWaPhoneNumberId(e.target.value)} />
+              <input className="sp-input" placeholder="WhatsApp Business Account ID opzionale" value={waBusinessAccountId} onChange={(e) => setWaBusinessAccountId(e.target.value)} />
+              <input className="sp-input" placeholder={waHasToken ? "Token già salvato - incolla nuovo token per sostituire" : "Access Token Meta"} value={waAccessToken} onChange={(e) => setWaAccessToken(e.target.value)} />
+              <input className="sp-input" placeholder="API Version" value={waApiVersion} onChange={(e) => setWaApiVersion(e.target.value)} />
             </div>
 
             <button className="sp-button" style={{ marginTop: 14 }} onClick={saveWhatsappConfig}>
@@ -221,37 +299,25 @@ export default function ConfigurazionePage() {
               <SectionTitle kicker="Test invio" title="Invia messaggio di prova" />
 
               <div style={grid2}>
-                <input
-                  className="sp-input"
-                  placeholder="Numero cliente es. 3201234567"
-                  value={testPhone}
-                  onChange={(e) => setTestPhone(e.target.value)}
-                />
-
+                <input className="sp-input" placeholder="Numero cliente es. 3201234567" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} />
                 <button className="sp-button-purple" onClick={testWhatsapp}>
                   Invia test automatico
                 </button>
               </div>
 
-              <textarea
-                className="sp-input"
-                rows={6}
-                style={{ marginTop: 14 }}
-                value={testMessage}
-                onChange={(e) => setTestMessage(e.target.value)}
-              />
+              <textarea className="sp-input" rows={6} style={{ marginTop: 14 }} value={testMessage} onChange={(e) => setTestMessage(e.target.value)} />
             </div>
 
-            <div style={{ marginTop: 24, display: 'grid', gap: 10 }}>
-              <Status label="WhatsApp attivo" value={waEnabled ? 'Sì' : 'No'} />
-              <Status label="Phone Number ID" value={waPhoneNumberId || 'Non configurato'} />
-              <Status label="Token" value={waHasToken ? 'Salvato' : 'Mancante'} />
+            <div style={{ marginTop: 24, display: "grid", gap: 10 }}>
+              <Status label="WhatsApp attivo" value={waEnabled ? "Sì" : "No"} />
+              <Status label="Phone Number ID" value={waPhoneNumberId || "Non configurato"} />
+              <Status label="Token" value={waHasToken ? "Salvato" : "Mancante"} />
               <Status label="API Version" value={waApiVersion} />
             </div>
           </section>
         ) : null}
 
-        {tab === 'accessi' ? (
+        {tab === "accessi" ? (
           <section className="sp-card" style={cardPad}>
             <SectionTitle kicker="Accessi dipendenti" title="PIN personali staff" />
             <div style={grid3}>
@@ -260,7 +326,7 @@ export default function ConfigurazionePage() {
               <button className="sp-button-purple">Crea / aggiorna</button>
             </div>
 
-            <button className="sp-button" style={{ width: '100%', marginTop: 14 }}>
+            <button className="sp-button" style={{ width: "100%", marginTop: 14 }}>
               Ricarica lista
             </button>
 
@@ -278,7 +344,7 @@ export default function ConfigurazionePage() {
           </section>
         ) : null}
 
-        {tab === 'vip' ? (
+        {tab === "vip" ? (
           <section className="sp-card" style={cardPad}>
             <SectionTitle kicker="Area VIP Cliente" title="App cliente VIP link + codice" />
 
@@ -296,91 +362,110 @@ export default function ConfigurazionePage() {
               <input className="sp-input" placeholder="Codice VIP 4-8 cifre" />
             </div>
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: "flex", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
               <button className="sp-button-purple">Genera codice</button>
               <button className="sp-button">Attiva VIP</button>
               <button style={ghostButton}>Disattiva</button>
             </div>
-
-            <textarea
-              className="sp-input"
-              rows={7}
-              style={{ marginTop: 14 }}
-              defaultValue={`Messaggio WhatsApp pronto:
-
-Ciao 💛
-Ecco il tuo accesso VIP Salon Pro.
-Link:
-Codice:
-`}
-            />
           </section>
         ) : null}
 
-        {tab === 'servizi' ? (
+        {tab === "servizi" ? (
           <section className="sp-card" style={cardPad}>
-            <SectionTitle kicker="Vendi benefici, non sconti" title="Catalogo card & listino servizi" />
+            <SectionTitle kicker="Listino reale" title="Listino servizi collegato al database" />
 
             <div style={grid5}>
-              <input className="sp-input" placeholder="Nome servizio/card" />
-              <input className="sp-input" placeholder="Prezzo €" />
-              <input className="sp-input" placeholder="Durata minuti" />
-              <input className="sp-input" placeholder="Costo kit opz." />
-              <select className="sp-input">
-                <option>Categoria Auto</option>
+              <input className="sp-input" placeholder="Nome servizio" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
+              <input className="sp-input" placeholder="Prezzo €" value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} />
+              <input className="sp-input" placeholder="Durata minuti" value={serviceDuration} onChange={(e) => setServiceDuration(e.target.value)} />
+              <input className="sp-input" placeholder="Costo tecnico €" value={serviceCost} onChange={(e) => setServiceCost(e.target.value)} />
+              <select className="sp-input" value={serviceCategory} onChange={(e) => setServiceCategory(e.target.value)}>
                 <option>Piega</option>
                 <option>Taglio</option>
                 <option>Colore</option>
                 <option>Trattamenti</option>
+                <option>Barba</option>
+                <option>Altro</option>
               </select>
             </div>
 
-            <textarea
-              className="sp-input"
-              rows={4}
-              style={{ marginTop: 14 }}
-              placeholder="Descrizione/benefici che il cliente legge in anteprima..."
-            />
-
-            <button className="sp-button-purple" style={{ width: '100%', marginTop: 14 }}>
-              + Salva servizio
+            <button className="sp-button-purple" style={{ width: "100%", marginTop: 14 }} onClick={saveService}>
+              + Salva servizio nel listino
             </button>
 
-            <div style={emptyBox}>
-              Qui collegheremo il listino reale dal database. Per ora resta UI configurazione.
+            <div style={{ marginTop: 24, overflowX: "auto" }}>
+              <table style={serviceTable}>
+                <thead>
+                  <tr>
+                    <th style={serviceTh}>Servizio</th>
+                    <th style={serviceTh}>Categoria</th>
+                    <th style={serviceTh}>Prezzo</th>
+                    <th style={serviceTh}>Durata</th>
+                    <th style={serviceTh}>Costo</th>
+                    <th style={serviceTh}>X</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {services.map((service) => (
+                    <tr key={service.id}>
+                      <td style={serviceTd}>
+                        <input className="sp-input" value={service.name} onChange={(e) => updateService(service.id, "name", e.target.value)} />
+                      </td>
+
+                      <td style={serviceTd}>
+                        <select className="sp-input" value={service.category} onChange={(e) => updateService(service.id, "category", e.target.value)}>
+                          <option>Piega</option>
+                          <option>Taglio</option>
+                          <option>Colore</option>
+                          <option>Trattamenti</option>
+                          <option>Barba</option>
+                          <option>Altro</option>
+                        </select>
+                      </td>
+
+                      <td style={serviceTd}>
+                        <input className="sp-input" value={service.price} onChange={(e) => updateService(service.id, "price", e.target.value)} />
+                      </td>
+
+                      <td style={serviceTd}>
+                        <input className="sp-input" value={service.duration} onChange={(e) => updateService(service.id, "duration", e.target.value)} />
+                      </td>
+
+                      <td style={serviceTd}>
+                        <input className="sp-input" value={service.cost} onChange={(e) => updateService(service.id, "cost", e.target.value)} />
+                      </td>
+
+                      <td style={serviceTd}>
+                        <button style={deleteButton} onClick={() => deleteService(service.id)}>
+                          X
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
         ) : null}
 
-        {tab === 'diagnostica' ? (
+        {tab === "diagnostica" ? (
           <section className="sp-card" style={cardPad}>
             <SectionTitle kicker="Controllo tecnico" title="Diagnostica 1 click" />
-
-            <button className="sp-button-purple" style={{ width: '100%' }} onClick={runDiagnostic}>
+            <button className="sp-button-purple" style={{ width: "100%" }} onClick={runDiagnostic}>
               ✅ Esegui diagnostica
             </button>
 
-            <textarea
-              className="sp-input"
-              rows={10}
-              style={{ marginTop: 14 }}
-              value={diagnosticResult}
-              readOnly
-              placeholder="Il risultato diagnostica comparirà qui..."
-            />
+            <textarea className="sp-input" rows={10} style={{ marginTop: 14 }} value={diagnosticResult} readOnly placeholder="Il risultato diagnostica comparirà qui..." />
           </section>
         ) : null}
 
-        {tab === 'fiscale' ? (
+        {tab === "fiscale" ? (
           <section className="sp-card" style={cardPad}>
             <SectionTitle kicker="Cassa fiscale" title="Scontrini e provider fiscali" />
 
             <div style={grid2}>
-              <select
-                className="sp-input"
-                value={fiscalMode}
-                onChange={(e) => setFiscalMode(e.target.value)}
-              >
+              <select className="sp-input" value={fiscalMode} onChange={(e) => setFiscalMode(e.target.value)}>
                 <option value="DEMO">DEMO - Simulazione</option>
                 <option value="API_PROVIDER">API Provider fiscale</option>
                 <option value="RT_LOCALE">Registratore telematico locale</option>
@@ -412,14 +497,14 @@ function TabButton({
     <button
       onClick={onClick}
       style={{
-        whiteSpace: 'nowrap',
-        padding: '13px 18px',
+        whiteSpace: "nowrap",
+        padding: "13px 18px",
         borderRadius: 999,
         border: active
-          ? '1px solid rgba(212,175,55,0.65)'
-          : '1px solid rgba(255,255,255,0.08)',
-        background: active ? 'rgba(212,175,55,0.14)' : 'rgba(255,255,255,0.04)',
-        color: active ? '#d4af37' : '#fff',
+          ? "1px solid rgba(212,175,55,0.65)"
+          : "1px solid rgba(255,255,255,0.08)",
+        background: active ? "rgba(212,175,55,0.14)" : "rgba(255,255,255,0.04)",
+        color: active ? "#d4af37" : "#fff",
         fontWeight: 900,
       }}
     >
@@ -431,10 +516,10 @@ function TabButton({
 function SectionTitle({ kicker, title }: { kicker: string; title: string }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ color: '#8b5cf6', fontWeight: 900, fontSize: 12, letterSpacing: 2 }}>
+      <div style={{ color: "#8b5cf6", fontWeight: 900, fontSize: 12, letterSpacing: 2 }}>
         {kicker.toUpperCase()}
       </div>
-      <h2 style={{ margin: '6px 0 0', color: '#d4af37', fontSize: 22 }}>
+      <h2 style={{ margin: "6px 0 0", color: "#d4af37", fontSize: 22 }}>
         {title}
       </h2>
     </div>
@@ -445,23 +530,23 @@ function Status({ label, value }: { label: string; value: string }) {
   return (
     <div style={statusRow}>
       <span className="sp-muted">{label}</span>
-      <strong style={{ color: '#d4af37' }}>{value}</strong>
+      <strong style={{ color: "#d4af37" }}>{value}</strong>
     </div>
   );
 }
 
 const eyebrow: React.CSSProperties = {
-  color: '#d4af37',
+  color: "#d4af37",
   fontWeight: 900,
   letterSpacing: 2,
   fontSize: 13,
-  textTransform: 'uppercase',
+  textTransform: "uppercase",
 };
 
 const tabsWrap: React.CSSProperties = {
-  display: 'flex',
+  display: "flex",
   gap: 10,
-  overflowX: 'auto',
+  overflowX: "auto",
   marginBottom: 22,
   paddingBottom: 4,
 };
@@ -470,9 +555,9 @@ const messageBox: React.CSSProperties = {
   marginBottom: 18,
   padding: 16,
   borderRadius: 18,
-  background: 'rgba(139,92,246,0.14)',
-  border: '1px solid rgba(139,92,246,0.32)',
-  color: '#fff',
+  background: "rgba(139,92,246,0.14)",
+  border: "1px solid rgba(139,92,246,0.32)",
+  color: "#fff",
   fontWeight: 900,
 };
 
@@ -481,30 +566,30 @@ const cardPad: React.CSSProperties = {
 };
 
 const grid2: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
   gap: 14,
   marginTop: 14,
 };
 
 const grid3: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr 1fr',
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 1fr",
   gap: 14,
   marginTop: 14,
 };
 
 const grid5: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1.5fr 0.7fr 0.7fr 0.8fr 1fr',
+  display: "grid",
+  gridTemplateColumns: "1.5fr 0.7fr 0.7fr 0.8fr 1fr",
   gap: 14,
 };
 
 const checkRow: React.CSSProperties = {
-  display: 'flex',
+  display: "flex",
   gap: 10,
-  alignItems: 'center',
-  color: '#fff',
+  alignItems: "center",
+  color: "#fff",
   fontWeight: 800,
   marginBottom: 14,
 };
@@ -512,47 +597,74 @@ const checkRow: React.CSSProperties = {
 const infoBox: React.CSSProperties = {
   padding: 18,
   borderRadius: 18,
-  background: 'rgba(255,255,255,0.045)',
-  border: '1px solid rgba(255,255,255,0.08)',
+  background: "rgba(255,255,255,0.045)",
+  border: "1px solid rgba(255,255,255,0.08)",
   marginBottom: 16,
-  color: '#b8bfd0',
+  color: "#b8bfd0",
 };
 
 const emptyBox: React.CSSProperties = {
   marginTop: 14,
   minHeight: 90,
   borderRadius: 18,
-  border: '1px solid rgba(255,255,255,0.08)',
-  background: 'rgba(255,255,255,0.035)',
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.035)",
   padding: 16,
-  color: '#b8bfd0',
+  color: "#b8bfd0",
 };
 
 const linkBox: React.CSSProperties = {
-  display: 'grid',
+  display: "grid",
   gap: 8,
   padding: 18,
   borderRadius: 18,
-  border: '1px solid rgba(212,175,55,0.18)',
-  background: 'rgba(255,255,255,0.04)',
+  border: "1px solid rgba(212,175,55,0.18)",
+  background: "rgba(255,255,255,0.04)",
   marginBottom: 16,
 };
 
 const ghostButton: React.CSSProperties = {
-  padding: '12px 16px',
+  padding: "12px 16px",
   borderRadius: 14,
-  border: '1px solid rgba(255,255,255,0.12)',
-  background: 'rgba(255,255,255,0.06)',
-  color: '#fff',
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#fff",
   fontWeight: 900,
 };
 
 const statusRow: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
+  display: "flex",
+  justifyContent: "space-between",
   gap: 12,
   padding: 14,
   borderRadius: 16,
-  background: 'rgba(255,255,255,0.045)',
-  border: '1px solid rgba(255,255,255,0.08)',
+  background: "rgba(255,255,255,0.045)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const serviceTable: React.CSSProperties = {
+  width: "100%",
+  minWidth: 900,
+  borderCollapse: "collapse",
+};
+
+const serviceTh: React.CSSProperties = {
+  textAlign: "left",
+  color: "#22c55e",
+  padding: 12,
+  borderBottom: "1px solid rgba(255,255,255,0.12)",
+};
+
+const serviceTd: React.CSSProperties = {
+  padding: 10,
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+};
+
+const deleteButton: React.CSSProperties = {
+  border: 0,
+  borderRadius: 10,
+  padding: "10px 14px",
+  background: "#ef4444",
+  color: "#fff",
+  fontWeight: 900,
 };
