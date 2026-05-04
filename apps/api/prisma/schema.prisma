@@ -92,6 +92,7 @@ model Staff {
   tenantId  String
   name      String
   role      String   @default("COLLABORATORE")
+  color     String   @default("#8b5cf6")
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
