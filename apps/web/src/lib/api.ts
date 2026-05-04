@@ -1,16 +1,19 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://api-production-6aa5.up.railway.app";
 
 export function getToken() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("salonpro_token");
+  return localStorage.getItem("salonpro_token") || localStorage.getItem("token");
 }
 
 export function setToken(token: string) {
   localStorage.setItem("salonpro_token", token);
+  localStorage.setItem("token", token);
 }
 
 export function clearToken() {
   localStorage.removeItem("salonpro_token");
+  localStorage.removeItem("token");
 }
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
@@ -34,7 +37,12 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
-    throw new Error(data?.message || text || "Errore API");
+    const msg =
+      typeof data?.message === "object"
+        ? JSON.stringify(data.message)
+        : data?.message;
+
+    throw new Error(msg || text || "Errore API");
   }
 
   return data;
@@ -53,10 +61,15 @@ export async function loginApi(input: {
     body: JSON.stringify(input),
   });
 
-  const data = await res.json();
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
     throw new Error(data?.message || "Login non valido");
+  }
+
+  if (!data?.token) {
+    throw new Error("Token non ricevuto");
   }
 
   setToken(data.token);
