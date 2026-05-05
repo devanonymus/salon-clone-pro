@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "../../src/lib/api";
 
 type StaffMember = {
   id: string;
   name: string;
   role: string;
-  monthlyCost: number;
-  productiveHours: number;
-  monthlyTarget: number;
+  color?: string;
+  active?: boolean;
+  monthlyCost?: number;
+  productiveHours?: number;
+  monthlyTarget?: number;
 };
 
 type ShiftDay = {
@@ -20,49 +23,6 @@ type ShiftDay = {
   closed: boolean;
 };
 
-const INITIAL_STAFF: StaffMember[] = [
-  {
-    id: "1",
-    name: "PAMELA",
-    role: "Collaboratore",
-    monthlyCost: 1150,
-    productiveHours: 140,
-    monthlyTarget: 3500,
-  },
-  {
-    id: "2",
-    name: "KATIA",
-    role: "Collaboratore",
-    monthlyCost: 1000,
-    productiveHours: 140,
-    monthlyTarget: 3000,
-  },
-  {
-    id: "3",
-    name: "STEFANIA",
-    role: "Collaboratore",
-    monthlyCost: 700,
-    productiveHours: 140,
-    monthlyTarget: 2500,
-  },
-  {
-    id: "4",
-    name: "SONIA",
-    role: "Titolare",
-    monthlyCost: 1500,
-    productiveHours: 140,
-    monthlyTarget: 4000,
-  },
-  {
-    id: "5",
-    name: "BRIAN LADDOMADA",
-    role: "Collaboratore",
-    monthlyCost: 0,
-    productiveHours: 140,
-    monthlyTarget: 0,
-  },
-];
-
 const DEFAULT_SHIFTS: ShiftDay[] = [
   { day: "LUN", open1: "09:00", close1: "13:00", open2: "15:00", close2: "19:30", closed: false },
   { day: "MAR", open1: "09:00", close1: "13:00", open2: "15:00", close2: "19:30", closed: false },
@@ -73,58 +33,83 @@ const DEFAULT_SHIFTS: ShiftDay[] = [
   { day: "DOM", open1: "", close1: "", open2: "", close2: "", closed: true },
 ];
 
-const SALES = [
-  { name: "PAMELA", services: 115, resale: 0 },
-  { name: "KATIA", services: 0, resale: 0 },
-  { name: "STEFANIA", services: 20, resale: 0 },
-  { name: "SONIA", services: 20, resale: 0 },
-  { name: "BRIAN LADDOMADA", services: 0, resale: 0 },
-];
-
 function euro(value: number) {
   return `€ ${value.toFixed(2)}`;
 }
 
+function normalizeRole(role: string) {
+  if (!role) return "COLLABORATORE";
+  return role.toUpperCase();
+}
+
+function displayRole(role: string) {
+  return role === "TITOLARE" ? "Titolare" : role === "RECEPTION" ? "Reception" : role === "MANAGER" ? "Manager" : "Collaboratore";
+}
+
 export default function TeamPage() {
-  const [staff, setStaff] = useState<StaffMember[]>(INITIAL_STAFF);
-  const [selectedStaffId, setSelectedStaffId] = useState(staff[0]?.id || "");
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
   const [name, setName] = useState("");
-  const [role, setRole] = useState("Collaboratore");
+  const [role, setRole] = useState("COLLABORATORE");
   const [monthlyCost, setMonthlyCost] = useState("");
   const [productiveHours, setProductiveHours] = useState("");
   const [monthlyTarget, setMonthlyTarget] = useState("");
 
-  const [shifts, setShifts] = useState<Record<string, ShiftDay[]>>(() => {
-    const base: Record<string, ShiftDay[]> = {};
-    INITIAL_STAFF.forEach((member) => {
-      base[member.id] = DEFAULT_SHIFTS.map((s) => ({ ...s }));
-    });
-    return base;
-  });
+  const [shifts, setShifts] = useState<Record<string, ShiftDay[]>>({});
+
+  async function loadStaff() {
+    try {
+      setLoading(true);
+      setMessage("");
+
+      const data = await apiFetch("/staff");
+      const list = Array.isArray(data) ? data : [];
+
+      setStaff(list);
+      setSelectedStaffId((prev) => prev || list[0]?.id || "");
+
+      setShifts((prev) => {
+        const next = { ...prev };
+        list.forEach((member: StaffMember) => {
+          if (!next[member.id]) {
+            next[member.id] = DEFAULT_SHIFTS.map((s) => ({ ...s }));
+          }
+        });
+        return next;
+      });
+    } catch (error: any) {
+      setMessage(error.message || "Errore caricamento staff");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadStaff();
+  }, []);
 
   const selectedStaff = staff.find((s) => s.id === selectedStaffId);
 
   const kpiRows = useMemo(() => {
-    const totalSales = SALES.reduce((sum, item) => sum + item.services + item.resale, 0);
-
     return staff.map((member) => {
-      const sale = SALES.find((s) => s.name === member.name);
-      const services = sale?.services || 0;
-      const resale = sale?.resale || 0;
-      const total = services + resale;
-      const fish = total > 0 ? total / Math.max(1, member.productiveHours / 35) : 0;
-      const weight = totalSales > 0 ? (total / totalSales) * 100 : 0;
-      const productivity = member.monthlyTarget > 0 ? (total / member.monthlyTarget) * 100 : 0;
+      const monthlyCostValue = Number(member.monthlyCost || 0);
+      const productiveHoursValue = Number(member.productiveHours || 140);
+      const monthlyTargetValue = Number(member.monthlyTarget || 0);
 
       return {
         ...member,
-        services,
-        resale,
-        total,
-        fish,
-        weight,
-        productivity,
+        monthlyCost: monthlyCostValue,
+        productiveHours: productiveHoursValue,
+        monthlyTarget: monthlyTargetValue,
+        services: 0,
+        resale: 0,
+        total: 0,
+        fish: 0,
+        weight: 0,
+        productivity: 0,
       };
     });
   }, [staff]);
@@ -135,46 +120,72 @@ export default function TeamPage() {
         acc.services += row.services;
         acc.resale += row.resale;
         acc.total += row.total;
-        acc.costs += row.monthlyCost;
-        acc.target += row.monthlyTarget;
+        acc.costs += Number(row.monthlyCost || 0);
+        acc.target += Number(row.monthlyTarget || 0);
         return acc;
       },
       { services: 0, resale: 0, total: 0, costs: 0, target: 0 },
     );
   }, [kpiRows]);
 
-  function saveStaff() {
+  async function saveStaff() {
     if (!name.trim()) return;
 
-    const newMember: StaffMember = {
-      id: crypto.randomUUID(),
-      name: name.trim().toUpperCase(),
-      role,
-      monthlyCost: Number(monthlyCost || 0),
-      productiveHours: Number(productiveHours || 140),
-      monthlyTarget: Number(monthlyTarget || 0),
-    };
+    try {
+      setMessage("");
 
-    setStaff((prev) => [...prev, newMember]);
-    setShifts((prev) => ({
-      ...prev,
-      [newMember.id]: DEFAULT_SHIFTS.map((s) => ({ ...s })),
-    }));
+      const created = await apiFetch("/staff", {
+        method: "POST",
+        body: JSON.stringify({
+          name: name.trim(),
+          role: normalizeRole(role),
+          color: "#8b5cf6",
+          active: true,
+        }),
+      });
 
-    setSelectedStaffId(newMember.id);
-    setName("");
-    setRole("Collaboratore");
-    setMonthlyCost("");
-    setProductiveHours("");
-    setMonthlyTarget("");
+      const newMember: StaffMember = {
+        ...created,
+        monthlyCost: Number(monthlyCost || 0),
+        productiveHours: Number(productiveHours || 140),
+        monthlyTarget: Number(monthlyTarget || 0),
+      };
+
+      setStaff((prev) => [...prev, newMember]);
+      setShifts((prev) => ({
+        ...prev,
+        [newMember.id]: DEFAULT_SHIFTS.map((s) => ({ ...s })),
+      }));
+
+      setSelectedStaffId(newMember.id);
+      setName("");
+      setRole("COLLABORATORE");
+      setMonthlyCost("");
+      setProductiveHours("");
+      setMonthlyTarget("");
+      setMessage("Collaboratore creato correttamente.");
+    } catch (error: any) {
+      setMessage(error.message || "Errore creazione collaboratore");
+    }
   }
 
-  function deleteStaff(id: string) {
-    setStaff((prev) => prev.filter((s) => s.id !== id));
-    setSelectedStaffId((prev) => {
-      if (prev !== id) return prev;
-      return staff.find((s) => s.id !== id)?.id || "";
-    });
+  async function deleteStaff(id: string) {
+    try {
+      setMessage("");
+
+      await apiFetch(`/staff/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: false }),
+      });
+
+      setStaff((prev) => prev.filter((s) => s.id !== id));
+      setSelectedStaffId((prev) => {
+        if (prev !== id) return prev;
+        return staff.find((s) => s.id !== id)?.id || "";
+      });
+    } catch (error: any) {
+      setMessage(error.message || "Errore eliminazione collaboratore");
+    }
   }
 
   function updateShift(index: number, field: keyof ShiftDay, value: string | boolean) {
@@ -212,6 +223,8 @@ export default function TeamPage() {
           </div>
         </header>
 
+        {message ? <div style={messageBox}>{message}</div> : null}
+
         <section style={statsGrid}>
           <StatCard label="Totale servizi" value={euro(totals.services)} />
           <StatCard label="Totale rivendita" value={euro(totals.resale)} />
@@ -236,17 +249,39 @@ export default function TeamPage() {
                 </tr>
               </thead>
               <tbody>
-                {kpiRows.map((row) => (
-                  <tr key={row.id}>
-                    <Td>{row.name}</Td>
-                    <Td>{euro(row.services)}</Td>
-                    <Td>{euro(row.resale)}</Td>
-                    <Td>{euro(row.total)}</Td>
-                    <Td>{euro(row.fish)}</Td>
-                    <Td>{row.weight.toFixed(1)}%</Td>
-                    <Td>{row.productivity.toFixed(0)}%</Td>
+                {loading ? (
+                  <tr>
+                    <Td>Caricamento staff...</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
                   </tr>
-                ))}
+                ) : kpiRows.length === 0 ? (
+                  <tr>
+                    <Td>Nessun collaboratore presente.</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                  </tr>
+                ) : (
+                  kpiRows.map((row) => (
+                    <tr key={row.id}>
+                      <Td>{row.name}</Td>
+                      <Td>{euro(row.services)}</Td>
+                      <Td>{euro(row.resale)}</Td>
+                      <Td>{euro(row.total)}</Td>
+                      <Td>{euro(row.fish)}</Td>
+                      <Td>{row.weight.toFixed(1)}%</Td>
+                      <Td>{row.productivity.toFixed(0)}%</Td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -259,10 +294,10 @@ export default function TeamPage() {
             <input style={input} placeholder="Nome" value={name} onChange={(e) => setName(e.target.value)} />
 
             <select style={input} value={role} onChange={(e) => setRole(e.target.value)}>
-              <option>Collaboratore</option>
-              <option>Titolare</option>
-              <option>Reception</option>
-              <option>Manager</option>
+              <option value="COLLABORATORE">Collaboratore</option>
+              <option value="TITOLARE">Titolare</option>
+              <option value="RECEPTION">Reception</option>
+              <option value="MANAGER">Manager</option>
             </select>
 
             <input
@@ -303,19 +338,29 @@ export default function TeamPage() {
                 </tr>
               </thead>
               <tbody>
-                {staff.map((member) => (
-                  <tr key={member.id}>
-                    <Td>{member.name}</Td>
-                    <Td>{member.role}</Td>
-                    <Td>{euro(member.monthlyCost)}</Td>
-                    <Td>{member.productiveHours}</Td>
-                    <Td>
-                      <button style={deleteButton} onClick={() => deleteStaff(member.id)}>
-                        X
-                      </button>
-                    </Td>
+                {staff.length === 0 ? (
+                  <tr>
+                    <Td>Nessun collaboratore presente.</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
                   </tr>
-                ))}
+                ) : (
+                  staff.map((member) => (
+                    <tr key={member.id}>
+                      <Td>{member.name}</Td>
+                      <Td>{displayRole(member.role)}</Td>
+                      <Td>{euro(Number(member.monthlyCost || 0))}</Td>
+                      <Td>{Number(member.productiveHours || 140)}</Td>
+                      <Td>
+                        <button style={deleteButton} onClick={() => deleteStaff(member.id)}>
+                          X
+                        </button>
+                      </Td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -330,6 +375,7 @@ export default function TeamPage() {
               value={selectedStaffId}
               onChange={(e) => setSelectedStaffId(e.target.value)}
             >
+              {staff.length === 0 ? <option value="">Nessun collaboratore</option> : null}
               {staff.map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.name}
@@ -412,9 +458,9 @@ export default function TeamPage() {
           {selectedStaff ? (
             <div style={summaryBox}>
               <strong>{selectedStaff.name}</strong>
-              <span>Ruolo: {selectedStaff.role}</span>
-              <span>Costo mese: {euro(selectedStaff.monthlyCost)}</span>
-              <span>Target: {euro(selectedStaff.monthlyTarget)}</span>
+              <span>Ruolo: {displayRole(selectedStaff.role)}</span>
+              <span>Costo mese: {euro(Number(selectedStaff.monthlyCost || 0))}</span>
+              <span>Target: {euro(Number(selectedStaff.monthlyTarget || 0))}</span>
             </div>
           ) : null}
         </section>
@@ -447,6 +493,16 @@ function Th({ children }: { children: React.ReactNode }) {
 function Td({ children }: { children: React.ReactNode }) {
   return <td style={td}>{children}</td>;
 }
+
+const messageBox: React.CSSProperties = {
+  marginBottom: 18,
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(139,92,246,0.14)",
+  border: "1px solid rgba(139,92,246,0.32)",
+  color: "#fff",
+  fontWeight: 900,
+};
 
 const pageHeader: React.CSSProperties = {
   marginBottom: 24,
