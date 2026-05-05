@@ -1,6 +1,7 @@
 import "./globals.css";
 import Link from "next/link";
 import WhatsappChatWidget from "./components/WhatsappChatWidget";
+import LogoutButton from "./components/LogoutButton";
 
 export const metadata = {
   title: "Salon Pro",
@@ -43,7 +44,7 @@ export default function RootLayout({
                   TENDENZE <span>| Titolare</span>
                 </div>
 
-                <button className="sp-change-button">CAMBIA SALONE</button>
+                <LogoutButton />
               </div>
             </div>
 
