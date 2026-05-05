@@ -1,19 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { clearToken } from "@/lib/api";
 
 export default function LogoutButton() {
   const router = useRouter();
 
   function logout() {
-    localStorage.removeItem("salonpro_token");
-    localStorage.removeItem("token");
+    clearToken();
     router.push("/login");
     router.refresh();
   }
 
   return (
-    <button className="sp-change-button" onClick={logout} type="button">
+    <button type="button" className="sp-change-button" onClick={logout}>
       ESCI / CAMBIA SALONE
     </button>
   );

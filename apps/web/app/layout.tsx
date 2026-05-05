@@ -3,6 +3,7 @@ import Link from "next/link";
 import WhatsappChatWidget from "./components/WhatsappChatWidget";
 import LogoutButton from "./components/LogoutButton";
 
+
 export const metadata = {
   title: "Salon Pro",
   description: "Premium salon management system",
