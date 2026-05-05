@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { clearToken } from "@/lib/api";
 
 export default function LogoutButton() {
   const router = useRouter();
 
   function logout() {
-    clearToken();
+    localStorage.removeItem("salonpro_token");
+    localStorage.removeItem("token");
+
     router.push("/login");
     router.refresh();
   }
