@@ -238,6 +238,22 @@ export default function AgendaPage() {
     setEditOpen(true);
   }
 
+
+  async function createClientFromAppointmentModal(name: string, phone: string) {
+    const created = await fetchWithAuth("/clients/quick", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        phone,
+      }),
+    });
+
+    setClients((prev) => [created, ...prev]);
+    setClientTenantId(created.id);
+
+    return created;
+  }
+
   async function createAppointment(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -714,6 +730,7 @@ export default function AgendaPage() {
           staff={staff}
           clientTenantId={clientTenantId}
           setClientTenantId={setClientTenantId}
+          onCreateClient={createClientFromAppointmentModal}
           appointmentStaffId={appointmentStaffId}
           setAppointmentStaffId={setAppointmentStaffId}
           appointmentDate={appointmentDate}
@@ -737,6 +754,7 @@ export default function AgendaPage() {
           staff={staff}
           clientTenantId={clientTenantId}
           setClientTenantId={setClientTenantId}
+          onCreateClient={createClientFromAppointmentModal}
           appointmentStaffId={appointmentStaffId}
           setAppointmentStaffId={setAppointmentStaffId}
           appointmentDate={appointmentDate}
@@ -767,6 +785,7 @@ function AppointmentModal(props: {
   staff: StaffItem[];
   clientTenantId: string;
   setClientTenantId: (v: string) => void;
+  onCreateClient: (name: string, phone: string) => Promise<any>;
   appointmentStaffId: string;
   setAppointmentStaffId: (v: string) => void;
   appointmentDate: string;
@@ -782,6 +801,40 @@ function AppointmentModal(props: {
   submitLabel: string;
   onDelete?: () => void;
 }) {
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientLoading, setNewClientLoading] = useState(false);
+  const [newClientError, setNewClientError] = useState("");
+
+  async function createClientInsideModal() {
+    try {
+      setNewClientError("");
+
+      if (!newClientName.trim()) {
+        setNewClientError("Nome cliente mancante");
+        return;
+      }
+
+      if (!newClientPhone.trim()) {
+        setNewClientError("Telefono cliente mancante");
+        return;
+      }
+
+      setNewClientLoading(true);
+
+      await props.onCreateClient(newClientName.trim(), newClientPhone.trim());
+
+      setNewClientName("");
+      setNewClientPhone("");
+      setNewClientOpen(false);
+    } catch (error: any) {
+      setNewClientError(error.message || "Errore creazione cliente");
+    } finally {
+      setNewClientLoading(false);
+    }
+  }
+
   return (
     <div style={modalBackdrop}>
       <form style={modalCard} onSubmit={props.onSubmit}>
@@ -807,6 +860,47 @@ function AppointmentModal(props: {
 
           <input style={inputLight} type="date" value={props.appointmentDate} onChange={(e) => props.setAppointmentDate(e.target.value)} />
           <input style={inputLight} type="time" value={props.appointmentTime} onChange={(e) => props.setAppointmentTime(e.target.value)} />
+        </div>
+
+        <div style={newClientPanel}>
+          <button
+            type="button"
+            style={newClientToggleButton}
+            onClick={() => setNewClientOpen((value) => !value)}
+          >
+            {newClientOpen ? "Chiudi nuovo cliente" : "+ Nuovo cliente"}
+          </button>
+
+          {newClientOpen ? (
+            <div style={newClientGrid}>
+              <input
+                style={inputLight}
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                placeholder="Nome nuovo cliente"
+              />
+
+              <input
+                style={inputLight}
+                value={newClientPhone}
+                onChange={(e) => setNewClientPhone(e.target.value)}
+                placeholder="Telefono"
+              />
+
+              <button
+                type="button"
+                disabled={newClientLoading}
+                onClick={createClientInsideModal}
+                style={newClientSaveButton}
+              >
+                {newClientLoading ? "Creo..." : "Salva e seleziona"}
+              </button>
+            </div>
+          ) : null}
+
+          {newClientError ? (
+            <div style={newClientErrorBox}>{newClientError}</div>
+          ) : null}
         </div>
 
         <div style={servicesBox}>
@@ -1108,6 +1202,54 @@ const inputLight: CSSProperties = {
   fontSize: 16,
   color: "#0f172a",
   background: "#fff",
+};
+
+
+const newClientPanel: CSSProperties = {
+  marginTop: 16,
+  marginBottom: 16,
+  padding: 16,
+  borderRadius: 18,
+  border: "1px solid #d6dee8",
+  background: "#f8fafc",
+};
+
+const newClientToggleButton: CSSProperties = {
+  border: 0,
+  borderRadius: 14,
+  padding: "12px 16px",
+  background: "linear-gradient(135deg,#d4af37,#f7df88)",
+  color: "#0f172a",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const newClientGrid: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr auto",
+  gap: 12,
+  marginTop: 14,
+};
+
+const newClientSaveButton: CSSProperties = {
+  border: 0,
+  borderRadius: 14,
+  padding: "12px 18px",
+  background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
+  color: "#fff",
+  fontWeight: 950,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const newClientErrorBox: CSSProperties = {
+  marginTop: 12,
+  padding: 12,
+  borderRadius: 14,
+  background: "rgba(239,68,68,0.12)",
+  border: "1px solid rgba(239,68,68,0.28)",
+  color: "#991b1b",
+  fontWeight: 900,
 };
 
 const servicesBox: CSSProperties = {
