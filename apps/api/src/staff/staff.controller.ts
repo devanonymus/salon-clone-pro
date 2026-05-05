@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { JwtGuard } from "../auth/jwt.guard";
 import { StaffService } from "./staff.service";
 
@@ -10,6 +10,22 @@ export class StaffController {
   @Get()
   list(@Req() req: any) {
     return this.service.list(req.user.tenantId);
+  }
+
+
+
+  @Post()
+  create(
+    @Req() req: any,
+    @Body()
+    body: {
+      name: string;
+      role?: string;
+      color?: string;
+      active?: boolean;
+    },
+  ) {
+    return this.service.create(req.user.tenantId, body);
   }
 
   @Patch(":id")

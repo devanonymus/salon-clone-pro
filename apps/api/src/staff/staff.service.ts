@@ -36,6 +36,28 @@ export class StaffService {
     });
   }
 
+
+
+  async create(
+    tenantId: string,
+    body: {
+      name: string;
+      role?: string;
+      color?: string;
+      active?: boolean;
+    },
+  ) {
+    return this.prisma.staff.create({
+      data: {
+        tenantId,
+        name: body.name,
+        role: body.role ?? "COLLABORATORE",
+        color: body.color ?? "#8b5cf6",
+        active: body.active ?? true,
+      },
+    });
+  }
+
   async update(
     tenantId: string,
     id: string,
