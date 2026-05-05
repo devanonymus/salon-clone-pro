@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Param,
   BadRequestException,
   Req,
   UseGuards,
@@ -18,6 +20,20 @@ export class ClientsController {
   @Get()
   getAll(@Req() req: any) {
     return this.clientsService.getAll(req.user.tenantId);
+  }
+
+
+  @Patch(":id/notes")
+  updateNotes(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { notes?: string },
+  ) {
+    return this.clientsService.updateNotes(
+      req.user.tenantId,
+      id,
+      body.notes || "",
+    );
   }
 
   @Post("quick")

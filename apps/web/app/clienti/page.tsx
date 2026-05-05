@@ -7,6 +7,7 @@ type ClientItem = {
   id: string;
   name: string;
   phone: string;
+  notes: string;
   createdAt: string;
 };
 
@@ -17,6 +18,7 @@ function normalizeClient(client: any): ClientItem {
     id: String(client.clientGlobal?.id ?? client.id),
     name: client.clientGlobal?.name ?? client.name ?? "Senza nome",
     phone: client.clientGlobal?.phone ?? client.phone ?? "Senza telefono",
+    notes: client.notes ?? "",
     createdAt: client.clientGlobal?.createdAt ?? client.createdAt,
   };
 }
@@ -29,6 +31,9 @@ export default function ClientiPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [search, setSearch] = useState("");
+  const [relationshipNotes, setRelationshipNotes] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [notesMessage, setNotesMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -95,6 +100,11 @@ export default function ClientiPage() {
     return clients.find((client) => client.id === selectedClientId) || null;
   }, [clients, selectedClientId]);
 
+  useEffect(() => {
+    setRelationshipNotes(selectedClient?.notes || "");
+    setNotesMessage("");
+  }, [selectedClient?.id]);
+
   async function createQuickClient() {
     if (!name.trim() || !phone.trim()) return;
 
@@ -134,6 +144,51 @@ export default function ClientiPage() {
       setPhone("");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveRelationshipNotes() {
+    if (!selectedClient) return;
+
+    try {
+      setSavingNotes(true);
+      setNotesMessage("");
+
+      const token = getToken();
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/clients/${selectedClient.id}/notes`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          notes: relationshipNotes,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Errore salvataggio note");
+      }
+
+      const updated = normalizeClient(data);
+
+      setClients((prev) =>
+        prev.map((client) => (client.id === updated.id ? updated : client)),
+      );
+
+      setNotesMessage("Note salvate correttamente.");
+    } catch (error: any) {
+      setNotesMessage(error.message || "Errore salvataggio note");
+    } finally {
+      setSavingNotes(false);
     }
   }
 
@@ -260,9 +315,26 @@ export default function ClientiPage() {
                 <div style={darkPanelStyle}>
                   <h3 style={subSectionTitleStyle}>Note relazione</h3>
                   <textarea
+                    value={relationshipNotes}
+                    onChange={(event) => setRelationshipNotes(event.target.value)}
                     placeholder="Preferenze, formule colore, abitudini, note private..."
                     style={textareaStyle}
                   />
+
+                  {notesMessage ? (
+                    <div style={notesMessageStyle}>{notesMessage}</div>
+                  ) : null}
+
+                  <button
+                    onClick={saveRelationshipNotes}
+                    disabled={savingNotes}
+                    style={{
+                      ...purpleButtonStyle,
+                      opacity: savingNotes ? 0.6 : 1,
+                    }}
+                  >
+                    {savingNotes ? "Salvataggio..." : "Salva note relazione"}
+                  </button>
                 </div>
               </>
             )}
@@ -522,6 +594,16 @@ const subSectionTitleStyle: React.CSSProperties = {
   color: "#d4af37",
   fontSize: 22,
   fontWeight: 950,
+};
+
+const notesMessageStyle: React.CSSProperties = {
+  marginTop: 12,
+  borderRadius: 14,
+  padding: 12,
+  background: "rgba(34,197,94,0.12)",
+  border: "1px solid rgba(34,197,94,0.28)",
+  color: "#86efac",
+  fontWeight: 850,
 };
 
 const textareaStyle: React.CSSProperties = {

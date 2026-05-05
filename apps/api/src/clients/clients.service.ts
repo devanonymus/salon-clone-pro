@@ -19,6 +19,28 @@ export class ClientsService {
     });
   }
 
+
+  async updateNotes(
+    tenantId: string,
+    clientGlobalId: string,
+    notes: string,
+  ) {
+    return this.prisma.clientTenant.update({
+      where: {
+        tenantId_clientGlobalId: {
+          tenantId,
+          clientGlobalId,
+        },
+      },
+      data: {
+        notes,
+      },
+      include: {
+        clientGlobal: true,
+      },
+    });
+  }
+
   async createQuick(
     tenantId: string,
     name: string,
