@@ -34,8 +34,8 @@ export default function RootLayout({
             <div className="sp-header-top">
               <Link href="/agenda" className="sp-logo-wrap">
                 <img
-                  src="/salon-pro-logo.png"
-                  alt="Salon Pro"
+                  src="/acquaviva-strategic-logo.png"
+                  alt="Acquaviva Strategic"
                   className="sp-logo"
                 />
               </Link>
