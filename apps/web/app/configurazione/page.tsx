@@ -28,6 +28,8 @@ export default function ConfigurazionePage() {
 
   const [tab, setTab] = useState<Tab>("whatsapp");
   const [message, setMessage] = useState("");
+  const [ownerPin, setOwnerPin] = useState("");
+  const [ownerPinSaving, setOwnerPinSaving] = useState(false);
 
   const [waEnabled, setWaEnabled] = useState(false);
   const [waPhoneNumberId, setWaPhoneNumberId] = useState("");
@@ -226,6 +228,35 @@ export default function ConfigurazionePage() {
     }
   }
 
+
+  async function updateOwnerPin() {
+    try {
+      setMessage("");
+
+      if (!ownerPin.trim() || ownerPin.trim().length < 4) {
+        setMessage("⚠️ Inserisci un PIN titolare di almeno 4 cifre.");
+        return;
+      }
+
+      setOwnerPinSaving(true);
+
+      await fetchWithAuth(`${API_URL}/auth/me/pin`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pin: ownerPin.trim(),
+        }),
+      });
+
+      setOwnerPin("");
+      setMessage("✅ PIN titolare aggiornato correttamente.");
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore aggiornamento PIN"}`);
+    } finally {
+      setOwnerPinSaving(false);
+    }
+  }
+
   function runDiagnostic() {
     setDiagnosticResult(
       [
@@ -337,8 +368,23 @@ export default function ConfigurazionePage() {
             <div style={{ marginTop: 24 }}>
               <SectionTitle kicker="Titolare" title="Cambia PIN titolare" />
               <div style={grid2}>
-                <input className="sp-input" placeholder="Nuovo PIN titolare" />
-                <button className="sp-button-purple">Aggiorna PIN</button>
+                <input
+                  className="sp-input"
+                  type="password"
+                  placeholder="Nuovo PIN titolare"
+                  value={ownerPin}
+                  onChange={(e) => setOwnerPin(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") updateOwnerPin();
+                  }}
+                />
+                <button
+                  className="sp-button-purple"
+                  disabled={ownerPinSaving}
+                  onClick={updateOwnerPin}
+                >
+                  {ownerPinSaving ? "Aggiornamento..." : "Aggiorna PIN"}
+                </button>
               </div>
             </div>
           </section>
