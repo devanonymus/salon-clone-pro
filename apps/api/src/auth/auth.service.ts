@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
@@ -50,6 +50,95 @@ export class AuthService {
         tenantCode: 'SALON1',
         username: 'admin',
         pin: '1234',
+      },
+    };
+  }
+
+
+  async createSalon(
+    currentUser: {
+      role: string;
+      username: string;
+      tenantId: string;
+    },
+    body: {
+      name: string;
+      code: string;
+      ownerUsername?: string;
+      ownerPin: string;
+    },
+  ) {
+    if (currentUser.role !== 'OWNER') {
+      throw new UnauthorizedException('Solo il titolare può creare nuovi saloni');
+    }
+
+    if (!body.name?.trim()) {
+      throw new UnauthorizedException('Nome salone mancante');
+    }
+
+    if (!body.code?.trim()) {
+      throw new UnauthorizedException('Codice salone mancante');
+    }
+
+    if (!body.ownerPin?.trim()) {
+      throw new UnauthorizedException('PIN owner mancante');
+    }
+
+    const code = body.code.trim().toUpperCase();
+    const ownerUsername = body.ownerUsername?.trim() || 'admin';
+
+    const existingTenant = await this.prisma.tenant.findUnique({
+      where: { code },
+    });
+
+    if (existingTenant) {
+      throw new ConflictException('Codice salone già esistente');
+    }
+
+    const pinHash = await bcrypt.hash(body.ownerPin, 10);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({
+        data: {
+          name: body.name.trim(),
+          code,
+        },
+      });
+
+      const user = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          username: ownerUsername,
+          pinHash,
+          role: 'OWNER',
+          active: true,
+        },
+      });
+
+      await tx.staff.createMany({
+        data: [
+          { tenantId: tenant.id, name: ownerUsername, role: 'TITOLARE', color: '#d4af37' },
+        ],
+      });
+
+      return { tenant, user };
+    });
+
+    return {
+      message: 'Salone creato',
+      tenant: {
+        id: result.tenant.id,
+        name: result.tenant.name,
+        code: result.tenant.code,
+      },
+      owner: {
+        id: result.user.id,
+        username: result.user.username,
+        role: result.user.role,
+      },
+      login: {
+        tenantCode: result.tenant.code,
+        username: result.user.username,
       },
     };
   }

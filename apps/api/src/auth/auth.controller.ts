@@ -27,6 +27,22 @@ export class AuthController {
     );
   }
 
+
+  @UseGuards(JwtGuard)
+  @Post('salons')
+  createSalon(
+    @Req() req: any,
+    @Body()
+    body: {
+      name: string;
+      code: string;
+      ownerUsername?: string;
+      ownerPin: string;
+    },
+  ) {
+    return this.authService.createSalon(req.user, body);
+  }
+
   @UseGuards(JwtGuard)
   @Get('me')
   me(@Req() req: any) {
