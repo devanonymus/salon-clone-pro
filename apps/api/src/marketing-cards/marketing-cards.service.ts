@@ -40,6 +40,8 @@ export class MarketingCardsService {
       ctaText?: string;
       footerText?: string;
       signature?: string;
+      promoMessageTemplate?: string;
+      confirmMessageTemplate?: string;
     },
   ) {
     return this.prisma.marketingCardTemplate.upsert({
@@ -62,6 +64,8 @@ export class MarketingCardsService {
         ctaText: body.ctaText,
         footerText: body.footerText,
         signature: body.signature,
+        promoMessageTemplate: body.promoMessageTemplate,
+        confirmMessageTemplate: body.confirmMessageTemplate,
       },
       create: {
         tenantId,
@@ -80,6 +84,12 @@ export class MarketingCardsService {
         ctaText: body.ctaText || "Blocca oggi il tuo percorso.",
         footerText: body.footerText || "Card personale, non convertibile in denaro.",
         signature: body.signature || "Il tuo salone di fiducia",
+        promoMessageTemplate:
+          body.promoMessageTemplate ||
+          "Ciao {nome_cliente} 💛\n\nAbbiamo preparato una proposta speciale pensata per mantenere il risultato nel tempo:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nVuoi che ti blocchiamo questa possibilità?\n\n{firma}",
+        confirmMessageTemplate:
+          body.confirmMessageTemplate ||
+          "Ciao {nome_cliente} 💛\n\nTi confermiamo la tua card:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nTi aspettiamo in salone.\n\n{firma}",
       },
     });
   }

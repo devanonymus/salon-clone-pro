@@ -37,6 +37,8 @@ export class MarketingCardsController {
       ctaText?: string;
       footerText?: string;
       signature?: string;
+      promoMessageTemplate?: string;
+      confirmMessageTemplate?: string;
     },
   ) {
     return this.service.saveTemplate(req.user.tenantId, body);
