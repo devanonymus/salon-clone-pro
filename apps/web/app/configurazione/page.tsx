@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 type Tab =
+  | "pdfcard"
   | "accessi"
   | "whatsapp"
   | "vip"
@@ -28,6 +29,24 @@ export default function ConfigurazionePage() {
 
   const [tab, setTab] = useState<Tab>("whatsapp");
   const [message, setMessage] = useState("");
+
+  const [pdfTemplate, setPdfTemplate] = useState({
+    logoUrl: "/acquaviva-strategic-logo.png",
+    salonName: "Acquaviva Strategic",
+    templateStyle: "LUXURY_GOLD",
+    primaryColor: "#080808",
+    accentColor: "#d4af37",
+    title: "Il tuo percorso bellezza personalizzato",
+    subtitle: "Una card pensata per mantenere il risultato nel tempo.",
+    promiseText: "Non è una semplice promozione: è un percorso guidato per farti restare sempre in ordine, senza improvvisare.",
+    valueText: "Abbiamo racchiuso servizi, prodotti e bonus in una proposta chiara, comoda e ad alto valore.",
+    bonusText: "I bonus inclusi sono pensati per aumentare il risultato e farti vivere un’esperienza più completa.",
+    urgencyText: "I posti disponibili per questo percorso sono limitati per garantire continuità e qualità.",
+    guaranteeText: "Ti guideremo passo dopo passo nella scelta più adatta ai tuoi capelli.",
+    ctaText: "Blocca oggi il tuo percorso e programma subito le sedute.",
+    footerText: "Card personale, non convertibile in denaro.",
+    signature: "Il tuo salone di fiducia",
+  });
   const [ownerPin, setOwnerPin] = useState("");
   const [ownerPinSaving, setOwnerPinSaving] = useState(false);
 
@@ -83,6 +102,44 @@ export default function ConfigurazionePage() {
     }
 
     return data;
+  }
+
+
+  async function loadPdfTemplate() {
+    try {
+      const data = await fetchWithAuth(`${API_URL}/marketing/cards/template`);
+
+      if (data) {
+        setPdfTemplate((prev) => ({
+          ...prev,
+          ...data,
+          logoUrl: data.logoUrl || prev.logoUrl,
+        }));
+      }
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore caricamento template PDF Card"}`);
+    }
+  }
+
+  async function savePdfTemplate() {
+    try {
+      await fetchWithAuth(`${API_URL}/marketing/cards/template`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pdfTemplate),
+      });
+
+      setMessage("✅ Template PDF Card salvato.");
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore salvataggio template PDF Card"}`);
+    }
+  }
+
+  function updatePdfTemplate(field: string, value: string) {
+    setPdfTemplate((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   }
 
   async function loadWhatsappConfig() {
@@ -275,6 +332,7 @@ export default function ConfigurazionePage() {
   useEffect(() => {
     loadWhatsappConfig();
     loadServices();
+    loadPdfTemplate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -292,6 +350,7 @@ export default function ConfigurazionePage() {
         {message ? <div style={messageBox}>{message}</div> : null}
 
         <nav style={tabsWrap}>
+          <TabButton label="PDF Card" active={tab === "pdfcard"} onClick={() => setTab("pdfcard")} />
           <TabButton label="Accessi" active={tab === "accessi"} onClick={() => setTab("accessi")} />
           <TabButton label="WhatsApp" active={tab === "whatsapp"} onClick={() => setTab("whatsapp")} />
           <TabButton label="VIP Clienti" active={tab === "vip"} onClick={() => setTab("vip")} />
