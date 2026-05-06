@@ -20,6 +20,9 @@ type ActiveCard = {
 type CatalogCard = {
   name: string;
   price: number;
+  sessionsCount: number;
+  sessions: SessionItem[];
+  increaseTotal: number;
 };
 
 const services = [
@@ -47,6 +50,17 @@ export default function MarketingPage() {
   const [editingCatalogIndex, setEditingCatalogIndex] = useState<number | null>(null);
   const [catalogName, setCatalogName] = useState('');
   const [catalogPrice, setCatalogPrice] = useState('');
+  const [catalogSessionsCount, setCatalogSessionsCount] = useState(4);
+  const [catalogSessions, setCatalogSessions] = useState<SessionItem[]>(
+    Array.from({ length: 4 }).map(() => ({
+      paidService: '',
+      paidProduct: '',
+      giftService: '',
+      giftProduct: '',
+    })),
+  );
+  const [catalogIncreaseInput, setCatalogIncreaseInput] = useState('');
+  const [catalogIncreaseTotal, setCatalogIncreaseTotal] = useState(0);
   const [operator, setOperator] = useState('');
   const [frequency, setFrequency] = useState('Mensile (30 gg)');
   const [manualCardName, setManualCardName] = useState('');
@@ -115,24 +129,117 @@ export default function MarketingPage() {
   }
 
 
+  function emptyCatalogSessions(count = 4) {
+    return Array.from({ length: count }).map(() => ({
+      paidService: '',
+      paidProduct: '',
+      giftService: '',
+      giftProduct: '',
+    }));
+  }
+
   function openCreateCatalogCard() {
+    const cleanSessions = emptyCatalogSessions(4);
+
     setEditingCatalogIndex(null);
     setCatalogName('');
     setCatalogPrice('');
+    setCatalogSessionsCount(4);
+    setCatalogSessions(cleanSessions);
+    setCatalogIncreaseInput('');
+    setCatalogIncreaseTotal(0);
     setCatalogOpen(true);
   }
 
   function openEditCatalogCard(index: number) {
     const card = catalogCards[index];
+    const savedSessions = card.sessions?.length ? card.sessions : emptyCatalogSessions(card.sessionsCount || 4);
+
     setEditingCatalogIndex(index);
     setCatalogName(card.name);
     setCatalogPrice(String(card.price));
+    setCatalogSessionsCount(card.sessionsCount || savedSessions.length || 4);
+    setCatalogSessions(savedSessions);
+    setCatalogIncreaseInput('');
+    setCatalogIncreaseTotal(card.increaseTotal || 0);
     setCatalogOpen(true);
+  }
+
+  function setCatalogSessionCount(value: number) {
+    setCatalogSessionsCount(value);
+    setCatalogSessions((prev) => {
+      const next = [...prev];
+
+      while (next.length < value) {
+        next.push({
+          paidService: '',
+          paidProduct: '',
+          giftService: '',
+          giftProduct: '',
+        });
+      }
+
+      return next.slice(0, value);
+    });
+  }
+
+  function updateCatalogSession(index: number, key: keyof SessionItem, value: string) {
+    setCatalogSessions((prev) =>
+      prev.map((session, i) =>
+        i === index
+          ? {
+              ...session,
+              [key]: value,
+            }
+          : session,
+      ),
+    );
+  }
+
+  const catalogValueListino = catalogSessions.reduce((sum, session) => {
+    let subtotal = 0;
+
+    if (session.paidService) subtotal += serviceValue(session.paidService);
+    if (session.paidProduct) subtotal += productValue(session.paidProduct);
+    if (session.giftService) subtotal += serviceValue(session.giftService);
+    if (session.giftProduct) subtotal += productValue(session.giftProduct);
+
+    return sum + subtotal;
+  }, 0);
+
+  const catalogCalculatedPrice = catalogSessions.reduce((sum, session) => {
+    let subtotal = 0;
+
+    if (session.paidService) subtotal += serviceValue(session.paidService);
+    if (session.paidProduct) subtotal += productValue(session.paidProduct);
+    if (session.giftService) subtotal += serviceCost(session.giftService);
+    if (session.giftProduct) subtotal += productCost(session.giftProduct);
+
+    return sum + subtotal;
+  }, 0);
+
+  const catalogFinalPrice = catalogCalculatedPrice + catalogIncreaseTotal;
+  const catalogConvenience = Math.max(0, catalogValueListino - Number(String(catalogPrice || catalogFinalPrice || 0).replace(',', '.')));
+
+  function addCatalogIncrease() {
+    const amount = Number(String(catalogIncreaseInput || 0).replace(',', '.'));
+
+    if (!amount || amount <= 0) {
+      setMessage('Inserisci un valore valido per aumentare il prezzo della card catalogo.');
+      return;
+    }
+
+    setCatalogIncreaseTotal((prev) => prev + amount);
+    setCatalogIncreaseInput('');
+  }
+
+  function useCalculatedCatalogPrice() {
+    setCatalogPrice(String(catalogFinalPrice.toFixed(2)));
   }
 
   function saveCatalogCard() {
     const name = catalogName.trim();
-    const price = Number(String(catalogPrice || 0).replace(',', '.'));
+    const price = Number(String(catalogPrice || catalogFinalPrice || 0).replace(',', '.'));
 
     if (!name) {
       setMessage('Inserisci il nome della card.');
@@ -140,11 +247,17 @@ export default function MarketingPage() {
     }
 
     if (!price || price <= 0) {
-      setMessage('Inserisci un prezzo valido.');
+      setMessage('Inserisci un prezzo valido oppure calcolalo dal carrello.');
       return;
     }
 
-    const nextCard = { name, price };
+    const nextCard: CatalogCard = {
+      name,
+      price,
+      sessionsCount: catalogSessionsCount,
+      sessions: catalogSessions,
+      increaseTotal: catalogIncreaseTotal,
+    };
 
     setCatalogCards((prev) => {
       if (editingCatalogIndex === null) {
@@ -161,7 +274,11 @@ export default function MarketingPage() {
     setEditingCatalogIndex(null);
     setCatalogName('');
     setCatalogPrice('');
-    setMessage(editingCatalogIndex === null ? '✅ Card catalogo creata.' : '✅ Card catalogo aggiornata.');
+    setCatalogSessionsCount(4);
+    setCatalogSessions(emptyCatalogSessions(4));
+    setCatalogIncreaseInput('');
+    setCatalogIncreaseTotal(0);
+    setMessage(editingCatalogIndex === null ? '✅ Card catalogo creata con carrello.' : '✅ Card catalogo aggiornata con carrello.');
   }
 
   function deleteCatalogCard(index: number) {
@@ -328,6 +445,126 @@ export default function MarketingPage() {
                 <button style={smallPurple} onClick={saveCatalogCard}>
                   {editingCatalogIndex === null ? 'Crea card' : 'Salva modifica'}
                 </button>
+              </div>
+
+              <div style={catalogBuilderBox}>
+                <div style={sectionHeader}>
+                  <div>
+                    <div style={greenKicker}>Carrello della card</div>
+                    <h2 style={sectionTitle}>{catalogSessionsCount} sedute</h2>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span className="sp-muted">Sedute:</span>
+                    <select
+                      className="sp-input"
+                      style={{ width: 90 }}
+                      value={catalogSessionsCount}
+                      onChange={(e) => setCatalogSessionCount(Number(e.target.value))}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
+                        <option key={n}>{n}</option>
+                      ))}
+                    </select>
+
+                    <div style={priceBadge}>Prezzo calcolato: € {catalogFinalPrice.toFixed(2)}</div>
+                    <button style={smallPurple} onClick={useCalculatedCatalogPrice}>
+                      Usa prezzo calcolato
+                    </button>
+                  </div>
+                </div>
+
+                <div style={catalogSessionsGrid}>
+                  {catalogSessions.map((session, index) => (
+                    <div key={index} style={sessionCard}>
+                      <h3 style={{ color: '#d4af37', marginTop: 0 }}>Seduta {index + 1}</h3>
+
+                      <select
+                        className="sp-input"
+                        value={session.paidService}
+                        onChange={(e) => updateCatalogSession(index, 'paidService', e.target.value)}
+                      >
+                        <option value="">+ Servizio a pagamento...</option>
+                        {services.map((service) => (
+                          <option key={service}>{service}</option>
+                        ))}
+                      </select>
+
+                      <select
+                        className="sp-input"
+                        style={{ marginTop: 10 }}
+                        value={session.paidProduct}
+                        onChange={(e) => updateCatalogSession(index, 'paidProduct', e.target.value)}
+                      >
+                        <option value="">+ Prodotto a pagamento...</option>
+                        <option>Shampoo specifico</option>
+                        <option>Maschera nutriente</option>
+                        <option>Siero gloss</option>
+                      </select>
+
+                      <select
+                        className="sp-input"
+                        style={{ marginTop: 10 }}
+                        value={session.giftService}
+                        onChange={(e) => updateCatalogSession(index, 'giftService', e.target.value)}
+                      >
+                        <option value="">+ Servizio in omaggio...</option>
+                        {services.map((service) => (
+                          <option key={service}>{service}</option>
+                        ))}
+                      </select>
+
+                      <select
+                        className="sp-input"
+                        style={{ marginTop: 10 }}
+                        value={session.giftProduct}
+                        onChange={(e) => updateCatalogSession(index, 'giftProduct', e.target.value)}
+                      >
+                        <option value="">+ Prodotto omaggio...</option>
+                        <option>Mini shampoo</option>
+                        <option>Fiala trattamento</option>
+                        <option>Campione premium</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={increaseBox}>
+                  <div>
+                    <div style={greenKicker}>Aumento prezzo card</div>
+                    <div className="sp-muted" style={{ marginTop: 4 }}>
+                      Aggiungi un extra al prezzo calcolato della card.
+                    </div>
+                  </div>
+
+                  <input
+                    className="sp-input"
+                    placeholder="Valore aumento €"
+                    value={catalogIncreaseInput}
+                    onChange={(e) => setCatalogIncreaseInput(e.target.value)}
+                  />
+
+                  <button style={smallPurple} onClick={addCatalogIncrease}>
+                    Aggiungi
+                  </button>
+
+                  <button
+                    style={miniBtn}
+                    onClick={() => {
+                      setCatalogIncreaseTotal(0);
+                      setCatalogIncreaseInput('');
+                    }}
+                  >
+                    Azzera
+                  </button>
+                </div>
+
+                <div style={summaryGrid}>
+                  <Summary label="Valore a listino" value={`€ ${catalogValueListino.toFixed(2)}`} />
+                  <Summary label="Prezzo calcolato" value={`€ ${catalogFinalPrice.toFixed(2)}`} />
+                  <Summary label="Convenienza Cliente" value={`€ ${catalogConvenience.toFixed(2)}`} />
+                  <Summary label="Sedute" value={String(catalogSessionsCount)} />
+                </div>
               </div>
 
               <div style={{ marginTop: 20, overflowX: 'auto' }}>
@@ -693,8 +930,8 @@ const modalBackdrop: React.CSSProperties = {
 };
 
 const catalogModal: React.CSSProperties = {
-  width: 'min(980px, 100%)',
-  maxHeight: '86vh',
+  width: 'min(1500px, 96vw)',
+  maxHeight: '90vh',
   overflowY: 'auto',
   borderRadius: 28,
   padding: 24,
@@ -869,6 +1106,21 @@ const increaseBox: React.CSSProperties = {
   borderRadius: 18,
   background: 'rgba(255,255,255,0.045)',
   border: '1px solid rgba(212,175,55,0.22)',
+};
+
+
+const catalogBuilderBox: React.CSSProperties = {
+  marginTop: 22,
+  padding: 18,
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.045)',
+  border: '1px solid rgba(212,175,55,0.22)',
+};
+
+const catalogSessionsGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(260px, 1fr))',
+  gap: 14,
 };
 
 const summaryGrid: React.CSSProperties = {
