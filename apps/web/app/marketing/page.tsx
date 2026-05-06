@@ -2026,7 +2026,7 @@ export default function MarketingPage() {
           <div style={sectionHeader}>
             <div>
               <div style={greenKicker}>Configurazione messaggi WhatsApp</div>
-              <h2 style={sectionTitle}>Messaggi promozionali e conferma card</h2>
+              <h2 style={sectionTitle}>Template messaggi promozionali e conferma card</h2>
             </div>
 
             <div style={goldBadge}>Variabili automatiche</div>
@@ -2086,14 +2086,14 @@ export default function MarketingPage() {
               />
 
               <div className="sp-muted" style={{ marginTop: 12 }}>
-                Questo messaggio viene usato dal popup card quando clicchi “Invia WhatsApp”.
+                Questo messaggio viene usato nel punto in cui confermi o invii una card al cliente.
               </div>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
             <button className="sp-button-purple" onClick={saveMessageTemplates}>
-              Salva configurazione messaggi
+              Salva template messaggi
             </button>
 
             <button style={miniBtn} onClick={resetMessageTemplates}>
