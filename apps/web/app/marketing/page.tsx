@@ -201,6 +201,39 @@ export default function MarketingPage() {
     setMessage(`✅ Seduta catalogo ${index + 1} copiata su tutte.`);
   }
 
+
+  function addCatalogSessionValue(index: number, key: keyof SessionItem, value: string) {
+    if (!value) return;
+
+    setCatalogSessions((prev) =>
+      prev.map((session, i) => {
+        if (i !== index) return session;
+
+        const current = Array.isArray(session[key]) ? (session[key] as string[]) : [];
+
+        return {
+          ...session,
+          [key]: current.includes(value) ? current : [...current, value],
+        };
+      }),
+    );
+  }
+
+  function removeCatalogSessionValue(index: number, key: keyof SessionItem, value: string) {
+    setCatalogSessions((prev) =>
+      prev.map((session, i) => {
+        if (i !== index) return session;
+
+        const current = Array.isArray(session[key]) ? (session[key] as string[]) : [];
+
+        return {
+          ...session,
+          [key]: current.filter((item) => item !== value),
+        };
+      }),
+    );
+  }
+
   function updateCatalogSession(index: number, key: keyof SessionItem, value: string[]) {
     setCatalogSessions((prev) =>
       prev.map((session, i) =>
@@ -349,6 +382,39 @@ export default function MarketingPage() {
     setMessage(`✅ Seduta ${index + 1} copiata su tutte le sedute.`);
   }
 
+
+  function addSessionValue(index: number, key: keyof SessionItem, value: string) {
+    if (!value) return;
+
+    setSessions((prev) =>
+      prev.map((session, i) => {
+        if (i !== index) return session;
+
+        const current = Array.isArray(session[key]) ? (session[key] as string[]) : [];
+
+        return {
+          ...session,
+          [key]: current.includes(value) ? current : [...current, value],
+        };
+      }),
+    );
+  }
+
+  function removeSessionValue(index: number, key: keyof SessionItem, value: string) {
+    setSessions((prev) =>
+      prev.map((session, i) => {
+        if (i !== index) return session;
+
+        const current = Array.isArray(session[key]) ? (session[key] as string[]) : [];
+
+        return {
+          ...session,
+          [key]: current.filter((item) => item !== value),
+        };
+      }),
+    );
+  }
+
   function updateSession(index: number, key: keyof SessionItem, value: string[]) {
     setSessions((prev) =>
       prev.map((session, i) =>
@@ -460,7 +526,7 @@ export default function MarketingPage() {
 
               <div style={infoBox}>
                 Qui crei le card standard che vuoi riutilizzare dal menu “Scegli Card catalogo”.
-                Non è il carrello del percorso: è solo il catalogo delle card predefinite.
+                Ogni card può avere il proprio carrello percorso.
               </div>
 
               <div style={catalogFormGrid}>
@@ -488,14 +554,101 @@ export default function MarketingPage() {
                   <div>
                     <div style={greenKicker}>Carrello della card</div>
                     <h2 style={sectionTitle}>{catalogSessionsCount} sedute</h2>
-                    <p className="sp-muted" style={{ marginTop: 6 }}>Aggiungi più servizi e prodotti scegliendoli uno alla volta.</p>
+                    <p className="sp-muted" style={{ marginTop: 6 }}>
+                      Aggiungi più servizi e prodotti scegliendoli uno alla volta.
+                    </p>
                   </div>
 
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span className="sp-muted">Sedute:</span>
+
                     <select
+                      className="sp-input"
+                      style={{ width: 90 }}
+                      value={catalogSessionsCount}
+                      onChange={(e) => setCatalogSessionCount(Number(e.target.value))}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
+                        <option key={n}>{n}</option>
+                      ))}
+                    </select>
+
+                    <div style={priceBadge}>Prezzo calcolato: € {catalogFinalPrice.toFixed(2)}</div>
+
+                    <button style={smallPurple} onClick={useCalculatedCatalogPrice}>
+                      Usa prezzo calcolato
+                    </button>
+                  </div>
+                </div>
+
+                <div style={catalogSessionsGrid}>
+                  {catalogSessions.map((session, index) => (
+                    <div key={index} style={sessionCard}>
+                      <div style={sessionTitleRow}>
+                        <h3 style={{ color: '#d4af37', margin: 0 }}>Seduta {index + 1}</h3>
+
+                        <button
+                          type="button"
+                          style={copySessionButton}
+                          onClick={() => copyCatalogSessionToAll(index)}
+                        >
+                          Copia su tutte
+                        </button>
+                      </div>
+
+                      <select
                         className="sp-input"
-                        style={ marginTop: 10 }
+                        value=""
+                        onChange={(e) => addCatalogSessionValue(index, 'paidServices', e.target.value)}
+                      >
+                        <option value="">+ Servizio a pagamento...</option>
+                        {services.map((service) => (
+                          <option key={service}>{service}</option>
+                        ))}
+                      </select>
+
+                      <SelectedItems
+                        items={session.paidServices || []}
+                        onRemove={(item) => removeCatalogSessionValue(index, 'paidServices', item)}
+                      />
+
+                      <select
+                        className="sp-input"
+                        style={{ marginTop: 10 }}
+                        value=""
+                        onChange={(e) => addCatalogSessionValue(index, 'paidProducts', e.target.value)}
+                      >
+                        <option value="">+ Prodotto a pagamento...</option>
+                        <option>Shampoo specifico</option>
+                        <option>Maschera nutriente</option>
+                        <option>Siero gloss</option>
+                      </select>
+
+                      <SelectedItems
+                        items={session.paidProducts || []}
+                        onRemove={(item) => removeCatalogSessionValue(index, 'paidProducts', item)}
+                      />
+
+                      <select
+                        className="sp-input"
+                        style={{ marginTop: 10 }}
+                        value=""
+                        onChange={(e) => addCatalogSessionValue(index, 'giftServices', e.target.value)}
+                      >
+                        <option value="">+ Servizio in omaggio...</option>
+                        {services.map((service) => (
+                          <option key={service}>{service}</option>
+                        ))}
+                      </select>
+
+                      <SelectedItems
+                        items={session.giftServices || []}
+                        onRemove={(item) => removeCatalogSessionValue(index, 'giftServices', item)}
+                      />
+
+                      <select
+                        className="sp-input"
+                        style={{ marginTop: 10 }}
                         value=""
                         onChange={(e) => addCatalogSessionValue(index, 'giftProducts', e.target.value)}
                       >
@@ -509,6 +662,189 @@ export default function MarketingPage() {
                         items={session.giftProducts || []}
                         onRemove={(item) => removeCatalogSessionValue(index, 'giftProducts', item)}
                       />
+                    </div>
+                  ))}
+                </div>
+
+                <div style={increaseBox}>
+                  <div>
+                    <div style={greenKicker}>Aumento prezzo card</div>
+                    <div className="sp-muted" style={{ marginTop: 4 }}>
+                      Aggiungi un extra al prezzo calcolato della card.
+                    </div>
+                  </div>
+
+                  <input
+                    className="sp-input"
+                    placeholder="Valore aumento €"
+                    value={catalogIncreaseInput}
+                    onChange={(e) => setCatalogIncreaseInput(e.target.value)}
+                  />
+
+                  <button style={smallPurple} onClick={addCatalogIncrease}>
+                    Aggiungi
+                  </button>
+
+                  <button
+                    style={miniBtn}
+                    onClick={() => {
+                      setCatalogIncreaseTotal(0);
+                      setCatalogIncreaseInput('');
+                    }}
+                  >
+                    Azzera
+                  </button>
+                </div>
+
+                <div style={summaryGrid}>
+                  <Summary label="Valore a listino" value={`€ ${catalogValueListino.toFixed(2)}`} />
+                  <Summary label="Prezzo calcolato" value={`€ ${catalogFinalPrice.toFixed(2)}`} />
+                  <Summary label="Convenienza Cliente" value={`€ ${catalogConvenience.toFixed(2)}`} />
+                  <Summary label="Sedute" value={String(catalogSessionsCount)} />
+                </div>
+              </div>
+
+              <div style={{ marginTop: 20, overflowX: 'auto' }}>
+                <table style={table}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Nome card</th>
+                      <th style={th}>Prezzo</th>
+                      <th style={th}>Azioni</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {catalogCards.map((card, index) => (
+                      <tr key={`${card.name}-${index}`}>
+                        <td style={td}>{card.name}</td>
+                        <td style={td}>€ {card.price.toFixed(2)}</td>
+                        <td style={td}>
+                          <button style={miniPurple} onClick={() => openEditCatalogCard(index)}>
+                            Modifica
+                          </button>{' '}
+                          <button style={miniDanger} onClick={() => deleteCatalogCard(index)}>
+                            Elimina
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <section className="sp-card" style={cardPad}>
+          <div style={sectionHeader}>
+            <div>
+              <div style={greenKicker}>Carrello percorso</div>
+              <h2 style={sectionTitle}>{sessionsCount} sedute</h2>
+              <p className="sp-muted" style={{ marginTop: 6 }}>
+                Aggiungi più servizi e prodotti scegliendoli uno alla volta.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span className="sp-muted">Sedute:</span>
+              <select
+                className="sp-input"
+                style={{ width: 90 }}
+                value={sessionsCount}
+                onChange={(e) => setSessionCount(Number(e.target.value))}
+              >
+                {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
+                  <option key={n}>{n}</option>
+                ))}
+              </select>
+
+              <div style={priceBadge}>Prezzo Card: € {cardPrice.toFixed(2)}</div>
+              <div style={priceBadge}>Base: € {calculatedCardPrice.toFixed(2)}</div>
+              <button style={smallPurple} onClick={resetCart}>Reset</button>
+            </div>
+          </div>
+
+          <div style={sessionsGrid}>
+            {sessions.map((session, index) => (
+              <div key={index} style={sessionCard}>
+                <div style={sessionTitleRow}>
+                  <h3 style={{ color: '#d4af37', margin: 0 }}>Seduta {index + 1}</h3>
+                  <button
+                    type="button"
+                    style={copySessionButton}
+                    onClick={() => copySessionToAll(index)}
+                  >
+                    Copia su tutte
+                  </button>
+                </div>
+
+                <select
+                  className="sp-input"
+                  value=""
+                  onChange={(e) => addSessionValue(index, 'paidServices', e.target.value)}
+                >
+                  <option value="">+ Servizio a pagamento...</option>
+                  {services.map((service) => (
+                    <option key={service}>{service}</option>
+                  ))}
+                </select>
+
+                <SelectedItems
+                  items={session.paidServices || []}
+                  onRemove={(item) => removeSessionValue(index, 'paidServices', item)}
+                />
+
+                <select
+                  className="sp-input"
+                  style={{ marginTop: 10 }}
+                  value=""
+                  onChange={(e) => addSessionValue(index, 'paidProducts', e.target.value)}
+                >
+                  <option value="">+ Prodotto a pagamento...</option>
+                  <option>Shampoo specifico</option>
+                  <option>Maschera nutriente</option>
+                  <option>Siero gloss</option>
+                </select>
+
+                <SelectedItems
+                  items={session.paidProducts || []}
+                  onRemove={(item) => removeSessionValue(index, 'paidProducts', item)}
+                />
+
+                <select
+                  className="sp-input"
+                  style={{ marginTop: 10 }}
+                  value=""
+                  onChange={(e) => addSessionValue(index, 'giftServices', e.target.value)}
+                >
+                  <option value="">+ Servizio in omaggio...</option>
+                  {services.map((service) => (
+                    <option key={service}>{service}</option>
+                  ))}
+                </select>
+
+                <SelectedItems
+                  items={session.giftServices || []}
+                  onRemove={(item) => removeSessionValue(index, 'giftServices', item)}
+                />
+
+                <select
+                  className="sp-input"
+                  style={{ marginTop: 10 }}
+                  value=""
+                  onChange={(e) => addSessionValue(index, 'giftProducts', e.target.value)}
+                >
+                  <option value="">+ Prodotto omaggio...</option>
+                  <option>Mini shampoo</option>
+                  <option>Fiala trattamento</option>
+                  <option>Campione premium</option>
+                </select>
+
+                <SelectedItems
+                  items={session.giftProducts || []}
+                  onRemove={(item) => removeSessionValue(index, 'giftProducts', item)}
+                />
               </div>
             ))}
           </div>
