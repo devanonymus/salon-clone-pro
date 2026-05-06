@@ -2037,23 +2037,6 @@ export default function MarketingPage() {
             <strong> {"{nome_cliente}"} {"{nome_card}"} {"{prezzo_card}"} {"{sedute}"} {"{prezzo_seduta}"} {"{salone}"} {"{firma}"}</strong>
           </div>
 
-          <div style={grid2}>
-            <input
-              className="sp-input"
-              placeholder="Nome cliente per messaggio"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-            />
-
-            <input
-              className="sp-input"
-              placeholder="WhatsApp cliente per invio promo"
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-            />
-          </div>
-
-          <div style={{ marginTop: 18 }} />
 
           <div style={messageTemplateGrid}>
             <div>
@@ -2065,15 +2048,6 @@ export default function MarketingPage() {
                 onChange={(e) => updateMessageTemplate('promo', e.target.value)}
               />
 
-              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                <button style={smallPurple} onClick={copyPromoMessage}>
-                  Copia promo
-                </button>
-
-                <button style={smallPurple} onClick={openPromoWhatsapp}>
-                  Invia promo WhatsApp
-                </button>
-              </div>
             </div>
 
             <div>
