@@ -927,12 +927,12 @@ export default function MarketingPage() {
 
   async function activateCard() {
     if (!selectedClientTenantId) {
-      setMessage('Seleziona un cliente dalla lista.');
+      setMessage('⚠️ Seleziona un cliente dalla lista clienti.');
       return;
     }
 
     if (!clientName.trim()) {
-      setMessage('Cliente non valido.');
+      setMessage('⚠️ Cliente non valido.');
       return;
     }
 
@@ -946,15 +946,14 @@ export default function MarketingPage() {
           increaseTotal: cardIncreaseTotal,
         };
 
-    const newCard: ActiveCard = {
-      client: clientName.trim(),
-      card: soldCard.name,
-      whatsapp: whatsapp.trim() || 'Non inserito',
-      used: 0,
-      total: sessionsCount,
-    };
+    const dateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-card-date]'));
+    const timeInputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-card-time]'));
 
-    let savedSale: ActiveCard | null = null;
+    const plannedAppointments = Array.from({ length: sessionsCount }).map((_, index) => ({
+      index,
+      date: dateInputs[index]?.value || '',
+      time: timeInputs[index]?.value || '',
+    }));
 
     try {
       const saved = await marketingFetch('/marketing/cards/sales', {
@@ -967,22 +966,30 @@ export default function MarketingPage() {
           price: Number(soldCard.price || cardPrice || 0),
           total: sessionsCount,
           sessions,
-          appointments: [],
+          appointments: plannedAppointments,
         }),
       });
 
-      savedSale = normalizeSoldCard(saved);
-      setActiveCards((prev) => [savedSale as ActiveCard, ...prev]);
+      const savedSale = normalizeSoldCard(saved);
+      setActiveCards((prev) => [savedSale, ...prev]);
+
+      // Questo apre subito il popup operativo PDF/WhatsApp.
+      setPreviewCard({
+        ...soldCard,
+        price: Number(soldCard.price || cardPrice || 0),
+        sessionsCount,
+        sessions,
+      });
+      setPreviewClientName(clientName);
+      setPreviewWhatsapp(whatsapp);
     } catch (err: any) {
       console.error(err);
-      setMessage(`⚠️ ${err.message || 'Errore salvataggio card venduta'}`);
+      setMessage(`⚠️ Card non salvata: ${err.message || 'errore salvataggio card venduta'}`);
       return;
     }
 
-    const dateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-card-date]'));
-    const timeInputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-card-time]'));
-
     let createdAppointments = 0;
+    let failedAppointments = 0;
 
     if (operator) {
       for (let index = 0; index < sessionsCount; index += 1) {
@@ -1016,20 +1023,28 @@ export default function MarketingPage() {
 
           createdAppointments += 1;
         } catch (err) {
-          console.error(err);
+          console.error('Errore creazione appuntamento card', err);
+          failedAppointments += 1;
         }
       }
     }
 
-    setPreviewCard(soldCard);
-    setPreviewClientName(clientName);
-    setPreviewWhatsapp(whatsapp);
+    if (!operator) {
+      setMessage('✅ Card venduta e salvata. Popup aperto. Appuntamenti non creati: seleziona un operatore.');
+      return;
+    }
 
-    setMessage(
-      createdAppointments > 0
-        ? `✅ Card attivata e ${createdAppointments} appuntamenti creati in agenda.`
-        : '✅ Card attivata. Ora puoi inviare WhatsApp o stampare il PDF.'
-    );
+    if (createdAppointments > 0 && failedAppointments === 0) {
+      setMessage(`✅ Card venduta, salvata e ${createdAppointments} appuntamenti creati in agenda.`);
+      return;
+    }
+
+    if (createdAppointments > 0 && failedAppointments > 0) {
+      setMessage(`✅ Card venduta. ${createdAppointments} appuntamenti creati, ${failedAppointments} non creati.`);
+      return;
+    }
+
+    setMessage('✅ Card venduta e salvata. Popup aperto. Nessun appuntamento creato: controlla date, orari e operatore.');
   }
 
   async function useCard(index: number) {
