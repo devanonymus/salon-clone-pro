@@ -100,6 +100,41 @@ export default function MarketingPage() {
   );
   const [activeCards, setActiveCards] = useState<ActiveCard[]>(defaultActiveCards);
   const [message, setMessage] = useState('');
+
+  const [messageTemplates, setMessageTemplates] = useState({
+    promo: [
+      "Ciao {nome_cliente} 💛",
+      "",
+      "Abbiamo preparato una proposta speciale pensata per mantenere il risultato nel tempo:",
+      "*{nome_card}*",
+      "",
+      "Prezzo card: € {prezzo_card}",
+      "Sedute incluse: {sedute}",
+      "Prezzo medio per seduta: € {prezzo_seduta}",
+      "",
+      "È un percorso pensato per darti continuità, ordine e valore, senza dover improvvisare ogni volta.",
+      "",
+      "Vuoi che ti blocchiamo questa possibilità?",
+      "",
+      "{firma}",
+    ].join("\n"),
+    confirm: [
+      "Ciao {nome_cliente} 💛",
+      "",
+      "Ti confermiamo la tua card:",
+      "*{nome_card}*",
+      "",
+      "Prezzo card: € {prezzo_card}",
+      "Sedute incluse: {sedute}",
+      "Prezzo medio per seduta: € {prezzo_seduta}",
+      "",
+      "Il tuo percorso è stato pensato per mantenere il risultato nel tempo e farti vivere ogni seduta con continuità.",
+      "",
+      "Ti aspettiamo in salone.",
+      "",
+      "{firma}",
+    ].join("\n"),
+  });
   const [previewCard, setPreviewCard] = useState<CatalogCard | null>(null);
   const [previewClientName, setPreviewClientName] = useState('');
   const [previewWhatsapp, setPreviewWhatsapp] = useState('');
@@ -221,6 +256,23 @@ export default function MarketingPage() {
       setMessage(`⚠️ ${err.message || 'Errore caricamento card catalogo'}`);
     }
   }
+
+
+  useEffect(() => {
+    const saved = localStorage.getItem('salonpro_marketing_message_templates');
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setMessageTemplates((prev) => ({
+          ...prev,
+          ...parsed,
+        }));
+      } catch {
+        // Ignora configurazioni locali non valide
+      }
+    }
+  }, []);
 
   const selectedCatalog = catalogCards.find((card) => card.name === selectedCard);
 
@@ -643,6 +695,99 @@ export default function MarketingPage() {
 
   const dates = autoDates();
 
+
+  function updateMessageTemplate(field: 'promo' | 'confirm', value: string) {
+    setMessageTemplates((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }
+
+  function saveMessageTemplates() {
+    localStorage.setItem('salonpro_marketing_message_templates', JSON.stringify(messageTemplates));
+    setMessage('✅ Template messaggi WhatsApp salvati su questo dispositivo.');
+  }
+
+  function resetMessageTemplates() {
+    const ok = confirm('Vuoi ripristinare i messaggi WhatsApp standard?');
+    if (!ok) return;
+
+    const defaults = {
+      promo: [
+        "Ciao {nome_cliente} 💛",
+        "",
+        "Abbiamo preparato una proposta speciale pensata per mantenere il risultato nel tempo:",
+        "*{nome_card}*",
+        "",
+        "Prezzo card: € {prezzo_card}",
+        "Sedute incluse: {sedute}",
+        "Prezzo medio per seduta: € {prezzo_seduta}",
+        "",
+        "È un percorso pensato per darti continuità, ordine e valore, senza dover improvvisare ogni volta.",
+        "",
+        "Vuoi che ti blocchiamo questa possibilità?",
+        "",
+        "{firma}",
+      ].join("\\n"),
+      confirm: [
+        "Ciao {nome_cliente} 💛",
+        "",
+        "Ti confermiamo la tua card:",
+        "*{nome_card}*",
+        "",
+        "Prezzo card: € {prezzo_card}",
+        "Sedute incluse: {sedute}",
+        "Prezzo medio per seduta: € {prezzo_seduta}",
+        "",
+        "Il tuo percorso è stato pensato per mantenere il risultato nel tempo e farti vivere ogni seduta con continuità.",
+        "",
+        "Ti aspettiamo in salone.",
+        "",
+        "{firma}",
+      ].join("\\n"),
+    };
+
+    setMessageTemplates(defaults);
+    localStorage.setItem('salonpro_marketing_message_templates', JSON.stringify(defaults));
+    setMessage('✅ Template messaggi WhatsApp ripristinati.');
+  }
+
+  function applyWhatsappTemplate(template: string, card?: CatalogCard) {
+    const activeCard = card || selectedCatalog || null;
+    const sessionsTotal = activeCard?.sessionsCount || activeCard?.sessions?.length || sessionsCount || 1;
+    const price = Number(activeCard?.price || cardPrice || 0);
+    const pricePerSession = sessionsTotal > 0 ? price / sessionsTotal : price;
+
+    return template
+      .replaceAll('{nome_cliente}', clientName || previewClientName || 'cliente')
+      .replaceAll('{nome_card}', activeCard?.name || cardName || 'Card percorso')
+      .replaceAll('{prezzo_card}', price.toFixed(2))
+      .replaceAll('{sedute}', String(sessionsTotal))
+      .replaceAll('{prezzo_seduta}', pricePerSession.toFixed(2))
+      .replaceAll('{salone}', pdfTemplate?.salonName || 'Acquaviva Strategic')
+      .replaceAll('{firma}', pdfTemplate?.signature || 'Il tuo salone di fiducia');
+  }
+
+  function openPromoWhatsapp() {
+    const phone = whatsapp.replace(/\D/g, '');
+
+    if (!phone) {
+      setMessage('Inserisci il numero WhatsApp cliente nel campo WhatsApp sopra.');
+      return;
+    }
+
+    const phoneWithPrefix = phone.startsWith('39') ? phone : `39${phone}`;
+    const text = applyWhatsappTemplate(messageTemplates.promo);
+
+    window.open(`https://wa.me/${phoneWithPrefix}?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
+  function copyPromoMessage() {
+    const text = applyWhatsappTemplate(messageTemplates.promo);
+    navigator.clipboard.writeText(text);
+    setMessage('✅ Messaggio promozionale copiato.');
+  }
+
   function activateCard() {
     if (!clientName.trim()) {
       setMessage('Inserisci il nome cliente.');
@@ -691,44 +836,7 @@ export default function MarketingPage() {
 
 
   function buildPreviewWhatsappText(card: CatalogCard) {
-    const sessionsTotal = card.sessionsCount || card.sessions?.length || 1;
-    const price = Number(card.price || 0);
-    const pricePerSession = sessionsTotal > 0 ? price / sessionsTotal : price;
-
-    const sessionsText = (card.sessions || [])
-      .map((session, index) => {
-        const items = [
-          ...(session.paidServices || []).map((item) => `• ${item}`),
-          ...(session.paidProducts || []).map((item) => `• ${item}`),
-          ...(session.giftServices || []).map((item) => `🎁 Bonus: ${item}`),
-          ...(session.giftProducts || []).map((item) => `🎁 Bonus: ${item}`),
-        ];
-
-        return `Seduta ${index + 1}: ${items.length ? items.join(' · ') : 'da personalizzare in salone'}`;
-      })
-      .join('\n');
-
-    return [
-      `Ciao ${previewClientName || ''} 💛`,
-      ``,
-      `Ti mando la proposta del percorso:`,
-      `*${card.name}*`,
-      ``,
-      `Prezzo card: € ${price.toFixed(2)}`,
-      `Sedute incluse: ${sessionsTotal}`,
-      `Prezzo medio per seduta: € ${pricePerSession.toFixed(2)}`,
-      ``,
-      pdfTemplate.promiseText,
-      ``,
-      `Cosa include:`,
-      sessionsText || 'Percorso configurabile in salone.',
-      ``,
-      pdfTemplate.urgencyText,
-      ``,
-      pdfTemplate.ctaText,
-      ``,
-      pdfTemplate.signature,
-    ].join('\n');
+    return applyWhatsappTemplate(messageTemplates.confirm, card);
   }
 
   function sendPreviewWhatsapp() {
@@ -1623,6 +1731,69 @@ export default function MarketingPage() {
           </div>
         </section>
 
+
+        <section className="sp-card" style={cardPad}>
+          <div style={sectionHeader}>
+            <div>
+              <div style={greenKicker}>Configurazione messaggi WhatsApp</div>
+              <h2 style={sectionTitle}>Messaggi promozionali e conferma card</h2>
+            </div>
+
+            <div style={goldBadge}>Variabili automatiche</div>
+          </div>
+
+          <div style={infoBox}>
+            Puoi usare queste variabili nei messaggi:
+            <strong> {"{nome_cliente}"} {"{nome_card}"} {"{prezzo_card}"} {"{sedute}"} {"{prezzo_seduta}"} {"{salone}"} {"{firma}"}</strong>
+          </div>
+
+          <div style={messageTemplateGrid}>
+            <div>
+              <label style={label}>Messaggio promozionale</label>
+              <textarea
+                className="sp-input"
+                rows={12}
+                value={messageTemplates.promo}
+                onChange={(e) => updateMessageTemplate('promo', e.target.value)}
+              />
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                <button style={smallPurple} onClick={copyPromoMessage}>
+                  Copia promo
+                </button>
+
+                <button style={smallPurple} onClick={openPromoWhatsapp}>
+                  Invia promo WhatsApp
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style={label}>Messaggio conferma card</label>
+              <textarea
+                className="sp-input"
+                rows={12}
+                value={messageTemplates.confirm}
+                onChange={(e) => updateMessageTemplate('confirm', e.target.value)}
+              />
+
+              <div className="sp-muted" style={{ marginTop: 12 }}>
+                Questo messaggio viene usato dal popup card quando clicchi “Invia WhatsApp”.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+            <button className="sp-button-purple" onClick={saveMessageTemplates}>
+              Salva configurazione messaggi
+            </button>
+
+            <button style={miniBtn} onClick={resetMessageTemplates}>
+              Ripristina standard
+            </button>
+          </div>
+        </section>
+
         <section className="sp-card" style={cardPad}>
           <div style={sectionHeader}>
             <div>
@@ -2068,6 +2239,12 @@ const infoBox: React.CSSProperties = {
   background: 'rgba(255,255,255,0.045)',
   border: '1px solid rgba(255,255,255,0.08)',
   marginBottom: 16,
+};
+
+const messageTemplateGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 18,
 };
 
 const grid4: React.CSSProperties = {
