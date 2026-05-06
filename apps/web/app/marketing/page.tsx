@@ -1,6 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'https://api-production-6aa5.up.railway.app';
+
 
 type SessionItem = {
   paidServices: string[];
@@ -25,23 +29,22 @@ type CatalogCard = {
   increaseTotal: number;
 };
 
-const services = [
-  'Piega',
-  'Taglio Donna',
-  'Colore Base',
-  'Colore Base + Piega',
-  'Balayage + Piega',
-  'Tonalizzante/Gloss',
-  'Ricostruzione Intensiva',
-  'Trattamento Idratazione Express',
-  'Plex Forte Repair Ricostruzione',
-];
+type ServicePrice = {
+  id: string;
+  name: string;
+  category: string;
+  duration: number;
+  price: number;
+  cost: number;
+  active: boolean;
+};
 
 const defaultCatalogCards: CatalogCard[] = [];
 
 const defaultActiveCards: ActiveCard[] = [];
 
 export default function MarketingPage() {
+  const [services, setServices] = useState<ServicePrice[]>([]);
   const [clientName, setClientName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [selectedCard, setSelectedCard] = useState('');
@@ -79,18 +82,62 @@ export default function MarketingPage() {
   const [activeCards, setActiveCards] = useState<ActiveCard[]>(defaultActiveCards);
   const [message, setMessage] = useState('');
 
+
+  async function loadServices() {
+    try {
+      const token =
+        localStorage.getItem('salonpro_token') || localStorage.getItem('token');
+
+      if (!token) return;
+
+      const res = await fetch(`${API_URL}/service-prices`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || 'Errore caricamento listino servizi');
+      }
+
+      setServices(Array.isArray(data) ? data.filter((item) => item.active !== false) : []);
+    } catch (err) {
+      console.error(err);
+      setMessage('⚠️ Errore caricamento listino servizi reali.');
+    }
+  }
+
+  useEffect(() => {
+    loadServices();
+  }, []);
+
   const selectedCatalog = catalogCards.find((card) => card.name === selectedCard);
 
   const cardName = selectedCatalog?.name || manualCardName || 'Nuova Card';
+
+
+  function getServiceValue(serviceName: string) {
+    const service = services.find((item) => item.name === serviceName);
+    return Number(service?.price || 0);
+  }
+
+  function getServiceCost(serviceName: string) {
+    const service = services.find((item) => item.name === serviceName);
+    return Number(service?.cost || 0);
+  }
+
+
 
   const valueListino = useMemo(() => {
     return sessions.reduce((sum, session) => {
       let subtotal = 0;
 
-      subtotal += session.paidServices.reduce((total, item) => total + serviceValue(item), 0);
+      subtotal += session.paidServices.reduce((total, item) => total + getServiceValue(item), 0);
       subtotal += session.paidProducts.reduce((total, item) => total + productValue(item), 0);
 
-      subtotal += session.giftServices.reduce((total, item) => total + serviceValue(item), 0);
+      subtotal += session.giftServices.reduce((total, item) => total + getServiceValue(item), 0);
       subtotal += session.giftProducts.reduce((total, item) => total + productValue(item), 0);
 
       return sum + subtotal;
@@ -101,10 +148,10 @@ export default function MarketingPage() {
     return sessions.reduce((sum, session) => {
       let subtotal = 0;
 
-      subtotal += session.paidServices.reduce((total, item) => total + serviceValue(item), 0);
+      subtotal += session.paidServices.reduce((total, item) => total + getServiceValue(item), 0);
       subtotal += session.paidProducts.reduce((total, item) => total + productValue(item), 0);
 
-      subtotal += session.giftServices.reduce((total, item) => total + serviceCost(item), 0);
+      subtotal += session.giftServices.reduce((total, item) => total + getServiceCost(item), 0);
       subtotal += session.giftProducts.reduce((total, item) => total + productCost(item), 0);
 
       return sum + subtotal;
@@ -250,9 +297,9 @@ export default function MarketingPage() {
   const catalogValueListino = catalogSessions.reduce((sum, session) => {
     let subtotal = 0;
 
-    subtotal += session.paidServices.reduce((total, item) => total + serviceValue(item), 0);
+    subtotal += session.paidServices.reduce((total, item) => total + getServiceValue(item), 0);
     subtotal += session.paidProducts.reduce((total, item) => total + productValue(item), 0);
-    subtotal += session.giftServices.reduce((total, item) => total + serviceValue(item), 0);
+    subtotal += session.giftServices.reduce((total, item) => total + getServiceValue(item), 0);
     subtotal += session.giftProducts.reduce((total, item) => total + productValue(item), 0);
 
     return sum + subtotal;
@@ -261,9 +308,9 @@ export default function MarketingPage() {
   const catalogCalculatedPrice = catalogSessions.reduce((sum, session) => {
     let subtotal = 0;
 
-    subtotal += session.paidServices.reduce((total, item) => total + serviceValue(item), 0);
+    subtotal += session.paidServices.reduce((total, item) => total + getServiceValue(item), 0);
     subtotal += session.paidProducts.reduce((total, item) => total + productValue(item), 0);
-    subtotal += session.giftServices.reduce((total, item) => total + serviceCost(item), 0);
+    subtotal += session.giftServices.reduce((total, item) => total + getServiceCost(item), 0);
     subtotal += session.giftProducts.reduce((total, item) => total + productCost(item), 0);
 
     return sum + subtotal;
@@ -627,8 +674,13 @@ export default function MarketingPage() {
                         onChange={(e) => addCatalogSessionValue(index, 'paidServices', e.target.value)}
                       >
                         <option value="">+ Servizio a pagamento...</option>
+                        {services.length === 0 ? (
+                          <option disabled>Nessun servizio nel listino reale</option>
+                        ) : null}
                         {services.map((service) => (
-                          <option key={service}>{service}</option>
+                          <option key={service.id} value={service.name}>
+                            {service.name} · € {Number(service.price || 0).toFixed(2)}
+                          </option>
                         ))}
                       </select>
 
@@ -662,7 +714,9 @@ export default function MarketingPage() {
                       >
                         <option value="">+ Servizio in omaggio...</option>
                         {services.map((service) => (
-                          <option key={service}>{service}</option>
+                          <option key={service.id} value={service.name}>
+                            {service.name} · € {Number(service.price || 0).toFixed(2)}
+                          </option>
                         ))}
                       </select>
 
@@ -906,8 +960,13 @@ export default function MarketingPage() {
                   onChange={(e) => addSessionValue(index, 'paidServices', e.target.value)}
                 >
                   <option value="">+ Servizio a pagamento...</option>
+                  {services.length === 0 ? (
+                    <option disabled>Nessun servizio nel listino reale</option>
+                  ) : null}
                   {services.map((service) => (
-                    <option key={service}>{service}</option>
+                    <option key={service.id} value={service.name}>
+                      {service.name} · € {Number(service.price || 0).toFixed(2)}
+                    </option>
                   ))}
                 </select>
 
@@ -941,7 +1000,9 @@ export default function MarketingPage() {
                 >
                   <option value="">+ Servizio in omaggio...</option>
                   {services.map((service) => (
-                    <option key={service}>{service}</option>
+                    <option key={service.id} value={service.name}>
+                      {service.name} · € {Number(service.price || 0).toFixed(2)}
+                    </option>
                   ))}
                 </select>
 
