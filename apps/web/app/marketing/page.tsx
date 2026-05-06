@@ -58,12 +58,31 @@ type ServicePrice = {
   active: boolean;
 };
 
+type ClientItem = {
+  id: string;
+  clientGlobal?: {
+    id?: string;
+    name?: string;
+    phone?: string;
+  };
+  name?: string;
+  phone?: string;
+};
+
+type StaffItem = {
+  id: string;
+  name: string;
+};
+
 const defaultCatalogCards: CatalogCard[] = [];
 
 const defaultActiveCards: ActiveCard[] = [];
 
 export default function MarketingPage() {
   const [services, setServices] = useState<ServicePrice[]>([]);
+  const [clients, setClients] = useState<ClientItem[]>([]);
+  const [selectedClientTenantId, setSelectedClientTenantId] = useState('');
+  const [staffMembers, setStaffMembers] = useState<StaffItem[]>([]);
   const [clientName, setClientName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [selectedCard, setSelectedCard] = useState('');
@@ -157,6 +176,61 @@ export default function MarketingPage() {
   });
 
 
+
+  function getClientName(client: ClientItem) {
+    return client.clientGlobal?.name || client.name || 'Cliente senza nome';
+  }
+
+  function getClientPhone(client: ClientItem) {
+    return client.clientGlobal?.phone || client.phone || '';
+  }
+
+  async function loadClients() {
+    try {
+      const data = await marketingFetch('/clients');
+      setClients(Array.isArray(data) ? data : []);
+
+      if (Array.isArray(data) && data.length && !selectedClientTenantId) {
+        const first = data[0];
+        setSelectedClientTenantId(first.id);
+        setClientName(getClientName(first));
+        setWhatsapp(getClientPhone(first));
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMessage(`⚠️ ${err.message || 'Errore caricamento clienti'}`);
+    }
+  }
+
+  async function loadStaffMembers() {
+    try {
+      const data = await marketingFetch('/staff');
+      setStaffMembers(Array.isArray(data) ? data : []);
+
+      if (Array.isArray(data) && data.length && !operator) {
+        setOperator(data[0].id);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMessage(`⚠️ ${err.message || 'Errore caricamento staff'}`);
+    }
+  }
+
+  function chooseClient(clientTenantId: string) {
+    setSelectedClientTenantId(clientTenantId);
+
+    const client = clients.find((item) => item.id === clientTenantId);
+
+    if (!client) {
+      setClientName('');
+      setWhatsapp('');
+      return;
+    }
+
+    setClientName(getClientName(client));
+    setWhatsapp(getClientPhone(client));
+  }
+
   async function loadServices() {
     try {
       const token =
@@ -186,6 +260,8 @@ export default function MarketingPage() {
   useEffect(() => {
     loadServices();
     loadCatalogCards();
+    loadClients();
+    loadStaffMembers();
     loadPdfTemplate();
   }, []);
 
@@ -692,7 +768,7 @@ export default function MarketingPage() {
     const today = new Date();
     const gap = frequency.includes('15') ? 15 : frequency.includes('45') ? 45 : 30;
 
-    return Array.from({ length: 4 }).map((_, index) => {
+    return Array.from({ length: sessionsCount }).map((_, index) => {
       const d = new Date(today);
       d.setDate(today.getDate() + index * gap);
       return d.toISOString().slice(0, 10);
@@ -821,22 +897,90 @@ export default function MarketingPage() {
     setMessage('✅ Messaggio promozionale copiato.');
   }
 
-  function activateCard() {
-    if (!clientName.trim()) {
-      setMessage('Inserisci il nome cliente.');
+  async function activateCard() {
+    if (!selectedClientTenantId) {
+      setMessage('Seleziona un cliente dalla lista.');
       return;
     }
 
+    if (!clientName.trim()) {
+      setMessage('Cliente non valido.');
+      return;
+    }
+
+    const soldCard: CatalogCard = selectedCatalog
+      ? selectedCatalog
+      : {
+          name: cardName,
+          price: cardPrice,
+          sessionsCount,
+          sessions,
+          increaseTotal: cardIncreaseTotal,
+        };
+
     const newCard: ActiveCard = {
       client: clientName.trim(),
-      card: cardName,
+      card: soldCard.name,
       whatsapp: whatsapp.trim() || 'Non inserito',
       used: 0,
       total: sessionsCount,
     };
 
     setActiveCards((prev) => [newCard, ...prev]);
-    setMessage('✅ Card attivata. Ora puoi stamparla o usarla dal salone.');
+
+    const dateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-card-date]'));
+    const timeInputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-card-time]'));
+
+    let createdAppointments = 0;
+
+    if (operator) {
+      for (let index = 0; index < sessionsCount; index += 1) {
+        const date = dateInputs[index]?.value;
+        const time = timeInputs[index]?.value;
+
+        if (!date || !time) continue;
+
+        const session = sessions[index] || soldCard.sessions?.[index] || {
+          paidServices: [],
+          paidProducts: [],
+          giftServices: [],
+          giftProducts: [],
+        };
+
+        const appointmentServices = [
+          ...(session.paidServices || []),
+          ...(session.giftServices || []),
+        ];
+
+        try {
+          await marketingFetch('/appointments', {
+            method: 'POST',
+            body: JSON.stringify({
+              clientTenantId: selectedClientTenantId,
+              staffId: operator,
+              date,
+              time,
+              services: appointmentServices.length ? appointmentServices : [soldCard.name],
+              note: `Percorso card: ${soldCard.name} - Seduta ${index + 1}/${sessionsCount}`,
+            }),
+          });
+
+          createdAppointments += 1;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+
+    setPreviewCard(soldCard);
+    setPreviewClientName(clientName);
+    setPreviewWhatsapp(whatsapp);
+
+    setMessage(
+      createdAppointments > 0
+        ? `✅ Card attivata e ${createdAppointments} appuntamenti creati in agenda.`
+        : '✅ Card attivata. Ora puoi inviare WhatsApp o stampare il PDF.'
+    );
   }
 
   function useCard(index: number) {
@@ -1684,12 +1828,18 @@ export default function MarketingPage() {
           </div>
 
           <div style={grid4}>
-            <input
+            <select
               className="sp-input"
-              placeholder="Nome Cliente"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-            />
+              value={selectedClientTenantId}
+              onChange={(e) => chooseClient(e.target.value)}
+            >
+              <option value="">Seleziona cliente...</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {getClientName(client)} — {getClientPhone(client) || 'senza telefono'}
+                </option>
+              ))}
+            </select>
 
             <input
               className="sp-input"
@@ -1717,10 +1867,11 @@ export default function MarketingPage() {
               onChange={(e) => setOperator(e.target.value)}
             >
               <option value="">Operatore percorso</option>
-              <option>Brian</option>
-              <option>Katia</option>
-              <option>Pamela</option>
-              <option>Sonia</option>
+              {staffMembers.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1754,11 +1905,21 @@ export default function MarketingPage() {
           </div>
 
           <div style={datesGrid}>
-            {[0, 1, 2, 3].map((i) => (
+            {Array.from({ length: sessionsCount }).map((_, i) => (
               <div key={i}>
                 <label style={label}>{i + 1}ª Data</label>
-                <input className="sp-input" type="date" defaultValue={dates[i]} />
-                <input className="sp-input" type="time" style={{ marginTop: 8 }} />
+                <input
+                  className="sp-input"
+                  type="date"
+                  defaultValue={dates[i]}
+                  data-card-date={i}
+                />
+                <input
+                  className="sp-input"
+                  type="time"
+                  style={{ marginTop: 8 }}
+                  data-card-time={i}
+                />
               </div>
             ))}
           </div>
@@ -1974,7 +2135,25 @@ export default function MarketingPage() {
                       </div>
                     </td>
                     <td style={td}>
-                      <button style={miniBtn}>👁 Stampa</button>{' '}
+                      <button
+                        style={miniBtn}
+                        onClick={() => {
+                          const found = catalogCards.find((item) => item.name === card.card);
+                          const fallback: CatalogCard = {
+                            name: card.card,
+                            price: 0,
+                            sessionsCount: card.total,
+                            sessions: [],
+                            increaseTotal: 0,
+                          };
+
+                          setPreviewCard(found || fallback);
+                          setPreviewClientName(card.client);
+                          setPreviewWhatsapp(card.whatsapp);
+                        }}
+                      >
+                        👁 Stampa
+                      </button>{' '}
                       <button style={miniPurple} onClick={() => useCard(index)}>✅ Usa</button>{' '}
                       <button style={miniDanger} onClick={() => removeCard(index)}>🗑</button>
                     </td>
