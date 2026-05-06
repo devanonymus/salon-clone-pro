@@ -101,6 +101,8 @@ export default function MarketingPage() {
   const [activeCards, setActiveCards] = useState<ActiveCard[]>(defaultActiveCards);
   const [message, setMessage] = useState('');
   const [previewCard, setPreviewCard] = useState<CatalogCard | null>(null);
+  const [previewClientName, setPreviewClientName] = useState('');
+  const [previewWhatsapp, setPreviewWhatsapp] = useState('');
   const [pdfTemplate, setPdfTemplate] = useState<CardPdfTemplate>({
     logoUrl: "/acquaviva-strategic-logo.png",
     salonName: "Acquaviva Strategic",
@@ -679,11 +681,72 @@ export default function MarketingPage() {
 
   function openPreviewCard(card: CatalogCard) {
     setPreviewCard(card);
+    setPreviewClientName(clientName);
+    setPreviewWhatsapp(whatsapp);
   }
 
   function closePreviewCard() {
     setPreviewCard(null);
   }
+
+
+  function buildPreviewWhatsappText(card: CatalogCard) {
+    const sessionsTotal = card.sessionsCount || card.sessions?.length || 1;
+    const price = Number(card.price || 0);
+    const pricePerSession = sessionsTotal > 0 ? price / sessionsTotal : price;
+
+    const sessionsText = (card.sessions || [])
+      .map((session, index) => {
+        const items = [
+          ...(session.paidServices || []).map((item) => `• ${item}`),
+          ...(session.paidProducts || []).map((item) => `• ${item}`),
+          ...(session.giftServices || []).map((item) => `🎁 Bonus: ${item}`),
+          ...(session.giftProducts || []).map((item) => `🎁 Bonus: ${item}`),
+        ];
+
+        return `Seduta ${index + 1}: ${items.length ? items.join(' · ') : 'da personalizzare in salone'}`;
+      })
+      .join('\n');
+
+    return [
+      `Ciao ${previewClientName || ''} 💛`,
+      ``,
+      `Ti mando la proposta del percorso:`,
+      `*${card.name}*`,
+      ``,
+      `Prezzo card: € ${price.toFixed(2)}`,
+      `Sedute incluse: ${sessionsTotal}`,
+      `Prezzo medio per seduta: € ${pricePerSession.toFixed(2)}`,
+      ``,
+      pdfTemplate.promiseText,
+      ``,
+      `Cosa include:`,
+      sessionsText || 'Percorso configurabile in salone.',
+      ``,
+      pdfTemplate.urgencyText,
+      ``,
+      pdfTemplate.ctaText,
+      ``,
+      pdfTemplate.signature,
+    ].join('\n');
+  }
+
+  function sendPreviewWhatsapp() {
+    if (!previewCard) return;
+
+    const phone = previewWhatsapp.replace(/\D/g, '');
+
+    if (!phone) {
+      setMessage('Inserisci il numero WhatsApp cliente nel popup anteprima.');
+      return;
+    }
+
+    const text = buildPreviewWhatsappText(previewCard);
+    const phoneWithPrefix = phone.startsWith('39') ? phone : `39${phone}`;
+
+    window.open(`https://wa.me/${phoneWithPrefix}?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
 
   function printPreviewCard() {
     if (!previewCard) return;
@@ -701,15 +764,19 @@ export default function MarketingPage() {
     const primary = pdfTemplate.primaryColor || "#080808";
 
     const sessions = previewCard.sessions || [];
+    const sessionsTotal = previewCard.sessionsCount || sessions.length || 1;
+    const cardPrice = Number(previewCard.price || 0);
+    const pricePerSession = sessionsTotal > 0 ? cardPrice / sessionsTotal : cardPrice;
+
     const valueList = sessions.reduce((sum, session) => {
       const paidServices = (session.paidServices || []).reduce((t, item) => t + getServiceValue(item), 0);
       const paidProducts = (session.paidProducts || []).reduce((t, item) => t + productValue(item), 0);
       const giftServices = (session.giftServices || []).reduce((t, item) => t + getServiceValue(item), 0);
       const giftProducts = (session.giftProducts || []).reduce((t, item) => t + productValue(item), 0);
+
       return sum + paidServices + paidProducts + giftServices + giftProducts;
     }, 0);
 
-    const cardPrice = Number(previewCard.price || 0);
     const saving = Math.max(0, valueList - cardPrice);
 
     const sessionsHtml = sessions
@@ -726,7 +793,11 @@ export default function MarketingPage() {
 
         return `
           <div class="session">
-            <div class="session-number">Seduta ${index + 1}</div>
+            <div class="session-left">
+              <div class="session-number">Seduta ${index + 1}</div>
+              <div class="session-price">Valore medio: € ${pricePerSession.toFixed(2)}</div>
+            </div>
+
             <div class="session-content">
               <div class="session-main">${paid.length ? esc(paid.join(" · ")) : "Percorso da personalizzare in salone"}</div>
               ${gifts.length ? `<div class="session-gift">${esc(gifts.join(" · "))}</div>` : ""}
@@ -752,25 +823,23 @@ export default function MarketingPage() {
   <meta charset="utf-8" />
   <title>${esc(previewCard.name)}</title>
   <style>
-    @page { size: A4; margin: 14mm; }
+    @page { size: A4; margin: 12mm; }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
       font-family: Arial, Helvetica, sans-serif;
-      background: #f4f0e8;
+      background: #f2eee4;
       color: #111;
     }
 
     .sheet {
-      min-height: calc(297mm - 28mm);
-      padding: 0;
+      min-height: calc(297mm - 24mm);
       background: ${templateClass === "minimal" ? "#ffffff" : primary};
-      border-radius: 26px;
+      border-radius: 28px;
       overflow: hidden;
       border: 2px solid ${accent};
-      box-shadow: 0 18px 70px rgba(0,0,0,0.20);
       position: relative;
     }
 
@@ -779,14 +848,14 @@ export default function MarketingPage() {
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at top left, ${accent}55, transparent 34%),
-        radial-gradient(circle at bottom right, ${accent}33, transparent 30%);
+        radial-gradient(circle at top left, ${accent}60, transparent 33%),
+        radial-gradient(circle at bottom right, ${accent}40, transparent 34%);
       pointer-events: none;
     }
 
     .inner {
       position: relative;
-      padding: 34px;
+      padding: 30px;
       color: ${templateClass === "minimal" ? "#111" : "#fff"};
     }
 
@@ -795,19 +864,19 @@ export default function MarketingPage() {
       justify-content: space-between;
       gap: 24px;
       align-items: flex-start;
-      border-bottom: 1px solid ${accent}77;
-      padding-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid ${accent}88;
     }
 
     .logo {
-      max-width: 190px;
-      max-height: 86px;
+      max-width: 185px;
+      max-height: 80px;
       object-fit: contain;
     }
 
     .kicker {
       color: ${accent};
-      font-weight: 900;
+      font-weight: 950;
       letter-spacing: 3px;
       text-transform: uppercase;
       font-size: 12px;
@@ -816,148 +885,186 @@ export default function MarketingPage() {
 
     h1 {
       margin: 0;
-      font-size: ${templateClass === "direct" ? "43px" : "39px"};
-      line-height: 0.98;
-      letter-spacing: -1.2px;
-      max-width: 620px;
+      font-size: 42px;
+      line-height: 0.96;
+      letter-spacing: -1.4px;
+      max-width: 640px;
     }
 
     .subtitle {
       margin-top: 14px;
       font-size: 18px;
-      line-height: 1.45;
+      line-height: 1.4;
       color: ${templateClass === "minimal" ? "#333" : "#f4ead0"};
-      max-width: 720px;
-      font-weight: 700;
+      max-width: 740px;
+      font-weight: 800;
     }
 
-    .card-name {
-      margin-top: 28px;
-      padding: 22px;
-      border-radius: 22px;
-      background: ${templateClass === "minimal" ? "#f7f3ea" : "rgba(255,255,255,0.08)"};
-      border: 1px solid ${accent}77;
+    .hero-offer {
+      margin-top: 22px;
+      padding: 24px;
+      border-radius: 24px;
+      background: ${templateClass === "minimal" ? "#f7f3ea" : "rgba(255,255,255,0.085)"};
+      border: 1px solid ${accent}88;
     }
 
-    .card-name h2 {
-      margin: 0;
+    .card-label {
       color: ${accent};
-      font-size: 31px;
-      line-height: 1.1;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 12px;
+    }
+
+    .card-title {
+      margin-top: 8px;
+      color: ${accent};
+      font-size: 34px;
+      line-height: 1.05;
+      font-weight: 950;
     }
 
     .promise {
-      margin-top: 18px;
-      padding: 22px;
-      border-radius: 22px;
-      background: ${templateClass === "direct" ? "#fff3cd" : templateClass === "minimal" ? "#fafafa" : "rgba(212,175,55,0.12)"};
+      margin-top: 16px;
+      padding: 20px;
+      border-radius: 20px;
+      background: ${templateClass === "direct" ? "#fff3cd" : templateClass === "minimal" ? "#fafafa" : "rgba(212,175,55,0.13)"};
       color: ${templateClass === "direct" || templateClass === "minimal" ? "#111" : "#fff"};
       border: 1px solid ${accent}99;
       font-size: 18px;
-      line-height: 1.48;
-      font-weight: 800;
+      line-height: 1.46;
+      font-weight: 900;
     }
 
     .numbers {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      margin-top: 22px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 18px;
     }
 
     .num {
-      padding: 18px;
-      border-radius: 20px;
+      padding: 16px;
+      border-radius: 18px;
       background: ${templateClass === "minimal" ? "#f7f7f7" : "rgba(255,255,255,0.075)"};
       border: 1px solid ${accent}55;
     }
 
     .num span {
       display: block;
-      font-size: 12px;
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 1.4px;
+      letter-spacing: 1.2px;
       color: ${accent};
-      font-weight: 900;
+      font-weight: 950;
       margin-bottom: 8px;
     }
 
     .num strong {
-      font-size: 30px;
+      font-size: 25px;
       color: ${templateClass === "minimal" ? "#111" : "#fff"};
+      letter-spacing: -0.5px;
+    }
+
+    .hook {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 20px;
+      background: ${accent};
+      color: #090909;
+      font-size: 21px;
+      line-height: 1.3;
+      font-weight: 950;
+      text-align: center;
     }
 
     .section {
-      margin-top: 24px;
+      margin-top: 20px;
     }
 
     .section h3 {
       color: ${accent};
-      margin: 0 0 12px;
-      font-size: 22px;
+      margin: 0 0 10px;
+      font-size: 21px;
+      line-height: 1.1;
     }
 
     .text-box {
-      padding: 18px;
+      padding: 16px;
       border-radius: 18px;
       border: 1px solid ${accent}55;
       background: ${templateClass === "minimal" ? "#fafafa" : "rgba(255,255,255,0.06)"};
-      line-height: 1.55;
-      font-weight: 700;
+      line-height: 1.5;
+      font-weight: 800;
       color: ${templateClass === "minimal" ? "#222" : "#fff"};
     }
 
     .session {
       display: grid;
-      grid-template-columns: 110px 1fr;
+      grid-template-columns: 135px 1fr;
       gap: 12px;
       padding: 14px;
       border-radius: 18px;
       border: 1px solid ${accent}44;
       background: ${templateClass === "minimal" ? "#f8f8f8" : "rgba(255,255,255,0.055)"};
-      margin-top: 10px;
+      margin-top: 9px;
     }
 
     .session-number {
       color: ${accent};
-      font-weight: 900;
+      font-weight: 950;
       text-transform: uppercase;
       font-size: 13px;
     }
 
+    .session-price {
+      margin-top: 5px;
+      font-size: 12px;
+      line-height: 1.2;
+      color: ${templateClass === "minimal" ? "#444" : "#f4ead0"};
+      font-weight: 850;
+    }
+
     .session-main {
-      font-weight: 800;
-      line-height: 1.42;
+      font-weight: 850;
+      line-height: 1.4;
     }
 
     .session-gift {
       margin-top: 7px;
       color: ${accent};
-      font-weight: 900;
-      line-height: 1.42;
+      font-weight: 950;
+      line-height: 1.4;
+    }
+
+    .closing {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
     }
 
     .cta {
-      margin-top: 28px;
-      padding: 24px;
+      margin-top: 22px;
+      padding: 22px;
       border-radius: 24px;
       background: ${accent};
       color: #090909;
-      font-size: 22px;
-      line-height: 1.35;
+      font-size: 23px;
+      line-height: 1.32;
       font-weight: 950;
       text-align: center;
     }
 
     .footer {
-      margin-top: 20px;
+      margin-top: 18px;
       display: flex;
       justify-content: space-between;
       gap: 18px;
       font-size: 13px;
       color: ${templateClass === "minimal" ? "#444" : "#f4ead0"};
       border-top: 1px solid ${accent}55;
-      padding-top: 16px;
+      padding-top: 14px;
     }
 
     @media print {
@@ -978,9 +1085,9 @@ export default function MarketingPage() {
         ${logoUrl ? `<img class="logo" src="${esc(logoUrl)}" />` : ""}
       </div>
 
-      <div class="card-name">
-        <div class="kicker">Card percorso</div>
-        <h2>${esc(previewCard.name)}</h2>
+      <div class="hero-offer">
+        <div class="card-label">Percorso riservato</div>
+        <div class="card-title">${esc(previewCard.name)}</div>
       </div>
 
       <div class="promise">${esc(pdfTemplate.promiseText)}</div>
@@ -995,13 +1102,21 @@ export default function MarketingPage() {
           <strong>€ ${cardPrice.toFixed(2)}</strong>
         </div>
         <div class="num">
+          <span>Prezzo/seduta</span>
+          <strong>€ ${pricePerSession.toFixed(2)}</strong>
+        </div>
+        <div class="num">
           <span>Vantaggio</span>
           <strong>€ ${saving.toFixed(2)}</strong>
         </div>
       </div>
 
+      <div class="hook">
+        Non stai acquistando una singola seduta: stai bloccando un percorso pensato per mantenere il risultato nel tempo.
+      </div>
+
       <div class="section">
-        <h3>Perché questa card conviene</h3>
+        <h3>Perché questa card ha più valore di una promozione</h3>
         <div class="text-box">${esc(pdfTemplate.valueText)}</div>
       </div>
 
@@ -1010,18 +1125,20 @@ export default function MarketingPage() {
         ${sessionsHtml || `<div class="text-box">Percorso configurabile in salone.</div>`}
       </div>
 
-      <div class="section">
-        <h3>Bonus inclusi</h3>
-        <div class="text-box">${esc(pdfTemplate.bonusText)}</div>
+      <div class="closing">
+        <div class="section">
+          <h3>Bonus inclusi</h3>
+          <div class="text-box">${esc(pdfTemplate.bonusText)}</div>
+        </div>
+
+        <div class="section">
+          <h3>Perché conviene decidere ora</h3>
+          <div class="text-box">${esc(pdfTemplate.urgencyText)}</div>
+        </div>
       </div>
 
       <div class="section">
-        <h3>Posti limitati</h3>
-        <div class="text-box">${esc(pdfTemplate.urgencyText)}</div>
-      </div>
-
-      <div class="section">
-        <h3>La nostra garanzia</h3>
+        <h3>La nostra rassicurazione</h3>
         <div class="text-box">${esc(pdfTemplate.guaranteeText)}</div>
       </div>
 
@@ -1112,6 +1229,29 @@ export default function MarketingPage() {
                     {previewCard.sessionsCount || previewCard.sessions?.length || 0}
                   </div>
                 </div>
+
+                <div>
+                  <div className="sp-muted">Prezzo medio / seduta</div>
+                  <div style={{ color: '#d4af37', fontSize: 34, fontWeight: 900 }}>
+                    € {(Number(previewCard.price || 0) / Math.max(1, previewCard.sessionsCount || previewCard.sessions?.length || 1)).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              <div style={grid2}>
+                <input
+                  className="sp-input"
+                  placeholder="Nome cliente per WhatsApp opzionale"
+                  value={previewClientName}
+                  onChange={(e) => setPreviewClientName(e.target.value)}
+                />
+
+                <input
+                  className="sp-input"
+                  placeholder="Numero WhatsApp cliente"
+                  value={previewWhatsapp}
+                  onChange={(e) => setPreviewWhatsapp(e.target.value)}
+                />
               </div>
 
               <div style={{ marginTop: 20, display: 'grid', gap: 12 }}>
@@ -1137,6 +1277,10 @@ export default function MarketingPage() {
               <div style={previewActions}>
                 <button className="sp-button-purple" onClick={printPreviewCard}>
                   Stampa / Salva PDF
+                </button>
+
+                <button style={smallPurple} onClick={sendPreviewWhatsapp}>
+                  Invia WhatsApp
                 </button>
 
                 <button style={miniBtn} onClick={closePreviewCard}>
