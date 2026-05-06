@@ -346,6 +346,31 @@ export default function MarketingPage() {
     setMessage('✅ Card catalogo eliminata.');
   }
 
+
+  function chooseCatalogCard(cardName: string) {
+    setSelectedCard(cardName);
+
+    const card = catalogCards.find((item) => item.name === cardName);
+
+    if (!card) return;
+
+    setManualCardName('');
+    setManualPrice(String(card.price));
+    setSessionsCount(card.sessionsCount || 4);
+    setSessions(
+      card.sessions?.length
+        ? card.sessions.map((session) => ({
+            paidServices: [...(session.paidServices || [])],
+            paidProducts: [...(session.paidProducts || [])],
+            giftServices: [...(session.giftServices || [])],
+            giftProducts: [...(session.giftProducts || [])],
+          }))
+        : emptyCatalogSessions(card.sessionsCount || 4),
+    );
+    setCardIncreaseTotal(card.increaseTotal || 0);
+    setCardIncreaseInput('');
+  }
+
   function setSessionCount(value: number) {
     setSessionsCount(value);
     setSessions((prev) => {
@@ -735,6 +760,102 @@ export default function MarketingPage() {
             </div>
           </div>
         ) : null}
+
+        <section className="sp-card" style={cardPad}>
+          <div style={sectionHeader}>
+            <div>
+              <div style={greenKicker}>Fissa appuntamenti card</div>
+              <h2 style={sectionTitle}>Assegnazione percorso cliente</h2>
+            </div>
+
+            <div style={goldBadge}>Percorso consigliato</div>
+          </div>
+
+          <div style={infoBox}>
+            <strong>Procedura strategica:</strong> scegli il cliente, collega la card e prepara subito
+            le sedute del percorso.
+          </div>
+
+          <div style={grid4}>
+            <input
+              className="sp-input"
+              placeholder="Nome Cliente"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+            />
+
+            <input
+              className="sp-input"
+              placeholder="WhatsApp"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+            />
+
+            <select
+              className="sp-input"
+              value={selectedCard}
+              onChange={(e) => chooseCatalogCard(e.target.value)}
+            >
+              <option value="">Scegli Card catalogo...</option>
+              {catalogCards.map((card) => (
+                <option key={card.name} value={card.name}>
+                  {card.name} — € {card.price.toFixed(2)}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="sp-input"
+              value={operator}
+              onChange={(e) => setOperator(e.target.value)}
+            >
+              <option value="">Operatore percorso</option>
+              <option>Brian</option>
+              <option>Katia</option>
+              <option>Pamela</option>
+              <option>Sonia</option>
+            </select>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <label style={label}>Frequenza percorso</label>
+            <select
+              className="sp-input"
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value)}
+            >
+              <option>Mensile (30 gg)</option>
+              <option>Quindicinale (15 gg)</option>
+              <option>Ogni 45 giorni</option>
+            </select>
+          </div>
+
+          <div style={grid2}>
+            <input
+              className="sp-input"
+              placeholder="Nuova Card: nome"
+              value={manualCardName}
+              onChange={(e) => setManualCardName(e.target.value)}
+            />
+
+            <input
+              className="sp-input"
+              placeholder="Prezzo Card manuale €"
+              value={manualPrice}
+              onChange={(e) => setManualPrice(e.target.value)}
+            />
+          </div>
+
+          <div style={datesGrid}>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i}>
+                <label style={label}>{i + 1}ª Data</label>
+                <input className="sp-input" type="date" defaultValue={dates[i]} />
+                <input className="sp-input" type="time" style={{ marginTop: 8 }} />
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section className="sp-card" style={cardPad}>
           <div style={sectionHeader}>
