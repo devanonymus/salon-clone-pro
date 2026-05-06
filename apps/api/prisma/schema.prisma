@@ -26,6 +26,7 @@ model Tenant {
   whatsappConfig        TenantWhatsappConfig?
   whatsappConversations WhatsappConversation[]
   servicePrices         ServicePrice[]
+  marketingCards        MarketingCard[]
 
   @@schema("app")
 }
@@ -284,6 +285,25 @@ model ServicePrice {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+  @@schema("app")
+}
+
+
+model MarketingCard {
+  id            String   @id @default(uuid())
+  tenantId      String
+  name          String
+  price         Float    @default(0)
+  sessionsCount Int      @default(4)
+  sessions      Json?
+  increaseTotal Float    @default(0)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 

@@ -22,6 +22,7 @@ type ActiveCard = {
 };
 
 type CatalogCard = {
+  id?: string;
   name: string;
   price: number;
   sessionsCount: number;
@@ -112,7 +113,58 @@ export default function MarketingPage() {
 
   useEffect(() => {
     loadServices();
+    loadCatalogCards();
   }, []);
+
+
+  async function marketingFetch(path: string, options: RequestInit = {}) {
+    const token =
+      localStorage.getItem('salonpro_token') || localStorage.getItem('token');
+
+    if (!token) {
+      throw new Error('Token mancante');
+    }
+
+    const res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+
+    if (!res.ok) {
+      throw new Error(data?.message || text || 'Errore API');
+    }
+
+    return data;
+  }
+
+  async function loadCatalogCards() {
+    try {
+      const data = await marketingFetch('/marketing/cards');
+
+      const list = Array.isArray(data)
+        ? data.map((card) => ({
+            id: card.id,
+            name: card.name,
+            price: Number(card.price || 0),
+            sessionsCount: Number(card.sessionsCount || 4),
+            sessions: Array.isArray(card.sessions) ? card.sessions : emptyCatalogSessions(Number(card.sessionsCount || 4)),
+            increaseTotal: Number(card.increaseTotal || 0),
+          }))
+        : [];
+
+      setCatalogCards(list);
+    } catch (err: any) {
+      console.error(err);
+      setMessage(`⚠️ ${err.message || 'Errore caricamento card catalogo'}`);
+    }
+  }
 
   const selectedCatalog = catalogCards.find((card) => card.name === selectedCard);
 
@@ -336,7 +388,7 @@ export default function MarketingPage() {
     setCatalogPrice(String(catalogFinalPrice.toFixed(2)));
   }
 
-  function saveCatalogCard() {
+  async function saveCatalogCard() {
     const name = catalogName.trim();
     const price = Number(String(catalogPrice || catalogFinalPrice || 0).replace(',', '.'));
 
@@ -350,7 +402,7 @@ export default function MarketingPage() {
       return;
     }
 
-    const nextCard: CatalogCard = {
+    const payload = {
       name,
       price,
       sessionsCount: catalogSessionsCount,
@@ -358,42 +410,63 @@ export default function MarketingPage() {
       increaseTotal: catalogIncreaseTotal,
     };
 
-    setCatalogCards((prev) => {
-      if (editingCatalogIndex === null) {
-        return [...prev, nextCard];
+    try {
+      const current = editingCatalogIndex === null ? null : catalogCards[editingCatalogIndex];
+
+      if (current?.id) {
+        await marketingFetch(`/marketing/cards/${current.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await marketingFetch('/marketing/cards', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
       }
 
-      return prev.map((card, index) => (index === editingCatalogIndex ? nextCard : card));
-    });
+      await loadCatalogCards();
 
-    setSelectedCard(name);
-    setManualCardName('');
-    setManualPrice('');
-    setCatalogOpen(false);
-    setEditingCatalogIndex(null);
-    setCatalogName('');
-    setCatalogPrice('');
-    setCatalogSessionsCount(4);
-    setCatalogSessions(emptyCatalogSessions(4));
-    setCatalogIncreaseInput('');
-    setCatalogIncreaseTotal(0);
-    setMessage(editingCatalogIndex === null ? '✅ Card catalogo creata con carrello.' : '✅ Card catalogo aggiornata con carrello.');
+      setSelectedCard(name);
+      setManualCardName('');
+      setManualPrice('');
+      setCatalogOpen(false);
+      setEditingCatalogIndex(null);
+      setCatalogName('');
+      setCatalogPrice('');
+      setCatalogSessionsCount(4);
+      setCatalogSessions(emptyCatalogSessions(4));
+      setCatalogIncreaseInput('');
+      setCatalogIncreaseTotal(0);
+      setMessage(editingCatalogIndex === null ? '✅ Card catalogo salvata nel database.' : '✅ Card catalogo aggiornata nel database.');
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || 'Errore salvataggio card catalogo'}`);
+    }
   }
 
-  function deleteCatalogCard(index: number) {
+  async function deleteCatalogCard(index: number) {
     const card = catalogCards[index];
     const ok = confirm(`Vuoi eliminare "${card.name}" dal catalogo card?`);
     if (!ok) return;
 
-    setCatalogCards((prev) => prev.filter((_, i) => i !== index));
+    try {
+      if (card.id) {
+        await marketingFetch(`/marketing/cards/${card.id}`, {
+          method: 'DELETE',
+        });
+      }
 
-    if (selectedCard === card.name) {
-      setSelectedCard('');
+      await loadCatalogCards();
+
+      if (selectedCard === card.name) {
+        setSelectedCard('');
+      }
+
+      setMessage('✅ Card catalogo eliminata dal database.');
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || 'Errore eliminazione card catalogo'}`);
     }
-
-    setMessage('✅ Card catalogo eliminata.');
   }
-
 
   function chooseCatalogCard(cardName: string) {
     setSelectedCard(cardName);
