@@ -1732,67 +1732,7 @@ export default function MarketingPage() {
         </section>
 
 
-        <section className="sp-card" style={cardPad}>
-          <div style={sectionHeader}>
-            <div>
-              <div style={greenKicker}>Configurazione messaggi WhatsApp</div>
-              <h2 style={sectionTitle}>Messaggi promozionali e conferma card</h2>
-            </div>
 
-            <div style={goldBadge}>Variabili automatiche</div>
-          </div>
-
-          <div style={infoBox}>
-            Puoi usare queste variabili nei messaggi:
-            <strong> {"{nome_cliente}"} {"{nome_card}"} {"{prezzo_card}"} {"{sedute}"} {"{prezzo_seduta}"} {"{salone}"} {"{firma}"}</strong>
-          </div>
-
-          <div style={messageTemplateGrid}>
-            <div>
-              <label style={label}>Messaggio promozionale</label>
-              <textarea
-                className="sp-input"
-                rows={12}
-                value={messageTemplates.promo}
-                onChange={(e) => updateMessageTemplate('promo', e.target.value)}
-              />
-
-              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                <button style={smallPurple} onClick={copyPromoMessage}>
-                  Copia promo
-                </button>
-
-                <button style={smallPurple} onClick={openPromoWhatsapp}>
-                  Invia promo WhatsApp
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label style={label}>Messaggio conferma card</label>
-              <textarea
-                className="sp-input"
-                rows={12}
-                value={messageTemplates.confirm}
-                onChange={(e) => updateMessageTemplate('confirm', e.target.value)}
-              />
-
-              <div className="sp-muted" style={{ marginTop: 12 }}>
-                Questo messaggio viene usato dal popup card quando clicchi “Invia WhatsApp”.
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
-            <button className="sp-button-purple" onClick={saveMessageTemplates}>
-              Salva configurazione messaggi
-            </button>
-
-            <button style={miniBtn} onClick={resetMessageTemplates}>
-              Ripristina standard
-            </button>
-          </div>
-        </section>
 
         <section className="sp-card" style={cardPad}>
           <div style={sectionHeader}>
@@ -2047,6 +1987,68 @@ export default function MarketingPage() {
               ))}
             </div>
           )}
+        </section>
+
+        <section className="sp-card" style={cardPad}>
+          <div style={sectionHeader}>
+            <div>
+              <div style={greenKicker}>Configurazione messaggi WhatsApp</div>
+              <h2 style={sectionTitle}>Messaggi promozionali e conferma card</h2>
+            </div>
+
+            <div style={goldBadge}>Variabili automatiche</div>
+          </div>
+
+          <div style={infoBox}>
+            Puoi usare queste variabili nei messaggi:
+            <strong> {"{nome_cliente}"} {"{nome_card}"} {"{prezzo_card}"} {"{sedute}"} {"{prezzo_seduta}"} {"{salone}"} {"{firma}"}</strong>
+          </div>
+
+          <div style={messageTemplateGrid}>
+            <div>
+              <label style={label}>Messaggio promozionale</label>
+              <textarea
+                className="sp-input"
+                rows={12}
+                value={messageTemplates.promo}
+                onChange={(e) => updateMessageTemplate('promo', e.target.value)}
+              />
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                <button style={smallPurple} onClick={copyPromoMessage}>
+                  Copia promo
+                </button>
+
+                <button style={smallPurple} onClick={openPromoWhatsapp}>
+                  Invia promo WhatsApp
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style={label}>Messaggio conferma card</label>
+              <textarea
+                className="sp-input"
+                rows={12}
+                value={messageTemplates.confirm}
+                onChange={(e) => updateMessageTemplate('confirm', e.target.value)}
+              />
+
+              <div className="sp-muted" style={{ marginTop: 12 }}>
+                Questo messaggio viene usato dal popup card quando clicchi “Invia WhatsApp”.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+            <button className="sp-button-purple" onClick={saveMessageTemplates}>
+              Salva configurazione messaggi
+            </button>
+
+            <button style={miniBtn} onClick={resetMessageTemplates}>
+              Ripristina standard
+            </button>
+          </div>
         </section>
 
       </div>
