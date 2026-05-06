@@ -5,6 +5,85 @@ import { PrismaService } from "../prisma.service";
 export class MarketingCardsService {
   constructor(private prisma: PrismaService) {}
 
+
+  async getTemplate(tenantId: string) {
+    const existing = await this.prisma.marketingCardTemplate.findUnique({
+      where: {
+        tenantId,
+      },
+    });
+
+    if (existing) return existing;
+
+    return this.prisma.marketingCardTemplate.create({
+      data: {
+        tenantId,
+      },
+    });
+  }
+
+  async saveTemplate(
+    tenantId: string,
+    body: {
+      logoUrl?: string;
+      salonName?: string;
+      templateStyle?: string;
+      primaryColor?: string;
+      accentColor?: string;
+      title?: string;
+      subtitle?: string;
+      promiseText?: string;
+      valueText?: string;
+      bonusText?: string;
+      urgencyText?: string;
+      guaranteeText?: string;
+      ctaText?: string;
+      footerText?: string;
+      signature?: string;
+    },
+  ) {
+    return this.prisma.marketingCardTemplate.upsert({
+      where: {
+        tenantId,
+      },
+      update: {
+        logoUrl: body.logoUrl,
+        salonName: body.salonName,
+        templateStyle: body.templateStyle,
+        primaryColor: body.primaryColor,
+        accentColor: body.accentColor,
+        title: body.title,
+        subtitle: body.subtitle,
+        promiseText: body.promiseText,
+        valueText: body.valueText,
+        bonusText: body.bonusText,
+        urgencyText: body.urgencyText,
+        guaranteeText: body.guaranteeText,
+        ctaText: body.ctaText,
+        footerText: body.footerText,
+        signature: body.signature,
+      },
+      create: {
+        tenantId,
+        logoUrl: body.logoUrl,
+        salonName: body.salonName || "Acquaviva Strategic",
+        templateStyle: body.templateStyle || "LUXURY_GOLD",
+        primaryColor: body.primaryColor || "#080808",
+        accentColor: body.accentColor || "#d4af37",
+        title: body.title || "Il tuo percorso bellezza personalizzato",
+        subtitle: body.subtitle || "Una card pensata per mantenere il risultato nel tempo.",
+        promiseText: body.promiseText || "Non è una semplice promozione: è un percorso guidato.",
+        valueText: body.valueText || "Una proposta chiara, comoda e ad alto valore.",
+        bonusText: body.bonusText || "Bonus inclusi per aumentare il risultato.",
+        urgencyText: body.urgencyText || "Posti limitati per garantire continuità e qualità.",
+        guaranteeText: body.guaranteeText || "Ti guideremo passo dopo passo.",
+        ctaText: body.ctaText || "Blocca oggi il tuo percorso.",
+        footerText: body.footerText || "Card personale, non convertibile in denaro.",
+        signature: body.signature || "Il tuo salone di fiducia",
+      },
+    });
+  }
+
   list(tenantId: string) {
     return this.prisma.marketingCard.findMany({
       where: {

@@ -27,6 +27,7 @@ model Tenant {
   whatsappConversations WhatsappConversation[]
   servicePrices         ServicePrice[]
   marketingCards        MarketingCard[]
+  marketingCardTemplate MarketingCardTemplate?
 
   @@schema("app")
 }
@@ -308,5 +309,32 @@ model MarketingCard {
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, name])
+  @@schema("app")
+}
+
+
+model MarketingCardTemplate {
+  id             String   @id @default(uuid())
+  tenantId       String   @unique
+  logoUrl        String?
+  salonName      String   @default("Acquaviva Strategic")
+  templateStyle  String   @default("LUXURY_GOLD")
+  primaryColor   String   @default("#080808")
+  accentColor    String   @default("#d4af37")
+  title          String   @default("Il tuo percorso bellezza personalizzato")
+  subtitle       String   @default("Una card pensata per mantenere il risultato nel tempo.")
+  promiseText    String   @default("Non è una semplice promozione: è un percorso guidato per farti restare sempre in ordine, senza improvvisare.")
+  valueText      String   @default("Abbiamo racchiuso servizi, prodotti e bonus in una proposta chiara, comoda e ad alto valore.")
+  bonusText      String   @default("I bonus inclusi sono pensati per aumentare il risultato e farti vivere un’esperienza più completa.")
+  urgencyText    String   @default("I posti disponibili per questo percorso sono limitati per garantire continuità e qualità.")
+  guaranteeText  String   @default("Ti guideremo passo dopo passo nella scelta più adatta ai tuoi capelli.")
+  ctaText        String   @default("Blocca oggi il tuo percorso e programma subito le sedute.")
+  footerText     String   @default("Card personale, non convertibile in denaro.")
+  signature      String   @default("Il tuo salone di fiducia")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
   @@schema("app")
 }

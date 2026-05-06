@@ -12,6 +12,36 @@ export class MarketingCardsController {
     return this.service.list(req.user.tenantId);
   }
 
+  @Get("template")
+  getTemplate(@Req() req: any) {
+    return this.service.getTemplate(req.user.tenantId);
+  }
+
+  @Post("template")
+  saveTemplate(
+    @Req() req: any,
+    @Body()
+    body: {
+      logoUrl?: string;
+      salonName?: string;
+      templateStyle?: string;
+      primaryColor?: string;
+      accentColor?: string;
+      title?: string;
+      subtitle?: string;
+      promiseText?: string;
+      valueText?: string;
+      bonusText?: string;
+      urgencyText?: string;
+      guaranteeText?: string;
+      ctaText?: string;
+      footerText?: string;
+      signature?: string;
+    },
+  ) {
+    return this.service.saveTemplate(req.user.tenantId, body);
+  }
+
   @Post()
   create(
     @Req() req: any,
