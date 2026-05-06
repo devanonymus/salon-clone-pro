@@ -1009,10 +1009,8 @@ export default function MarketingPage() {
             body: JSON.stringify({
               clientTenantId: selectedClientTenantId,
               staffId: operator,
-              date,
-              time,
+              date: `${date}T${time}:00`,
               services: appointmentServices.length ? appointmentServices : [soldCard.name],
-              note: `Percorso card: ${soldCard.name} - Seduta ${index + 1}/${sessionsCount}`,
             }),
           });
 
