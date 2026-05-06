@@ -61,6 +61,8 @@ export default function MarketingPage() {
   const [frequency, setFrequency] = useState('Mensile (30 gg)');
   const [manualCardName, setManualCardName] = useState('');
   const [manualPrice, setManualPrice] = useState('');
+  const [cardIncreaseInput, setCardIncreaseInput] = useState('');
+  const [cardIncreaseTotal, setCardIncreaseTotal] = useState(0);
   const [sessionsCount, setSessionsCount] = useState(4);
   const [sessions, setSessions] = useState<SessionItem[]>(
     Array.from({ length: 4 }).map(() => ({
@@ -76,20 +78,51 @@ export default function MarketingPage() {
   const selectedCatalog = catalogCards.find((card) => card.name === selectedCard);
 
   const cardName = selectedCatalog?.name || manualCardName || 'Nuova Card';
-  const cardPrice = selectedCatalog?.price || Number(manualPrice || 0);
 
   const valueListino = useMemo(() => {
     return sessions.reduce((sum, session) => {
       let subtotal = 0;
+
       if (session.paidService) subtotal += serviceValue(session.paidService);
+      if (session.paidProduct) subtotal += productValue(session.paidProduct);
+
       if (session.giftService) subtotal += serviceValue(session.giftService);
-      if (session.paidProduct) subtotal += 15;
-      if (session.giftProduct) subtotal += 15;
+      if (session.giftProduct) subtotal += productValue(session.giftProduct);
+
       return sum + subtotal;
     }, 0);
   }, [sessions]);
 
+  const calculatedCardPrice = useMemo(() => {
+    return sessions.reduce((sum, session) => {
+      let subtotal = 0;
+
+      if (session.paidService) subtotal += serviceValue(session.paidService);
+      if (session.paidProduct) subtotal += productValue(session.paidProduct);
+
+      if (session.giftService) subtotal += serviceCost(session.giftService);
+      if (session.giftProduct) subtotal += productCost(session.giftProduct);
+
+      return sum + subtotal;
+    }, 0);
+  }, [sessions]);
+
+  const cardPrice = calculatedCardPrice + cardIncreaseTotal;
   const convenience = Math.max(0, valueListino - cardPrice);
+
+
+  function addCardIncrease() {
+    const amount = Number(String(cardIncreaseInput || 0).replace(',', '.'));
+
+    if (!amount || amount <= 0) {
+      setMessage('Inserisci un valore valido per aumentare il prezzo card.');
+      return;
+    }
+
+    setCardIncreaseTotal((prev) => prev + amount);
+    setCardIncreaseInput('');
+    setMessage(`✅ Prezzo card aumentato di € ${amount.toFixed(2)}.`);
+  }
 
   function setSessionCount(value: number) {
     setSessionsCount(value);
@@ -179,6 +212,8 @@ export default function MarketingPage() {
         giftProduct: '',
       })),
     );
+    setCardIncreaseInput('');
+    setCardIncreaseTotal(0);
   }
 
   return (
@@ -272,7 +307,7 @@ export default function MarketingPage() {
             />
             <input
               className="sp-input"
-              placeholder="Prezzo Card €"
+              placeholder="Prezzo catalogo opzionale €"
               value={manualPrice}
               onChange={(e) => setManualPrice(e.target.value)}
             />
@@ -310,6 +345,7 @@ export default function MarketingPage() {
               </select>
 
               <div style={priceBadge}>Prezzo Card: € {cardPrice.toFixed(2)}</div>
+              <div style={priceBadge}>Base: € {calculatedCardPrice.toFixed(2)}</div>
               <button style={smallPurple} onClick={resetCart}>Reset</button>
             </div>
           </div>
@@ -369,6 +405,36 @@ export default function MarketingPage() {
             ))}
           </div>
 
+          <div style={increaseBox}>
+            <div>
+              <div style={greenKicker}>Aumento prezzo card</div>
+              <div className="sp-muted" style={{ marginTop: 4 }}>
+                Usa questo campo per alzare manualmente il prezzo finale della card.
+              </div>
+            </div>
+
+            <input
+              className="sp-input"
+              placeholder="Valore aumento €"
+              value={cardIncreaseInput}
+              onChange={(e) => setCardIncreaseInput(e.target.value)}
+            />
+
+            <button style={smallPurple} onClick={addCardIncrease}>
+              Aggiungi al prezzo card
+            </button>
+
+            <button
+              style={miniBtn}
+              onClick={() => {
+                setCardIncreaseTotal(0);
+                setCardIncreaseInput('');
+              }}
+            >
+              Azzera aumento
+            </button>
+          </div>
+
           <div style={summaryGrid}>
             <Summary label="Valore a listino" value={`€ ${valueListino.toFixed(2)}`} />
             <Summary label="Prezzo Card" value={`€ ${cardPrice.toFixed(2)}`} />
@@ -378,7 +444,7 @@ export default function MarketingPage() {
 
           {valueListino === 0 ? (
             <div style={warningBox}>
-              💡 Aggiungi almeno un servizio a pagamento per calcolare il valore del percorso.
+              💡 Aggiungi almeno un servizio o prodotto per calcolare il valore del percorso.
             </div>
           ) : null}
 
@@ -449,6 +515,30 @@ function serviceValue(service: string) {
   if (service.includes('Trattamento')) return 25;
   if (service.includes('Piega')) return 20;
   return 20;
+}
+
+function serviceCost(service: string) {
+  return Math.round(serviceValue(service) * 0.35 * 100) / 100;
+}
+
+function productValue(product: string) {
+  if (product.includes('Maschera')) return 22;
+  if (product.includes('Siero')) return 20;
+  if (product.includes('Shampoo')) return 18;
+  if (product.includes('Fiala')) return 12;
+  if (product.includes('Mini')) return 8;
+  if (product.includes('Campione')) return 6;
+  return 15;
+}
+
+function productCost(product: string) {
+  if (product.includes('Maschera')) return 8;
+  if (product.includes('Siero')) return 7;
+  if (product.includes('Shampoo')) return 6;
+  if (product.includes('Fiala')) return 4;
+  if (product.includes('Mini')) return 3;
+  if (product.includes('Campione')) return 2;
+  return 5;
 }
 
 function Summary({ label, value }: { label: string; value: string }) {
@@ -586,6 +676,19 @@ const sessionCard: React.CSSProperties = {
   borderRadius: 20,
   background: 'rgba(255,255,255,0.045)',
   border: '1px solid rgba(255,255,255,0.09)',
+};
+
+
+const increaseBox: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1.2fr 0.55fr auto auto',
+  gap: 12,
+  alignItems: 'center',
+  marginTop: 22,
+  padding: 16,
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.045)',
+  border: '1px solid rgba(212,175,55,0.22)',
 };
 
 const summaryGrid: React.CSSProperties = {
