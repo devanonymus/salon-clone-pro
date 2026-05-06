@@ -3,10 +3,10 @@
 import { useMemo, useState } from 'react';
 
 type SessionItem = {
-  paidServicess: string[];
-  paidProductss: string[];
-  giftServicess: string[];
-  giftProductss: string[];
+  paidServices: string[];
+  paidProducts: string[];
+  giftServices: string[];
+  giftProducts: string[];
 };
 
 type ActiveCard = {
