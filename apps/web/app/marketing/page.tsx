@@ -191,47 +191,14 @@ export default function MarketingPage() {
       if (!source) return prev;
 
       return prev.map(() => ({
-        paidServices: [...source.paidServices],
-        paidProducts: [...source.paidProducts],
-        giftServices: [...source.giftServices],
-        giftProducts: [...source.giftProducts],
+        paidServices: [...(source.paidServices || [])],
+        paidProducts: [...(source.paidProducts || [])],
+        giftServices: [...(source.giftServices || [])],
+        giftProducts: [...(source.giftProducts || [])],
       }));
     });
 
     setMessage(`✅ Seduta catalogo ${index + 1} copiata su tutte.`);
-  }
-
-
-  function addCatalogSessionValue(index: number, key: keyof SessionItem, value: string) {
-    if (!value) return;
-
-    setCatalogSessions((prev) =>
-      prev.map((session, i) => {
-        if (i !== index) return session;
-
-        const current = session[key] as string[];
-
-        return {
-          ...session,
-          [key]: current.includes(value) ? current : [...current, value],
-        };
-      }),
-    );
-  }
-
-  function removeCatalogSessionValue(index: number, key: keyof SessionItem, value: string) {
-    setCatalogSessions((prev) =>
-      prev.map((session, i) => {
-        if (i !== index) return session;
-
-        const current = session[key] as string[];
-
-        return {
-          ...session,
-          [key]: current.filter((item) => item !== value),
-        };
-      }),
-    );
   }
 
   function updateCatalogSession(index: number, key: keyof SessionItem, value: string[]) {
@@ -372,47 +339,14 @@ export default function MarketingPage() {
       if (!source) return prev;
 
       return prev.map(() => ({
-        paidServices: [...source.paidServices],
-        paidProducts: [...source.paidProducts],
-        giftServices: [...source.giftServices],
-        giftProducts: [...source.giftProducts],
+        paidServices: [...(source.paidServices || [])],
+        paidProducts: [...(source.paidProducts || [])],
+        giftServices: [...(source.giftServices || [])],
+        giftProducts: [...(source.giftProducts || [])],
       }));
     });
 
     setMessage(`✅ Seduta ${index + 1} copiata su tutte le sedute.`);
-  }
-
-
-  function addSessionValue(index: number, key: keyof SessionItem, value: string) {
-    if (!value) return;
-
-    setSessions((prev) =>
-      prev.map((session, i) => {
-        if (i !== index) return session;
-
-        const current = session[key] as string[];
-
-        return {
-          ...session,
-          [key]: current.includes(value) ? current : [...current, value],
-        };
-      }),
-    );
-  }
-
-  function removeSessionValue(index: number, key: keyof SessionItem, value: string) {
-    setSessions((prev) =>
-      prev.map((session, i) => {
-        if (i !== index) return session;
-
-        const current = session[key] as string[];
-
-        return {
-          ...session,
-          [key]: current.filter((item) => item !== value),
-        };
-      }),
-    );
   }
 
   function updateSession(index: number, key: keyof SessionItem, value: string[]) {
@@ -560,7 +494,8 @@ export default function MarketingPage() {
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span className="sp-muted">Sedute:</span>
                     <select
-                        className="sp-input" style={{ marginTop: 10 }}
+                        className="sp-input"
+                        style={ marginTop: 10 }
                         value=""
                         onChange={(e) => addCatalogSessionValue(index, 'giftProducts', e.target.value)}
                       >
@@ -571,7 +506,7 @@ export default function MarketingPage() {
                       </select>
 
                       <SelectedItems
-                        items={session.giftProducts}
+                        items={session.giftProducts || []}
                         onRemove={(item) => removeCatalogSessionValue(index, 'giftProducts', item)}
                       />
               </div>
