@@ -6,6 +6,90 @@ export class MarketingCardsService {
   constructor(private prisma: PrismaService) {}
 
 
+
+  async listSales(tenantId: string) {
+    return this.prisma.marketingCardSale.findMany({
+      where: {
+        tenantId,
+        active: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  }
+
+  async createSale(
+    tenantId: string,
+    body: {
+      clientTenantId?: string;
+      clientName: string;
+      whatsapp?: string;
+      cardName: string;
+      price?: number;
+      total?: number;
+      sessions?: any;
+      appointments?: any;
+    },
+  ) {
+    return this.prisma.marketingCardSale.create({
+      data: {
+        tenantId,
+        clientTenantId: body.clientTenantId || null,
+        clientName: body.clientName,
+        whatsapp: body.whatsapp || null,
+        cardName: body.cardName,
+        price: Number(body.price || 0),
+        used: 0,
+        total: Number(body.total || 1),
+        sessions: body.sessions || [],
+        appointments: body.appointments || [],
+        active: true,
+      },
+    });
+  }
+
+  async useSale(tenantId: string, id: string) {
+    const sale = await this.prisma.marketingCardSale.findFirst({
+      where: {
+        id,
+        tenantId,
+        active: true,
+      },
+    });
+
+    if (!sale) {
+      throw new NotFoundException("Card venduta non trovata");
+    }
+
+    return this.prisma.marketingCardSale.update({
+      where: { id },
+      data: {
+        used: Math.min(sale.used + 1, sale.total),
+      },
+    });
+  }
+
+  async removeSale(tenantId: string, id: string) {
+    const sale = await this.prisma.marketingCardSale.findFirst({
+      where: {
+        id,
+        tenantId,
+      },
+    });
+
+    if (!sale) {
+      throw new NotFoundException("Card venduta non trovata");
+    }
+
+    return this.prisma.marketingCardSale.update({
+      where: { id },
+      data: {
+        active: false,
+      },
+    });
+  }
+
   async getTemplate(tenantId: string) {
     const existing = await this.prisma.marketingCardTemplate.findUnique({
       where: {

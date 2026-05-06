@@ -14,11 +14,14 @@ type SessionItem = {
 };
 
 type ActiveCard = {
+  id?: string;
   client: string;
   card: string;
   whatsapp: string;
   used: number;
   total: number;
+  price?: number;
+  sessions?: SessionItem[];
 };
 
 type CatalogCard = {
@@ -260,6 +263,7 @@ export default function MarketingPage() {
   useEffect(() => {
     loadServices();
     loadCatalogCards();
+    loadSoldCards();
     loadClients();
     loadStaffMembers();
     loadPdfTemplate();
@@ -314,6 +318,30 @@ export default function MarketingPage() {
     } catch (err: any) {
       console.error(err);
       setMessage(`⚠️ ${err.message || 'Errore caricamento template PDF Card'}`);
+    }
+  }
+
+
+  function normalizeSoldCard(item: any): ActiveCard {
+    return {
+      id: item.id,
+      client: item.clientName || item.client || 'Cliente',
+      card: item.cardName || item.card || 'Card',
+      whatsapp: item.whatsapp || 'Non inserito',
+      used: Number(item.used || 0),
+      total: Number(item.total || 1),
+      price: Number(item.price || 0),
+      sessions: Array.isArray(item.sessions) ? item.sessions : [],
+    };
+  }
+
+  async function loadSoldCards() {
+    try {
+      const data = await marketingFetch('/marketing/cards/sales');
+      setActiveCards(Array.isArray(data) ? data.map(normalizeSoldCard) : []);
+    } catch (err: any) {
+      console.error(err);
+      setMessage(`⚠️ ${err.message || 'Errore caricamento card vendute'}`);
     }
   }
 
@@ -926,7 +954,30 @@ export default function MarketingPage() {
       total: sessionsCount,
     };
 
-    setActiveCards((prev) => [newCard, ...prev]);
+    let savedSale: ActiveCard | null = null;
+
+    try {
+      const saved = await marketingFetch('/marketing/cards/sales', {
+        method: 'POST',
+        body: JSON.stringify({
+          clientTenantId: selectedClientTenantId,
+          clientName: clientName.trim(),
+          whatsapp: whatsapp.trim() || 'Non inserito',
+          cardName: soldCard.name,
+          price: Number(soldCard.price || cardPrice || 0),
+          total: sessionsCount,
+          sessions,
+          appointments: [],
+        }),
+      });
+
+      savedSale = normalizeSoldCard(saved);
+      setActiveCards((prev) => [savedSale as ActiveCard, ...prev]);
+    } catch (err: any) {
+      console.error(err);
+      setMessage(`⚠️ ${err.message || 'Errore salvataggio card venduta'}`);
+      return;
+    }
 
     const dateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-card-date]'));
     const timeInputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-card-time]'));
@@ -983,20 +1034,52 @@ export default function MarketingPage() {
     );
   }
 
-  function useCard(index: number) {
-    setActiveCards((prev) =>
-      prev.map((card, i) =>
-        i === index
-          ? {
-              ...card,
-              used: Math.min(card.used + 1, card.total),
-            }
-          : card,
-      ),
-    );
+  async function useCard(index: number) {
+    const card = activeCards[index];
+
+    if (!card?.id) {
+      setActiveCards((prev) =>
+        prev.map((item, i) =>
+          i === index
+            ? {
+                ...item,
+                used: Math.min(item.used + 1, item.total),
+              }
+            : item,
+        ),
+      );
+      return;
+    }
+
+    try {
+      const updated = await marketingFetch(`/marketing/cards/sales/${card.id}/use`, {
+        method: 'PATCH',
+      });
+
+      setActiveCards((prev) =>
+        prev.map((item, i) => (i === index ? normalizeSoldCard(updated) : item)),
+      );
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || 'Errore utilizzo card'}`);
+    }
   }
 
-  function removeCard(index: number) {
+  async function removeCard(index: number) {
+    const card = activeCards[index];
+    const ok = confirm('Vuoi eliminare questa card venduta?');
+    if (!ok) return;
+
+    if (card?.id) {
+      try {
+        await marketingFetch(`/marketing/cards/sales/${card.id}`, {
+          method: 'DELETE',
+        });
+      } catch (err: any) {
+        setMessage(`⚠️ ${err.message || 'Errore eliminazione card'}`);
+        return;
+      }
+    }
+
     setActiveCards((prev) => prev.filter((_, i) => i !== index));
   }
 
@@ -2141,9 +2224,9 @@ export default function MarketingPage() {
                           const found = catalogCards.find((item) => item.name === card.card);
                           const fallback: CatalogCard = {
                             name: card.card,
-                            price: 0,
+                            price: Number(card.price || 0),
                             sessionsCount: card.total,
-                            sessions: [],
+                            sessions: card.sessions || [],
                             increaseTotal: 0,
                           };
 

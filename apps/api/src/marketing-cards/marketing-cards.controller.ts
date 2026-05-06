@@ -12,6 +12,40 @@ export class MarketingCardsController {
     return this.service.list(req.user.tenantId);
   }
 
+
+  @Get("sales")
+  listSales(@Req() req: any) {
+    return this.service.listSales(req.user.tenantId);
+  }
+
+  @Post("sales")
+  createSale(
+    @Req() req: any,
+    @Body()
+    body: {
+      clientTenantId?: string;
+      clientName: string;
+      whatsapp?: string;
+      cardName: string;
+      price?: number;
+      total?: number;
+      sessions?: any;
+      appointments?: any;
+    },
+  ) {
+    return this.service.createSale(req.user.tenantId, body);
+  }
+
+  @Patch("sales/:id/use")
+  useSale(@Req() req: any, @Param("id") id: string) {
+    return this.service.useSale(req.user.tenantId, id);
+  }
+
+  @Delete("sales/:id")
+  removeSale(@Req() req: any, @Param("id") id: string) {
+    return this.service.removeSale(req.user.tenantId, id);
+  }
+
   @Get("template")
   getTemplate(@Req() req: any) {
     return this.service.getTemplate(req.user.tenantId);

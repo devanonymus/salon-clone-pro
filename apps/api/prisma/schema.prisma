@@ -27,6 +27,7 @@ model Tenant {
   whatsappConversations WhatsappConversation[]
   servicePrices         ServicePrice[]
   marketingCards        MarketingCard[]
+  marketingCardSales    MarketingCardSale[]
   marketingCardTemplate MarketingCardTemplate?
 
   @@schema("app")
@@ -335,6 +336,28 @@ model MarketingCardTemplate {
   confirmMessageTemplate String   @default("Ciao {nome_cliente} 💛\n\nTi confermiamo la tua card:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nTi aspettiamo in salone.\n\n{firma}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@schema("app")
+}
+
+
+model MarketingCardSale {
+  id              String   @id @default(uuid())
+  tenantId        String
+  clientTenantId  String?
+  clientName      String
+  whatsapp        String?
+  cardName        String
+  price           Float    @default(0)
+  used            Int      @default(0)
+  total           Int      @default(1)
+  sessions        Json?
+  appointments    Json?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
