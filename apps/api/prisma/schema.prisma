@@ -28,6 +28,7 @@ model Tenant {
   servicePrices         ServicePrice[]
   marketingCards        MarketingCard[]
   marketingCardSales    MarketingCardSale[]
+  marketingCardPayments MarketingCardPayment[]
   marketingCardTemplate MarketingCardTemplate?
 
   @@schema("app")
@@ -355,11 +356,31 @@ model MarketingCardSale {
   total           Int      @default(1)
   sessions        Json?
   appointments    Json?
+  paymentMode     String   @default("RATE_SEDUTE")
   active          Boolean  @default(true)
+  payments        MarketingCardPayment[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@schema("app")
+}
+
+
+model MarketingCardPayment {
+  id                  String   @id @default(uuid())
+  tenantId            String
+  marketingCardSaleId String
+  amount              Float
+  paymentType         String   @default("RATA_SEDUTA")
+  method              String   @default("CONTANTI")
+  note                String?
+  paidAt              DateTime @default(now())
+  createdAt           DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  sale   MarketingCardSale @relation(fields: [marketingCardSaleId], references: [id])
 
   @@schema("app")
 }

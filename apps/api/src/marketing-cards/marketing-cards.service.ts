@@ -13,6 +13,13 @@ export class MarketingCardsService {
         tenantId,
         active: true,
       },
+      include: {
+        payments: {
+          orderBy: {
+            paidAt: "desc",
+          },
+        },
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -30,6 +37,7 @@ export class MarketingCardsService {
       total?: number;
       sessions?: any;
       appointments?: any;
+      paymentMode?: string;
     },
   ) {
     return this.prisma.marketingCardSale.create({
@@ -44,7 +52,66 @@ export class MarketingCardsService {
         total: Number(body.total || 1),
         sessions: body.sessions || [],
         appointments: body.appointments || [],
+        paymentMode: body.paymentMode || "RATE_SEDUTE",
         active: true,
+      },
+    });
+  }
+
+
+  async addSalePayment(
+    tenantId: string,
+    id: string,
+    body: {
+      amount?: number;
+      paymentType?: string;
+      method?: string;
+      note?: string;
+    },
+  ) {
+    const sale = await this.prisma.marketingCardSale.findFirst({
+      where: {
+        id,
+        tenantId,
+        active: true,
+      },
+      include: {
+        payments: true,
+      },
+    });
+
+    if (!sale) {
+      throw new NotFoundException("Card venduta non trovata");
+    }
+
+    const amount = Number(body.amount || 0);
+
+    if (!amount || amount <= 0) {
+      throw new BadRequestException("Importo pagamento non valido");
+    }
+
+    await this.prisma.marketingCardPayment.create({
+      data: {
+        tenantId,
+        marketingCardSaleId: id,
+        amount,
+        paymentType: body.paymentType || "RATA_SEDUTA",
+        method: body.method || "CONTANTI",
+        note: body.note || null,
+      },
+    });
+
+    return this.prisma.marketingCardSale.findFirst({
+      where: {
+        id,
+        tenantId,
+      },
+      include: {
+        payments: {
+          orderBy: {
+            paidAt: "desc",
+          },
+        },
       },
     });
   }

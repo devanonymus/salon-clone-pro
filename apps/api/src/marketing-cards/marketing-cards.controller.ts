@@ -36,6 +36,22 @@ export class MarketingCardsController {
     return this.service.createSale(req.user.tenantId, body);
   }
 
+
+  @Post("sales/:id/payments")
+  addSalePayment(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      amount?: number;
+      paymentType?: string;
+      method?: string;
+      note?: string;
+    },
+  ) {
+    return this.service.addSalePayment(req.user.tenantId, id, body);
+  }
+
   @Patch("sales/:id/use")
   useSale(@Req() req: any, @Param("id") id: string) {
     return this.service.useSale(req.user.tenantId, id);

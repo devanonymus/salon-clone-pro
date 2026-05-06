@@ -22,6 +22,14 @@ type ActiveCard = {
   total: number;
   price?: number;
   sessions?: SessionItem[];
+  paymentMode?: string;
+  payments?: {
+    id: string;
+    amount: number;
+    paymentType: string;
+    method: string;
+    paidAt: string;
+  }[];
 };
 
 type CatalogCard = {
@@ -107,6 +115,7 @@ export default function MarketingPage() {
   const [catalogIncreaseTotal, setCatalogIncreaseTotal] = useState(0);
   const [operator, setOperator] = useState('');
   const [frequency, setFrequency] = useState('Mensile (30 gg)');
+  const [paymentMode, setPaymentMode] = useState<'RATE_SEDUTE' | 'INTERO_PRIMA_SEDUTA'>('RATE_SEDUTE');
   const [manualCardName, setManualCardName] = useState('');
   const [manualPrice, setManualPrice] = useState('');
   const [cardIncreaseInput, setCardIncreaseInput] = useState('');
@@ -332,6 +341,8 @@ export default function MarketingPage() {
       total: Number(item.total || 1),
       price: Number(item.price || 0),
       sessions: Array.isArray(item.sessions) ? item.sessions : [],
+      paymentMode: item.paymentMode || 'RATE_SEDUTE',
+      payments: Array.isArray(item.payments) ? item.payments : [],
     };
   }
 
@@ -1562,6 +1573,88 @@ export default function MarketingPage() {
     setCardIncreaseTotal(0);
   }
 
+
+  function cardPaidTotal(card: ActiveCard) {
+    return (card.payments || []).reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0,
+    );
+  }
+
+  function cardResidual(card: ActiveCard) {
+    return Math.max(0, Number(card.price || 0) - cardPaidTotal(card));
+  }
+
+  function cardInstallment(card: ActiveCard) {
+    return Number(card.price || 0) / Math.max(1, Number(card.total || 1));
+  }
+
+  async function collectCardPayment(
+    index: number,
+    paymentType: 'RATA_SEDUTA' | 'SALDO_INTERO',
+  ) {
+    const card = activeCards[index];
+
+    if (!card?.id) {
+      setMessage('⚠️ Card non salvata nel database.');
+      return;
+    }
+
+    const suggested =
+      paymentType === 'SALDO_INTERO'
+        ? cardResidual(card)
+        : Math.min(cardInstallment(card), cardResidual(card));
+
+    if (suggested <= 0) {
+      setMessage('✅ Card già saldata.');
+      return;
+    }
+
+    const input = prompt(
+      paymentType === 'SALDO_INTERO'
+        ? 'Importo saldo da incassare'
+        : 'Importo rata da incassare',
+      suggested.toFixed(2),
+    );
+
+    if (input === null) return;
+
+    const amount = Number(String(input).replace(',', '.'));
+
+    if (!amount || amount <= 0) {
+      setMessage('⚠️ Importo non valido.');
+      return;
+    }
+
+    try {
+      const updated = await marketingFetch(`/marketing/cards/sales/${card.id}/payments`, {
+        method: 'POST',
+        body: JSON.stringify({
+          amount,
+          paymentType,
+          method: 'CONTANTI',
+          note:
+            paymentType === 'SALDO_INTERO'
+              ? 'Saldo card intero'
+              : `Rata seduta ${Math.min(card.used + 1, card.total)}`,
+        }),
+      });
+
+      setActiveCards((prev) =>
+        prev.map((item, i) => (i === index ? normalizeSoldCard(updated) : item)),
+      );
+
+      setMessage(
+        paymentType === 'SALDO_INTERO'
+          ? '✅ Saldo card incassato.'
+          : '✅ Rata card incassata.',
+      );
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || 'Errore incasso pagamento card'}`);
+    }
+  }
+
+
   return (
     <main className="sp-page">
       <div className="sp-shell">
@@ -1984,6 +2077,18 @@ export default function MarketingPage() {
             </select>
           </div>
 
+          <div style={{ marginTop: 14 }}>
+            <label style={label}>Modalità pagamento card</label>
+            <select
+              className="sp-input"
+              value={paymentMode}
+              onChange={(e) => setPaymentMode(e.target.value as 'RATE_SEDUTE' | 'INTERO_PRIMA_SEDUTA')}
+            >
+              <option value="RATE_SEDUTE">Pagamento a rate: una rata per seduta</option>
+              <option value="INTERO_PRIMA_SEDUTA">Pagamento intero alla prima seduta</option>
+            </select>
+          </div>
+
           <div style={grid2}>
             <input
               className="sp-input"
@@ -2208,6 +2313,7 @@ export default function MarketingPage() {
                   <th style={th}>Card</th>
                   <th style={th}>WhatsApp</th>
                   <th style={th}>Avanzamento</th>
+                  <th style={th}>Pagamenti</th>
                   <th style={th}>Azioni</th>
                 </tr>
               </thead>
@@ -2230,6 +2336,25 @@ export default function MarketingPage() {
                         {card.used}/{card.total} usate
                       </div>
                     </td>
+                    <td style={td}>
+                      <div>Totale: <strong>€ {Number(card.price || 0).toFixed(2)}</strong></div>
+                      <div>Pagato: <strong style={{ color: '#22c55e' }}>€ {cardPaidTotal(card).toFixed(2)}</strong></div>
+                      <div>Residuo: <strong style={{ color: cardResidual(card) > 0 ? '#f87171' : '#22c55e' }}>€ {cardResidual(card).toFixed(2)}</strong></div>
+                      <div className="sp-muted" style={{ marginTop: 5 }}>
+                        {card.paymentMode === 'INTERO_PRIMA_SEDUTA'
+                          ? 'Intero alla prima seduta'
+                          : `Rata: € ${cardInstallment(card).toFixed(2)}`}
+                      </div>
+                      <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button style={miniPurple} onClick={() => collectCardPayment(index, 'RATA_SEDUTA')}>
+                          Incassa rata
+                        </button>
+                        <button style={miniBtn} onClick={() => collectCardPayment(index, 'SALDO_INTERO')}>
+                          Saldo
+                        </button>
+                      </div>
+                    </td>
+
                     <td style={td}>
                       <button
                         style={miniBtn}
