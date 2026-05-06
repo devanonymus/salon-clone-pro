@@ -34,12 +34,7 @@ const services = [
   'Plex Forte Repair Ricostruzione',
 ];
 
-const defaultCatalogCards: CatalogCard[] = [
-  { name: 'Percorso Tre Mesi Colore Blindato', price: 238 },
-  { name: 'Colore Blindato', price: 183 },
-  { name: 'Katìa Brigante', price: 50 },
-  { name: 'Brian Prima Percorso', price: 121 },
-];
+const defaultCatalogCards: CatalogCard[] = [];
 
 const defaultActiveCards: ActiveCard[] = [];
 
