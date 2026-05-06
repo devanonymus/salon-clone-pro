@@ -228,6 +228,12 @@ export default function MarketingPage() {
           ...data,
           logoUrl: data.logoUrl || prev.logoUrl,
         }));
+
+        setMessageTemplates((prev) => ({
+          ...prev,
+          promo: data.promoMessageTemplate || prev.promo,
+          confirm: data.confirmMessageTemplate || prev.confirm,
+        }));
       }
     } catch (err: any) {
       console.error(err);
@@ -703,12 +709,25 @@ export default function MarketingPage() {
     }));
   }
 
-  function saveMessageTemplates() {
-    localStorage.setItem('salonpro_marketing_message_templates', JSON.stringify(messageTemplates));
-    setMessage('✅ Template messaggi WhatsApp salvati su questo dispositivo.');
+  async function saveMessageTemplates() {
+    try {
+      await marketingFetch('/marketing/cards/template', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...pdfTemplate,
+          promoMessageTemplate: messageTemplates.promo,
+          confirmMessageTemplate: messageTemplates.confirm,
+        }),
+      });
+
+      localStorage.setItem('salonpro_marketing_message_templates', JSON.stringify(messageTemplates));
+      setMessage('✅ Template messaggi WhatsApp salvati nel database del salone.');
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || 'Errore salvataggio template messaggi WhatsApp'}`);
+    }
   }
 
-  function resetMessageTemplates() {
+  async function resetMessageTemplates() {
     const ok = confirm('Vuoi ripristinare i messaggi WhatsApp standard?');
     if (!ok) return;
 
@@ -749,7 +768,21 @@ export default function MarketingPage() {
 
     setMessageTemplates(defaults);
     localStorage.setItem('salonpro_marketing_message_templates', JSON.stringify(defaults));
-    setMessage('✅ Template messaggi WhatsApp ripristinati.');
+
+    try {
+      await marketingFetch('/marketing/cards/template', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...pdfTemplate,
+          promoMessageTemplate: defaults.promo,
+          confirmMessageTemplate: defaults.confirm,
+        }),
+      });
+
+      setMessage('✅ Template messaggi WhatsApp ripristinati e salvati.');
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || 'Errore ripristino template messaggi'}`);
+    }
   }
 
   function applyWhatsappTemplate(template: string, card?: CatalogCard) {
@@ -2003,6 +2036,24 @@ export default function MarketingPage() {
             Puoi usare queste variabili nei messaggi:
             <strong> {"{nome_cliente}"} {"{nome_card}"} {"{prezzo_card}"} {"{sedute}"} {"{prezzo_seduta}"} {"{salone}"} {"{firma}"}</strong>
           </div>
+
+          <div style={grid2}>
+            <input
+              className="sp-input"
+              placeholder="Nome cliente per messaggio"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+            />
+
+            <input
+              className="sp-input"
+              placeholder="WhatsApp cliente per invio promo"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+            />
+          </div>
+
+          <div style={{ marginTop: 18 }} />
 
           <div style={messageTemplateGrid}>
             <div>

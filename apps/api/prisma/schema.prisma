@@ -331,6 +331,8 @@ model MarketingCardTemplate {
   ctaText        String   @default("Blocca oggi il tuo percorso e programma subito le sedute.")
   footerText     String   @default("Card personale, non convertibile in denaro.")
   signature      String   @default("Il tuo salone di fiducia")
+  promoMessageTemplate   String   @default("Ciao {nome_cliente} 💛\n\nAbbiamo preparato una proposta speciale pensata per mantenere il risultato nel tempo:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nVuoi che ti blocchiamo questa possibilità?\n\n{firma}")
+  confirmMessageTemplate String   @default("Ciao {nome_cliente} 💛\n\nTi confermiamo la tua card:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nTi aspettiamo in salone.\n\n{firma}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
