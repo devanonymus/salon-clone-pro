@@ -359,6 +359,79 @@ export default function ConfigurazionePage() {
           <TabButton label="Fiscale" active={tab === "fiscale"} onClick={() => setTab("fiscale")} />
         </nav>
 
+
+        {tab === "pdfcard" ? (
+          <section className="sp-card" style={cardPad}>
+            <SectionTitle kicker="Template vendita" title="PDF Card personalizzato per il salone" />
+
+            <div style={infoBox}>
+              Configura logo, stile grafico, colori e testi usati quando stampi o salvi in PDF una card predefinita.
+            </div>
+
+            <div style={grid3}>
+              <input
+                className="sp-input"
+                placeholder="Logo URL es. /acquaviva-strategic-logo.png"
+                value={pdfTemplate.logoUrl}
+                onChange={(e) => updatePdfTemplate("logoUrl", e.target.value)}
+              />
+
+              <input
+                className="sp-input"
+                placeholder="Nome salone"
+                value={pdfTemplate.salonName}
+                onChange={(e) => updatePdfTemplate("salonName", e.target.value)}
+              />
+
+              <select
+                className="sp-input"
+                value={pdfTemplate.templateStyle}
+                onChange={(e) => updatePdfTemplate("templateStyle", e.target.value)}
+              >
+                <option value="LUXURY_GOLD">Luxury Gold</option>
+                <option value="DIRECT_RESPONSE">Direct Response</option>
+                <option value="MINIMAL_PREMIUM">Minimal Premium</option>
+                <option value="GIFT_CARD">Gift Card</option>
+              </select>
+            </div>
+
+            <div style={grid2}>
+              <input
+                className="sp-input"
+                placeholder="Colore principale"
+                value={pdfTemplate.primaryColor}
+                onChange={(e) => updatePdfTemplate("primaryColor", e.target.value)}
+              />
+
+              <input
+                className="sp-input"
+                placeholder="Colore accento"
+                value={pdfTemplate.accentColor}
+                onChange={(e) => updatePdfTemplate("accentColor", e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
+              <input className="sp-input" placeholder="Titolo PDF" value={pdfTemplate.title} onChange={(e) => updatePdfTemplate("title", e.target.value)} />
+              <input className="sp-input" placeholder="Sottotitolo" value={pdfTemplate.subtitle} onChange={(e) => updatePdfTemplate("subtitle", e.target.value)} />
+
+              <textarea className="sp-input" rows={4} placeholder="Promessa" value={pdfTemplate.promiseText} onChange={(e) => updatePdfTemplate("promiseText", e.target.value)} />
+              <textarea className="sp-input" rows={4} placeholder="Testo valore percepito" value={pdfTemplate.valueText} onChange={(e) => updatePdfTemplate("valueText", e.target.value)} />
+              <textarea className="sp-input" rows={4} placeholder="Bonus" value={pdfTemplate.bonusText} onChange={(e) => updatePdfTemplate("bonusText", e.target.value)} />
+              <textarea className="sp-input" rows={4} placeholder="Urgenza / scarsità" value={pdfTemplate.urgencyText} onChange={(e) => updatePdfTemplate("urgencyText", e.target.value)} />
+              <textarea className="sp-input" rows={3} placeholder="Garanzia / rassicurazione" value={pdfTemplate.guaranteeText} onChange={(e) => updatePdfTemplate("guaranteeText", e.target.value)} />
+              <textarea className="sp-input" rows={3} placeholder="Call to action finale" value={pdfTemplate.ctaText} onChange={(e) => updatePdfTemplate("ctaText", e.target.value)} />
+              <textarea className="sp-input" rows={2} placeholder="Footer" value={pdfTemplate.footerText} onChange={(e) => updatePdfTemplate("footerText", e.target.value)} />
+              <input className="sp-input" placeholder="Firma salone" value={pdfTemplate.signature} onChange={(e) => updatePdfTemplate("signature", e.target.value)} />
+            </div>
+
+            <button className="sp-button-purple" style={{ width: "100%", marginTop: 18 }} onClick={savePdfTemplate}>
+              Salva template PDF Card
+            </button>
+          </section>
+        ) : null}
+
+
         {tab === "whatsapp" ? (
           <section className="sp-card" style={cardPad}>
             <SectionTitle kicker="WhatsApp SaaS" title="Configurazione WhatsApp per questo salone" />
