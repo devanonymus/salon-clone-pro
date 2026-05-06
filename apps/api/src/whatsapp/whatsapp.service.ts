@@ -3,9 +3,12 @@ import {
   Injectable,
   InternalServerErrorException,
 } from "@nestjs/common";
+import { PrismaService } from "../prisma.service";
 
 @Injectable()
 export class WhatsappService {
+  constructor(private prisma: PrismaService) {}
+
   private readonly accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   private readonly phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
@@ -17,6 +20,69 @@ export class WhatsappService {
     if (!this.phoneNumberId) {
       throw new InternalServerErrorException("WHATSAPP_PHONE_NUMBER_ID mancante");
     }
+  }
+
+  async getConfig(tenantId: string) {
+    const config = await this.prisma.tenantWhatsappConfig.findUnique({
+      where: { tenantId },
+    });
+
+    if (!config) {
+      return {
+        enabled: false,
+        phoneNumberId: "",
+        businessAccountId: "",
+        apiVersion: "v21.0",
+        hasToken: false,
+      };
+    }
+
+    return {
+      enabled: config.enabled,
+      phoneNumberId: config.phoneNumberId,
+      businessAccountId: config.businessAccountId || "",
+      apiVersion: config.apiVersion || "v21.0",
+      hasToken: Boolean(config.accessTokenEncrypted),
+    };
+  }
+
+  async saveConfig(
+    tenantId: string,
+    body: {
+      phoneNumberId?: string;
+      businessAccountId?: string;
+      accessToken?: string;
+      apiVersion?: string;
+      enabled?: boolean;
+    },
+  ) {
+    const existing = await this.prisma.tenantWhatsappConfig.findUnique({
+      where: { tenantId },
+    });
+
+    const accessTokenEncrypted =
+      body.accessToken && body.accessToken.trim()
+        ? body.accessToken.trim()
+        : existing?.accessTokenEncrypted || "";
+
+    return this.prisma.tenantWhatsappConfig.upsert({
+      where: { tenantId },
+      update: {
+        phoneNumberId: body.phoneNumberId || existing?.phoneNumberId || "",
+        businessAccountId: body.businessAccountId || null,
+        accessTokenEncrypted,
+        apiVersion: body.apiVersion || "v21.0",
+        enabled: Boolean(body.enabled),
+      },
+      create: {
+        tenantId,
+        phoneNumberId: body.phoneNumberId || "",
+        businessAccountId: body.businessAccountId || null,
+        accessTokenEncrypted,
+        apiVersion: body.apiVersion || "v21.0",
+        enabled: Boolean(body.enabled),
+      },
+    });
   }
 
   async getChats() {
