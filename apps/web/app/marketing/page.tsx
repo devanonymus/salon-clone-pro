@@ -3,10 +3,10 @@
 import { useMemo, useState } from 'react';
 
 type SessionItem = {
-  paidService: string;
-  paidProduct: string;
-  giftService: string;
-  giftProduct: string;
+  paidServicess: string[];
+  paidProductss: string[];
+  giftServicess: string[];
+  giftProductss: string[];
 };
 
 type ActiveCard = {
@@ -53,10 +53,10 @@ export default function MarketingPage() {
   const [catalogSessionsCount, setCatalogSessionsCount] = useState(4);
   const [catalogSessions, setCatalogSessions] = useState<SessionItem[]>(
     Array.from({ length: 4 }).map(() => ({
-      paidService: '',
-      paidProduct: '',
-      giftService: '',
-      giftProduct: '',
+      paidServices: [],
+      paidProducts: [],
+      giftServices: [],
+      giftProducts: [],
     })),
   );
   const [catalogIncreaseInput, setCatalogIncreaseInput] = useState('');
@@ -70,10 +70,10 @@ export default function MarketingPage() {
   const [sessionsCount, setSessionsCount] = useState(4);
   const [sessions, setSessions] = useState<SessionItem[]>(
     Array.from({ length: 4 }).map(() => ({
-      paidService: '',
-      paidProduct: '',
-      giftService: '',
-      giftProduct: '',
+      paidServices: [],
+      paidProducts: [],
+      giftServices: [],
+      giftProducts: [],
     })),
   );
   const [activeCards, setActiveCards] = useState<ActiveCard[]>(defaultActiveCards);
@@ -87,11 +87,11 @@ export default function MarketingPage() {
     return sessions.reduce((sum, session) => {
       let subtotal = 0;
 
-      if (session.paidService) subtotal += serviceValue(session.paidService);
-      if (session.paidProduct) subtotal += productValue(session.paidProduct);
+      subtotal += session.paidServices.reduce((total, item) => total + serviceValue(item), 0);
+      subtotal += session.paidProducts.reduce((total, item) => total + productValue(item), 0);
 
-      if (session.giftService) subtotal += serviceValue(session.giftService);
-      if (session.giftProduct) subtotal += productValue(session.giftProduct);
+      subtotal += session.giftServices.reduce((total, item) => total + serviceValue(item), 0);
+      subtotal += session.giftProducts.reduce((total, item) => total + productValue(item), 0);
 
       return sum + subtotal;
     }, 0);
@@ -101,11 +101,11 @@ export default function MarketingPage() {
     return sessions.reduce((sum, session) => {
       let subtotal = 0;
 
-      if (session.paidService) subtotal += serviceValue(session.paidService);
-      if (session.paidProduct) subtotal += productValue(session.paidProduct);
+      subtotal += session.paidServices.reduce((total, item) => total + serviceValue(item), 0);
+      subtotal += session.paidProducts.reduce((total, item) => total + productValue(item), 0);
 
-      if (session.giftService) subtotal += serviceCost(session.giftService);
-      if (session.giftProduct) subtotal += productCost(session.giftProduct);
+      subtotal += session.giftServices.reduce((total, item) => total + serviceCost(item), 0);
+      subtotal += session.giftProducts.reduce((total, item) => total + productCost(item), 0);
 
       return sum + subtotal;
     }, 0);
@@ -131,10 +131,10 @@ export default function MarketingPage() {
 
   function emptyCatalogSessions(count = 4) {
     return Array.from({ length: count }).map(() => ({
-      paidService: '',
-      paidProduct: '',
-      giftService: '',
-      giftProduct: '',
+      paidServices: [],
+      paidProducts: [],
+      giftServices: [],
+      giftProducts: [],
     }));
   }
 
@@ -172,10 +172,10 @@ export default function MarketingPage() {
 
       while (next.length < value) {
         next.push({
-          paidService: '',
-          paidProduct: '',
-          giftService: '',
-          giftProduct: '',
+          paidServices: [],
+          paidProducts: [],
+          giftServices: [],
+          giftProducts: [],
         });
       }
 
@@ -183,7 +183,25 @@ export default function MarketingPage() {
     });
   }
 
-  function updateCatalogSession(index: number, key: keyof SessionItem, value: string) {
+
+  function copyCatalogSessionToAll(index: number) {
+    setCatalogSessions((prev) => {
+      const source = prev[index];
+
+      if (!source) return prev;
+
+      return prev.map(() => ({
+        paidServices: [...source.paidServices],
+        paidProducts: [...source.paidProducts],
+        giftServices: [...source.giftServices],
+        giftProducts: [...source.giftProducts],
+      }));
+    });
+
+    setMessage(`✅ Seduta catalogo ${index + 1} copiata su tutte.`);
+  }
+
+  function updateCatalogSession(index: number, key: keyof SessionItem, value: string[]) {
     setCatalogSessions((prev) =>
       prev.map((session, i) =>
         i === index
@@ -199,10 +217,10 @@ export default function MarketingPage() {
   const catalogValueListino = catalogSessions.reduce((sum, session) => {
     let subtotal = 0;
 
-    if (session.paidService) subtotal += serviceValue(session.paidService);
-    if (session.paidProduct) subtotal += productValue(session.paidProduct);
-    if (session.giftService) subtotal += serviceValue(session.giftService);
-    if (session.giftProduct) subtotal += productValue(session.giftProduct);
+    subtotal += session.paidServices.reduce((total, item) => total + serviceValue(item), 0);
+    subtotal += session.paidProducts.reduce((total, item) => total + productValue(item), 0);
+    subtotal += session.giftServices.reduce((total, item) => total + serviceValue(item), 0);
+    subtotal += session.giftProducts.reduce((total, item) => total + productValue(item), 0);
 
     return sum + subtotal;
   }, 0);
@@ -210,10 +228,10 @@ export default function MarketingPage() {
   const catalogCalculatedPrice = catalogSessions.reduce((sum, session) => {
     let subtotal = 0;
 
-    if (session.paidService) subtotal += serviceValue(session.paidService);
-    if (session.paidProduct) subtotal += productValue(session.paidProduct);
-    if (session.giftService) subtotal += serviceCost(session.giftService);
-    if (session.giftProduct) subtotal += productCost(session.giftProduct);
+    subtotal += session.paidServices.reduce((total, item) => total + serviceValue(item), 0);
+    subtotal += session.paidProducts.reduce((total, item) => total + productValue(item), 0);
+    subtotal += session.giftServices.reduce((total, item) => total + serviceCost(item), 0);
+    subtotal += session.giftProducts.reduce((total, item) => total + productCost(item), 0);
 
     return sum + subtotal;
   }, 0);
@@ -302,10 +320,10 @@ export default function MarketingPage() {
 
       while (next.length < value) {
         next.push({
-          paidService: '',
-          paidProduct: '',
-          giftService: '',
-          giftProduct: '',
+          paidServices: [],
+          paidProducts: [],
+          giftServices: [],
+          giftProducts: [],
         });
       }
 
@@ -313,7 +331,25 @@ export default function MarketingPage() {
     });
   }
 
-  function updateSession(index: number, key: keyof SessionItem, value: string) {
+
+  function copySessionToAll(index: number) {
+    setSessions((prev) => {
+      const source = prev[index];
+
+      if (!source) return prev;
+
+      return prev.map(() => ({
+        paidServices: [...source.paidServices],
+        paidProducts: [...source.paidProducts],
+        giftServices: [...source.giftServices],
+        giftProducts: [...source.giftProducts],
+      }));
+    });
+
+    setMessage(`✅ Seduta ${index + 1} copiata su tutte le sedute.`);
+  }
+
+  function updateSession(index: number, key: keyof SessionItem, value: string[]) {
     setSessions((prev) =>
       prev.map((session, i) =>
         i === index
@@ -377,10 +413,10 @@ export default function MarketingPage() {
   function resetCart() {
     setSessions(
       Array.from({ length: sessionsCount }).map(() => ({
-        paidService: '',
-        paidProduct: '',
-        giftService: '',
-        giftProduct: '',
+        paidServices: [],
+        paidProducts: [],
+        giftServices: [],
+        giftProducts: [],
       })),
     );
     setCardIncreaseInput('');
@@ -452,6 +488,7 @@ export default function MarketingPage() {
                   <div>
                     <div style={greenKicker}>Carrello della card</div>
                     <h2 style={sectionTitle}>{catalogSessionsCount} sedute</h2>
+                    <p className="sp-muted" style={{ marginTop: 6 }}>Puoi selezionare più servizi e prodotti per ogni seduta.</p>
                   </div>
 
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -477,12 +514,23 @@ export default function MarketingPage() {
                 <div style={catalogSessionsGrid}>
                   {catalogSessions.map((session, index) => (
                     <div key={index} style={sessionCard}>
-                      <h3 style={{ color: '#d4af37', marginTop: 0 }}>Seduta {index + 1}</h3>
+                      <div style={sessionTitleRow}>
+                  <h3 style={{ color: '#d4af37', margin: 0 }}>Seduta {index + 1}</h3>
+                  <button
+                    type="button"
+                    style={copySessionButton}
+                    onClick={() => copySessionToAll(index)}
+                  >
+                    Copia su tutte
+                  </button>
+                </div>
 
                       <select
                         className="sp-input"
-                        value={session.paidService}
-                        onChange={(e) => updateCatalogSession(index, 'paidService', e.target.value)}
+                        style={{ minHeight: 86 }}
+                        multiple
+                        value={session.paidServices}
+                        onChange={(e) => updateCatalogSession(index, 'paidServices', Array.from(e.target.selectedOptions).map((option) => option.value).filter(Boolean))}
                       >
                         <option value="">+ Servizio a pagamento...</option>
                         {services.map((service) => (
@@ -492,9 +540,10 @@ export default function MarketingPage() {
 
                       <select
                         className="sp-input"
-                        style={{ marginTop: 10 }}
-                        value={session.paidProduct}
-                        onChange={(e) => updateCatalogSession(index, 'paidProduct', e.target.value)}
+                        style={{ marginTop: 10, minHeight: 86 }}
+                        multiple
+                        value={session.paidProducts}
+                        onChange={(e) => updateCatalogSession(index, 'paidProducts', Array.from(e.target.selectedOptions).map((option) => option.value).filter(Boolean))}
                       >
                         <option value="">+ Prodotto a pagamento...</option>
                         <option>Shampoo specifico</option>
@@ -504,9 +553,10 @@ export default function MarketingPage() {
 
                       <select
                         className="sp-input"
-                        style={{ marginTop: 10 }}
-                        value={session.giftService}
-                        onChange={(e) => updateCatalogSession(index, 'giftService', e.target.value)}
+                        style={{ marginTop: 10, minHeight: 86 }}
+                        multiple
+                        value={session.giftServices}
+                        onChange={(e) => updateCatalogSession(index, 'giftServices', Array.from(e.target.selectedOptions).map((option) => option.value).filter(Boolean))}
                       >
                         <option value="">+ Servizio in omaggio...</option>
                         {services.map((service) => (
@@ -516,9 +566,10 @@ export default function MarketingPage() {
 
                       <select
                         className="sp-input"
-                        style={{ marginTop: 10 }}
-                        value={session.giftProduct}
-                        onChange={(e) => updateCatalogSession(index, 'giftProduct', e.target.value)}
+                        style={{ marginTop: 10, minHeight: 86 }}
+                        multiple
+                        value={session.giftProducts}
+                        onChange={(e) => updateCatalogSession(index, 'giftProducts', Array.from(e.target.selectedOptions).map((option) => option.value).filter(Boolean))}
                       >
                         <option value="">+ Prodotto omaggio...</option>
                         <option>Mini shampoo</option>
@@ -696,6 +747,7 @@ export default function MarketingPage() {
             <div>
               <div style={greenKicker}>Carrello percorso</div>
               <h2 style={sectionTitle}>{sessionsCount} sedute</h2>
+              <p className="sp-muted" style={{ marginTop: 6 }}>Puoi selezionare più voci tenendo premuto Cmd/Ctrl.</p>
             </div>
 
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -724,8 +776,10 @@ export default function MarketingPage() {
 
                 <select
                   className="sp-input"
-                  value={session.paidService}
-                  onChange={(e) => updateSession(index, 'paidService', e.target.value)}
+                  style={{ minHeight: 86 }}
+                  multiple
+                  value={session.paidServices}
+                  onChange={(e) => updateSession(index, 'paidServices', Array.from(e.target.selectedOptions).map((option) => option.value).filter(Boolean))}
                 >
                   <option value="">+ Servizio a pagamento...</option>
                   {services.map((service) => (
@@ -735,9 +789,10 @@ export default function MarketingPage() {
 
                 <select
                   className="sp-input"
-                  style={{ marginTop: 10 }}
-                  value={session.paidProduct}
-                  onChange={(e) => updateSession(index, 'paidProduct', e.target.value)}
+                  style={{ marginTop: 10, minHeight: 86 }}
+                  multiple
+                  value={session.paidProducts}
+                  onChange={(e) => updateSession(index, 'paidProducts', Array.from(e.target.selectedOptions).map((option) => option.value).filter(Boolean))}
                 >
                   <option value="">+ Prodotto a pagamento...</option>
                   <option>Shampoo specifico</option>
@@ -747,9 +802,10 @@ export default function MarketingPage() {
 
                 <select
                   className="sp-input"
-                  style={{ marginTop: 10 }}
-                  value={session.giftService}
-                  onChange={(e) => updateSession(index, 'giftService', e.target.value)}
+                  style={{ marginTop: 10, minHeight: 86 }}
+                  multiple
+                  value={session.giftServices}
+                  onChange={(e) => updateSession(index, 'giftServices', Array.from(e.target.selectedOptions).map((option) => option.value).filter(Boolean))}
                 >
                   <option value="">+ Servizio in omaggio...</option>
                   {services.map((service) => (
@@ -759,9 +815,10 @@ export default function MarketingPage() {
 
                 <select
                   className="sp-input"
-                  style={{ marginTop: 10 }}
-                  value={session.giftProduct}
-                  onChange={(e) => updateSession(index, 'giftProduct', e.target.value)}
+                  style={{ marginTop: 10, minHeight: 86 }}
+                  multiple
+                  value={session.giftProducts}
+                  onChange={(e) => updateSession(index, 'giftProducts', Array.from(e.target.selectedOptions).map((option) => option.value).filter(Boolean))}
                 >
                   <option value="">+ Prodotto omaggio...</option>
                   <option>Mini shampoo</option>
@@ -1086,6 +1143,27 @@ const sessionsGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(3, 1fr)',
   gap: 14,
+};
+
+
+const sessionTitleRow: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 10,
+  marginBottom: 12,
+};
+
+const copySessionButton: React.CSSProperties = {
+  border: '1px solid rgba(212,175,55,0.28)',
+  borderRadius: 999,
+  padding: '7px 10px',
+  background: 'rgba(212,175,55,0.12)',
+  color: '#f5d76e',
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
 };
 
 const sessionCard: React.CSSProperties = {
