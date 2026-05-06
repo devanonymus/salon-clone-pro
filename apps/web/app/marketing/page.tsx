@@ -30,6 +30,24 @@ type CatalogCard = {
   increaseTotal: number;
 };
 
+type CardPdfTemplate = {
+  logoUrl?: string | null;
+  salonName: string;
+  templateStyle: string;
+  primaryColor: string;
+  accentColor: string;
+  title: string;
+  subtitle: string;
+  promiseText: string;
+  valueText: string;
+  bonusText: string;
+  urgencyText: string;
+  guaranteeText: string;
+  ctaText: string;
+  footerText: string;
+  signature: string;
+};
+
 type ServicePrice = {
   id: string;
   name: string;
@@ -83,6 +101,23 @@ export default function MarketingPage() {
   const [activeCards, setActiveCards] = useState<ActiveCard[]>(defaultActiveCards);
   const [message, setMessage] = useState('');
   const [previewCard, setPreviewCard] = useState<CatalogCard | null>(null);
+  const [pdfTemplate, setPdfTemplate] = useState<CardPdfTemplate>({
+    logoUrl: "/acquaviva-strategic-logo.png",
+    salonName: "Acquaviva Strategic",
+    templateStyle: "LUXURY_GOLD",
+    primaryColor: "#080808",
+    accentColor: "#d4af37",
+    title: "Il tuo percorso bellezza personalizzato",
+    subtitle: "Una card pensata per mantenere il risultato nel tempo.",
+    promiseText: "Non è una semplice promozione: è un percorso guidato per farti restare sempre in ordine, senza improvvisare.",
+    valueText: "Abbiamo racchiuso servizi, prodotti e bonus in una proposta chiara, comoda e ad alto valore.",
+    bonusText: "I bonus inclusi sono pensati per aumentare il risultato e farti vivere un’esperienza più completa.",
+    urgencyText: "I posti disponibili per questo percorso sono limitati per garantire continuità e qualità.",
+    guaranteeText: "Ti guideremo passo dopo passo nella scelta più adatta ai tuoi capelli.",
+    ctaText: "Blocca oggi il tuo percorso e programma subito le sedute.",
+    footerText: "Card personale, non convertibile in denaro.",
+    signature: "Il tuo salone di fiducia",
+  });
 
 
   async function loadServices() {
@@ -114,6 +149,7 @@ export default function MarketingPage() {
   useEffect(() => {
     loadServices();
     loadCatalogCards();
+    loadPdfTemplate();
   }, []);
 
 
@@ -142,6 +178,24 @@ export default function MarketingPage() {
     }
 
     return data;
+  }
+
+
+  async function loadPdfTemplate() {
+    try {
+      const data = await marketingFetch('/marketing/cards/template');
+
+      if (data) {
+        setPdfTemplate((prev) => ({
+          ...prev,
+          ...data,
+          logoUrl: data.logoUrl || prev.logoUrl,
+        }));
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMessage(`⚠️ ${err.message || 'Errore caricamento template PDF Card'}`);
+    }
   }
 
   async function loadCatalogCards() {
@@ -632,7 +686,369 @@ export default function MarketingPage() {
   }
 
   function printPreviewCard() {
-    window.print();
+    if (!previewCard) return;
+
+    const esc = (value: any) =>
+      String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+    const logoUrl = pdfTemplate.logoUrl || "/acquaviva-strategic-logo.png";
+    const accent = pdfTemplate.accentColor || "#d4af37";
+    const primary = pdfTemplate.primaryColor || "#080808";
+
+    const sessions = previewCard.sessions || [];
+    const valueList = sessions.reduce((sum, session) => {
+      const paidServices = (session.paidServices || []).reduce((t, item) => t + getServiceValue(item), 0);
+      const paidProducts = (session.paidProducts || []).reduce((t, item) => t + productValue(item), 0);
+      const giftServices = (session.giftServices || []).reduce((t, item) => t + getServiceValue(item), 0);
+      const giftProducts = (session.giftProducts || []).reduce((t, item) => t + productValue(item), 0);
+      return sum + paidServices + paidProducts + giftServices + giftProducts;
+    }, 0);
+
+    const cardPrice = Number(previewCard.price || 0);
+    const saving = Math.max(0, valueList - cardPrice);
+
+    const sessionsHtml = sessions
+      .map((session, index) => {
+        const paid = [
+          ...(session.paidServices || []).map((item) => `Servizio: ${item}`),
+          ...(session.paidProducts || []).map((item) => `Prodotto: ${item}`),
+        ];
+
+        const gifts = [
+          ...(session.giftServices || []).map((item) => `Bonus servizio: ${item}`),
+          ...(session.giftProducts || []).map((item) => `Bonus prodotto: ${item}`),
+        ];
+
+        return `
+          <div class="session">
+            <div class="session-number">Seduta ${index + 1}</div>
+            <div class="session-content">
+              <div class="session-main">${paid.length ? esc(paid.join(" · ")) : "Percorso da personalizzare in salone"}</div>
+              ${gifts.length ? `<div class="session-gift">${esc(gifts.join(" · "))}</div>` : ""}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const templateClass =
+      pdfTemplate.templateStyle === "DIRECT_RESPONSE"
+        ? "direct"
+        : pdfTemplate.templateStyle === "MINIMAL_PREMIUM"
+          ? "minimal"
+          : pdfTemplate.templateStyle === "GIFT_CARD"
+            ? "gift"
+            : "luxury";
+
+    const html = `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${esc(previewCard.name)}</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f4f0e8;
+      color: #111;
+    }
+
+    .sheet {
+      min-height: calc(297mm - 28mm);
+      padding: 0;
+      background: ${templateClass === "minimal" ? "#ffffff" : primary};
+      border-radius: 26px;
+      overflow: hidden;
+      border: 2px solid ${accent};
+      box-shadow: 0 18px 70px rgba(0,0,0,0.20);
+      position: relative;
+    }
+
+    .sheet::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top left, ${accent}55, transparent 34%),
+        radial-gradient(circle at bottom right, ${accent}33, transparent 30%);
+      pointer-events: none;
+    }
+
+    .inner {
+      position: relative;
+      padding: 34px;
+      color: ${templateClass === "minimal" ? "#111" : "#fff"};
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-start;
+      border-bottom: 1px solid ${accent}77;
+      padding-bottom: 24px;
+    }
+
+    .logo {
+      max-width: 190px;
+      max-height: 86px;
+      object-fit: contain;
+    }
+
+    .kicker {
+      color: ${accent};
+      font-weight: 900;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: ${templateClass === "direct" ? "43px" : "39px"};
+      line-height: 0.98;
+      letter-spacing: -1.2px;
+      max-width: 620px;
+    }
+
+    .subtitle {
+      margin-top: 14px;
+      font-size: 18px;
+      line-height: 1.45;
+      color: ${templateClass === "minimal" ? "#333" : "#f4ead0"};
+      max-width: 720px;
+      font-weight: 700;
+    }
+
+    .card-name {
+      margin-top: 28px;
+      padding: 22px;
+      border-radius: 22px;
+      background: ${templateClass === "minimal" ? "#f7f3ea" : "rgba(255,255,255,0.08)"};
+      border: 1px solid ${accent}77;
+    }
+
+    .card-name h2 {
+      margin: 0;
+      color: ${accent};
+      font-size: 31px;
+      line-height: 1.1;
+    }
+
+    .promise {
+      margin-top: 18px;
+      padding: 22px;
+      border-radius: 22px;
+      background: ${templateClass === "direct" ? "#fff3cd" : templateClass === "minimal" ? "#fafafa" : "rgba(212,175,55,0.12)"};
+      color: ${templateClass === "direct" || templateClass === "minimal" ? "#111" : "#fff"};
+      border: 1px solid ${accent}99;
+      font-size: 18px;
+      line-height: 1.48;
+      font-weight: 800;
+    }
+
+    .numbers {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .num {
+      padding: 18px;
+      border-radius: 20px;
+      background: ${templateClass === "minimal" ? "#f7f7f7" : "rgba(255,255,255,0.075)"};
+      border: 1px solid ${accent}55;
+    }
+
+    .num span {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: ${accent};
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .num strong {
+      font-size: 30px;
+      color: ${templateClass === "minimal" ? "#111" : "#fff"};
+    }
+
+    .section {
+      margin-top: 24px;
+    }
+
+    .section h3 {
+      color: ${accent};
+      margin: 0 0 12px;
+      font-size: 22px;
+    }
+
+    .text-box {
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid ${accent}55;
+      background: ${templateClass === "minimal" ? "#fafafa" : "rgba(255,255,255,0.06)"};
+      line-height: 1.55;
+      font-weight: 700;
+      color: ${templateClass === "minimal" ? "#222" : "#fff"};
+    }
+
+    .session {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid ${accent}44;
+      background: ${templateClass === "minimal" ? "#f8f8f8" : "rgba(255,255,255,0.055)"};
+      margin-top: 10px;
+    }
+
+    .session-number {
+      color: ${accent};
+      font-weight: 900;
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+
+    .session-main {
+      font-weight: 800;
+      line-height: 1.42;
+    }
+
+    .session-gift {
+      margin-top: 7px;
+      color: ${accent};
+      font-weight: 900;
+      line-height: 1.42;
+    }
+
+    .cta {
+      margin-top: 28px;
+      padding: 24px;
+      border-radius: 24px;
+      background: ${accent};
+      color: #090909;
+      font-size: 22px;
+      line-height: 1.35;
+      font-weight: 950;
+      text-align: center;
+    }
+
+    .footer {
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      font-size: 13px;
+      color: ${templateClass === "minimal" ? "#444" : "#f4ead0"};
+      border-top: 1px solid ${accent}55;
+      padding-top: 16px;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .sheet { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet ${templateClass}">
+    <div class="inner">
+      <div class="top">
+        <div>
+          <div class="kicker">${esc(pdfTemplate.salonName)}</div>
+          <h1>${esc(pdfTemplate.title)}</h1>
+          <div class="subtitle">${esc(pdfTemplate.subtitle)}</div>
+        </div>
+        ${logoUrl ? `<img class="logo" src="${esc(logoUrl)}" />` : ""}
+      </div>
+
+      <div class="card-name">
+        <div class="kicker">Card percorso</div>
+        <h2>${esc(previewCard.name)}</h2>
+      </div>
+
+      <div class="promise">${esc(pdfTemplate.promiseText)}</div>
+
+      <div class="numbers">
+        <div class="num">
+          <span>Valore reale</span>
+          <strong>€ ${valueList.toFixed(2)}</strong>
+        </div>
+        <div class="num">
+          <span>Prezzo card</span>
+          <strong>€ ${cardPrice.toFixed(2)}</strong>
+        </div>
+        <div class="num">
+          <span>Vantaggio</span>
+          <strong>€ ${saving.toFixed(2)}</strong>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Perché questa card conviene</h3>
+        <div class="text-box">${esc(pdfTemplate.valueText)}</div>
+      </div>
+
+      <div class="section">
+        <h3>Cosa include il percorso</h3>
+        ${sessionsHtml || `<div class="text-box">Percorso configurabile in salone.</div>`}
+      </div>
+
+      <div class="section">
+        <h3>Bonus inclusi</h3>
+        <div class="text-box">${esc(pdfTemplate.bonusText)}</div>
+      </div>
+
+      <div class="section">
+        <h3>Posti limitati</h3>
+        <div class="text-box">${esc(pdfTemplate.urgencyText)}</div>
+      </div>
+
+      <div class="section">
+        <h3>La nostra garanzia</h3>
+        <div class="text-box">${esc(pdfTemplate.guaranteeText)}</div>
+      </div>
+
+      <div class="cta">${esc(pdfTemplate.ctaText)}</div>
+
+      <div class="footer">
+        <div>${esc(pdfTemplate.footerText)}</div>
+        <strong>${esc(pdfTemplate.signature)}</strong>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.onload = () => window.print();
+  </script>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+
+    if (!win) {
+      setMessage("⚠️ Popup bloccato dal browser. Abilita i popup per stampare o salvare il PDF.");
+      return;
+    }
+
+    win.document.write(html);
+    win.document.close();
   }
 
   function resetCart() {
