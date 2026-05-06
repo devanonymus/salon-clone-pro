@@ -17,6 +17,11 @@ type ActiveCard = {
   total: number;
 };
 
+type CatalogCard = {
+  name: string;
+  price: number;
+};
+
 const services = [
   'Piega',
   'Taglio Donna',
@@ -29,7 +34,7 @@ const services = [
   'Plex Forte Repair Ricostruzione',
 ];
 
-const catalogCards = [
+const defaultCatalogCards: CatalogCard[] = [
   { name: 'Percorso Tre Mesi Colore Blindato', price: 238 },
   { name: 'Colore Blindato', price: 183 },
   { name: 'Katìa Brigante', price: 50 },
@@ -57,6 +62,11 @@ export default function MarketingPage() {
   const [clientName, setClientName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [selectedCard, setSelectedCard] = useState('');
+  const [catalogCards, setCatalogCards] = useState<CatalogCard[]>(defaultCatalogCards);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [editingCatalogIndex, setEditingCatalogIndex] = useState<number | null>(null);
+  const [catalogName, setCatalogName] = useState('');
+  const [catalogPrice, setCatalogPrice] = useState('');
   const [operator, setOperator] = useState('');
   const [frequency, setFrequency] = useState('Mensile (30 gg)');
   const [manualCardName, setManualCardName] = useState('');
@@ -122,6 +132,70 @@ export default function MarketingPage() {
     setCardIncreaseTotal((prev) => prev + amount);
     setCardIncreaseInput('');
     setMessage(`✅ Prezzo card aumentato di € ${amount.toFixed(2)}.`);
+  }
+
+
+  function openCreateCatalogCard() {
+    setEditingCatalogIndex(null);
+    setCatalogName('');
+    setCatalogPrice('');
+    setCatalogOpen(true);
+  }
+
+  function openEditCatalogCard(index: number) {
+    const card = catalogCards[index];
+    setEditingCatalogIndex(index);
+    setCatalogName(card.name);
+    setCatalogPrice(String(card.price));
+    setCatalogOpen(true);
+  }
+
+  function saveCatalogCard() {
+    const name = catalogName.trim();
+    const price = Number(String(catalogPrice || 0).replace(',', '.'));
+
+    if (!name) {
+      setMessage('Inserisci il nome della card.');
+      return;
+    }
+
+    if (!price || price <= 0) {
+      setMessage('Inserisci un prezzo valido.');
+      return;
+    }
+
+    const nextCard = { name, price };
+
+    setCatalogCards((prev) => {
+      if (editingCatalogIndex === null) {
+        return [...prev, nextCard];
+      }
+
+      return prev.map((card, index) => (index === editingCatalogIndex ? nextCard : card));
+    });
+
+    setSelectedCard(name);
+    setManualCardName('');
+    setManualPrice('');
+    setCatalogOpen(false);
+    setEditingCatalogIndex(null);
+    setCatalogName('');
+    setCatalogPrice('');
+    setMessage(editingCatalogIndex === null ? '✅ Card catalogo creata.' : '✅ Card catalogo aggiornata.');
+  }
+
+  function deleteCatalogCard(index: number) {
+    const card = catalogCards[index];
+    const ok = confirm(`Vuoi eliminare "${card.name}" dal catalogo card?`);
+    if (!ok) return;
+
+    setCatalogCards((prev) => prev.filter((_, i) => i !== index));
+
+    if (selectedCard === card.name) {
+      setSelectedCard('');
+    }
+
+    setMessage('✅ Card catalogo eliminata.');
   }
 
   function setSessionCount(value: number) {
@@ -228,10 +302,86 @@ export default function MarketingPage() {
             </p>
           </div>
 
-          <button className="sp-button-purple">+ Crea/modifica catalogo card</button>
+          <button className="sp-button-purple" onClick={openCreateCatalogCard}>
+            + Crea/modifica catalogo card
+          </button>
         </header>
 
         {message ? <div style={successBox}>{message}</div> : null}
+
+        {catalogOpen ? (
+          <div style={modalBackdrop}>
+            <div style={catalogModal}>
+              <div style={catalogModalHeader}>
+                <div>
+                  <div style={greenKicker}>Catalogo card predefinite</div>
+                  <h2 style={sectionTitle}>
+                    {editingCatalogIndex === null ? 'Crea card predefinita' : 'Modifica card predefinita'}
+                  </h2>
+                </div>
+
+                <button style={closeButton} onClick={() => setCatalogOpen(false)}>
+                  ×
+                </button>
+              </div>
+
+              <div style={infoBox}>
+                Qui crei le card standard che vuoi riutilizzare dal menu “Scegli Card catalogo”.
+                Non è il carrello del percorso: è solo il catalogo delle card predefinite.
+              </div>
+
+              <div style={catalogFormGrid}>
+                <input
+                  className="sp-input"
+                  placeholder="Nome card es. Colore Blindato"
+                  value={catalogName}
+                  onChange={(e) => setCatalogName(e.target.value)}
+                />
+
+                <input
+                  className="sp-input"
+                  placeholder="Prezzo card €"
+                  value={catalogPrice}
+                  onChange={(e) => setCatalogPrice(e.target.value)}
+                />
+
+                <button style={smallPurple} onClick={saveCatalogCard}>
+                  {editingCatalogIndex === null ? 'Crea card' : 'Salva modifica'}
+                </button>
+              </div>
+
+              <div style={{ marginTop: 20, overflowX: 'auto' }}>
+                <table style={table}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Nome card</th>
+                      <th style={th}>Prezzo</th>
+                      <th style={th}>Azioni</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {catalogCards.map((card, index) => (
+                      <tr key={`${card.name}-${index}`}>
+                        <td style={td}>{card.name}</td>
+                        <td style={td}>€ {card.price.toFixed(2)}</td>
+                        <td style={td}>
+                          <button style={miniPurple} onClick={() => openEditCatalogCard(index)}>
+                            Modifica
+                          </button>{' '}
+                          <button style={miniDanger} onClick={() => deleteCatalogCard(index)}>
+                            Elimina
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
 
         <section className="sp-card" style={cardPad}>
           <div style={sectionHeader}>
@@ -549,6 +699,56 @@ function Summary({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+
+const modalBackdrop: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 1000,
+  display: 'grid',
+  placeItems: 'center',
+  padding: 24,
+  background: 'rgba(0,0,0,0.72)',
+  backdropFilter: 'blur(8px)',
+};
+
+const catalogModal: React.CSSProperties = {
+  width: 'min(980px, 100%)',
+  maxHeight: '86vh',
+  overflowY: 'auto',
+  borderRadius: 28,
+  padding: 24,
+  background: 'linear-gradient(180deg, rgba(25,25,25,0.98), rgba(8,8,8,0.98))',
+  border: '1px solid rgba(212,175,55,0.28)',
+  boxShadow: '0 30px 90px rgba(0,0,0,0.55)',
+};
+
+const catalogModalHeader: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'flex-start',
+  gap: 16,
+  marginBottom: 18,
+};
+
+const closeButton: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 999,
+  border: '1px solid rgba(255,255,255,0.14)',
+  background: 'rgba(255,255,255,0.08)',
+  color: '#fff',
+  fontSize: 26,
+  fontWeight: 900,
+  cursor: 'pointer',
+};
+
+const catalogFormGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1.4fr 0.6fr auto',
+  gap: 12,
+  alignItems: 'center',
+};
 
 const header: React.CSSProperties = {
   display: 'flex',
