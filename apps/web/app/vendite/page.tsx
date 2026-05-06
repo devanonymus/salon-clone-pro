@@ -19,6 +19,7 @@ type AppointmentItem = {
   note: string | null;
   sale?: { id: string } | null;
   clientTenant: {
+    id: string;
     clientGlobal: {
       id: string;
       name: string;
@@ -35,6 +36,31 @@ type CartItem = {
   cost: number;
   quantity: number;
   discount: number;
+  cardSaleId?: string;
+  cardPaymentType?: "RATA_SEDUTA" | "SALDO_INTERO";
+};
+
+type SoldCardPayment = {
+  id: string;
+  amount: number;
+  paymentType: string;
+  method: string;
+  paidAt: string;
+};
+
+type SoldCard = {
+  id: string;
+  clientTenantId?: string | null;
+  clientName: string;
+  whatsapp?: string | null;
+  cardName: string;
+  price: number;
+  used: number;
+  total: number;
+  sessions?: any[];
+  appointments?: { index?: number; date?: string; time?: string }[];
+  paymentMode: "RATE_SEDUTE" | "INTERO_PRIMA_SEDUTA";
+  payments?: SoldCardPayment[];
 };
 
 type ProductSuggestion = {
@@ -125,6 +151,7 @@ export default function VenditePage() {
 
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [soldCards, setSoldCards] = useState<SoldCard[]>([]);
   const [selectedAppointment, setSelectedAppointment] =
     useState<AppointmentItem | null>(null);
 
@@ -242,17 +269,100 @@ export default function VenditePage() {
     return data;
   }
 
+
+  function soldCardPaidTotal(card: SoldCard) {
+    return (card.payments || []).reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0,
+    );
+  }
+
+  function soldCardResidual(card: SoldCard) {
+    return Math.max(0, Number(card.price || 0) - soldCardPaidTotal(card));
+  }
+
+  function soldCardInstallment(card: SoldCard) {
+    return Number(card.price || 0) / Math.max(1, Number(card.total || 1));
+  }
+
+  function sameAppointmentMinute(a: string, date?: string, time?: string) {
+    if (!date || !time) return false;
+
+    const left = new Date(a);
+    const right = new Date(`${date}T${time}:00`);
+
+    return Math.abs(left.getTime() - right.getTime()) <= 15 * 60 * 1000;
+  }
+
+  function findCardForAppointment(appointment: AppointmentItem) {
+    const activeForClient = soldCards.filter((card) => {
+      return (
+        card.clientTenantId === appointment.clientTenant.id &&
+        soldCardResidual(card) > 0
+      );
+    });
+
+    const exact = activeForClient.find((card) => {
+      return (card.appointments || []).some((planned) =>
+        sameAppointmentMinute(appointment.date, planned.date, planned.time),
+      );
+    });
+
+    return exact || activeForClient[0] || null;
+  }
+
+  function buildCardPaymentItem(card: SoldCard): CartItem | null {
+    const residual = soldCardResidual(card);
+
+    if (residual <= 0) return null;
+
+    const amount =
+      card.paymentMode === "INTERO_PRIMA_SEDUTA"
+        ? residual
+        : Math.min(soldCardInstallment(card), residual);
+
+    return {
+      id: crypto.randomUUID(),
+      type: "service",
+      name:
+        card.paymentMode === "INTERO_PRIMA_SEDUTA"
+          ? `Saldo card: ${card.cardName}`
+          : `Rata card: ${card.cardName}`,
+      price: Number(amount.toFixed(2)),
+      cost: 0,
+      quantity: 1,
+      discount: 0,
+      cardSaleId: card.id,
+      cardPaymentType:
+        card.paymentMode === "INTERO_PRIMA_SEDUTA"
+          ? "SALDO_INTERO"
+          : "RATA_SEDUTA",
+    };
+  }
+
   async function loadData() {
     try {
-      const [clientsData, appointmentsData] = await Promise.all([
+      const [clientsData, appointmentsData, soldCardsData] = await Promise.all([
         fetchWithAuth("/clients"),
         fetchWithAuth("/appointments"),
+        fetchWithAuth("/marketing/cards/sales"),
       ]);
 
       setClients(clientsData || []);
+      setSoldCards(soldCardsData || []);
+
+      const now = Date.now();
 
       const ready = (appointmentsData || [])
-        .filter((a: AppointmentItem) => !a.sale)
+        .filter((a: AppointmentItem) => {
+          if (a.sale) return false;
+
+          const start = new Date(a.date).getTime();
+
+          // In cassa mostriamo solo appuntamenti già iniziati o passati.
+          // Così non escono appuntamenti card futuri con "Finisce tra 80000 min".
+          return start <= now;
+        })
         .sort(
           (a: AppointmentItem, b: AppointmentItem) =>
             new Date(a.date).getTime() - new Date(b.date).getTime(),
@@ -314,6 +424,26 @@ export default function VenditePage() {
     );
 
     if (client) setSelectedClientId(client.id);
+
+    const linkedCard = findCardForAppointment(appointment);
+
+    if (linkedCard) {
+      const cardItem = buildCardPaymentItem(linkedCard);
+
+      if (cardItem) {
+        setCart([cardItem]);
+        setMessage(
+          linkedCard.paymentMode === "INTERO_PRIMA_SEDUTA"
+            ? `✅ Appuntamento card caricato: saldo intero ${money(cardItem.price)}.`
+            : `✅ Appuntamento card caricato: rata seduta ${money(cardItem.price)}.`,
+        );
+        return;
+      }
+
+      setCart([]);
+      setMessage("✅ Card già saldata. Nessun importo da incassare.");
+      return;
+    }
 
     const services =
       appointment.note && appointment.note !== "Appuntamento"
@@ -402,6 +532,8 @@ export default function VenditePage() {
     setMessage("");
 
     try {
+      const cartSnapshot = [...cart];
+
       await fetchWithAuth("/sales", {
         method: "POST",
         body: JSON.stringify({
@@ -410,7 +542,7 @@ export default function VenditePage() {
           total,
           paymentMethod,
           fiscalStatus: receiptType === "FISCAL" ? "TO_ISSUE" : "NON_FISCAL",
-          items: cart.map((item) => ({
+          items: cartSnapshot.map((item) => ({
             name: item.name,
             type: item.type,
             price: item.price,
@@ -420,6 +552,30 @@ export default function VenditePage() {
           })),
         }),
       });
+
+      const cardPaymentItems = cartSnapshot.filter((item) => item.cardSaleId);
+
+      for (const item of cardPaymentItems) {
+        const gross = item.price * item.quantity;
+        const discount = (gross * item.discount) / 100;
+        const amount = Math.max(0, gross - discount);
+
+        if (!item.cardSaleId || amount <= 0) continue;
+
+        await fetchWithAuth(`/marketing/cards/sales/${item.cardSaleId}/payments`, {
+          method: "POST",
+          body: JSON.stringify({
+            amount,
+            paymentType: item.cardPaymentType || "RATA_SEDUTA",
+            method: paymentMethod.toUpperCase(),
+            note: item.name,
+          }),
+        });
+
+        await fetchWithAuth(`/marketing/cards/sales/${item.cardSaleId}/use`, {
+          method: "PATCH",
+        });
+      }
 
       setMessage(
         receiptType === "FISCAL"
@@ -442,10 +598,17 @@ export default function VenditePage() {
   }
 
   function appointmentStatus(appointment: AppointmentItem) {
-    const end = new Date(appointment.date).getTime() + appointment.duration * 60 * 1000;
+    const start = new Date(appointment.date).getTime();
+    const end = start + appointment.duration * 60 * 1000;
+
+    if (Date.now() < start) {
+      const diff = Math.ceil((start - Date.now()) / 60000);
+      return `Inizia tra ${diff} min`;
+    }
+
     const diff = Math.floor((Date.now() - end) / 60000);
 
-    if (diff < 0) return `Finisce tra ${Math.abs(diff)} min`;
+    if (diff < 0) return "In corso";
     if (diff === 0) return "Appena finito";
     return `Finito da ${diff} min`;
   }
