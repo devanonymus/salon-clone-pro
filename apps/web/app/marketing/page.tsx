@@ -81,6 +81,7 @@ export default function MarketingPage() {
   );
   const [activeCards, setActiveCards] = useState<ActiveCard[]>(defaultActiveCards);
   const [message, setMessage] = useState('');
+  const [previewCard, setPreviewCard] = useState<CatalogCard | null>(null);
 
 
   async function loadServices() {
@@ -548,6 +549,19 @@ export default function MarketingPage() {
     setActiveCards((prev) => prev.filter((_, i) => i !== index));
   }
 
+
+  function openPreviewCard(card: CatalogCard) {
+    setPreviewCard(card);
+  }
+
+  function closePreviewCard() {
+    setPreviewCard(null);
+  }
+
+  function printPreviewCard() {
+    window.print();
+  }
+
   function resetCart() {
     setSessions(
       Array.from({ length: sessionsCount }).map(() => ({
@@ -579,6 +593,71 @@ export default function MarketingPage() {
         </header>
 
         {message ? <div style={successBox}>{message}</div> : null}
+
+
+        {previewCard ? (
+          <div style={modalBackdrop}>
+            <div style={previewModal}>
+              <div style={catalogModalHeader}>
+                <div>
+                  <div style={greenKicker}>Anteprima card</div>
+                  <h2 style={sectionTitle}>{previewCard.name}</h2>
+                </div>
+
+                <button style={closeButton} onClick={closePreviewCard}>
+                  ×
+                </button>
+              </div>
+
+              <div style={previewHero}>
+                <div>
+                  <div className="sp-muted">Prezzo</div>
+                  <div style={{ color: '#d4af37', fontSize: 34, fontWeight: 900 }}>
+                    € {Number(previewCard.price || 0).toFixed(2)}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="sp-muted">Sedute</div>
+                  <div style={{ color: '#8b5cf6', fontSize: 34, fontWeight: 900 }}>
+                    {previewCard.sessionsCount || previewCard.sessions?.length || 0}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 20, display: 'grid', gap: 12 }}>
+                {(previewCard.sessions || []).map((session, index) => {
+                  const items = [
+                    ...(session.paidServices || []).map((item) => `Servizio: ${item}`),
+                    ...(session.paidProducts || []).map((item) => `Prodotto: ${item}`),
+                    ...(session.giftServices || []).map((item) => `Omaggio servizio: ${item}`),
+                    ...(session.giftProducts || []).map((item) => `Omaggio prodotto: ${item}`),
+                  ];
+
+                  return (
+                    <div key={index} style={previewSession}>
+                      <strong style={{ color: '#d4af37' }}>Seduta {index + 1}</strong>
+                      <div className="sp-muted" style={{ marginTop: 6 }}>
+                        {items.length ? items.join(' · ') : 'Da definire'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={previewActions}>
+                <button className="sp-button-purple" onClick={printPreviewCard}>
+                  Stampa / Salva PDF
+                </button>
+
+                <button style={miniBtn} onClick={closePreviewCard}>
+                  Chiudi
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
 
         {catalogOpen ? (
           <div style={modalBackdrop}>
@@ -1128,6 +1207,44 @@ export default function MarketingPage() {
             </table>
           </div>
         </section>
+
+        <section className="sp-card" style={cardPad}>
+          <div style={sectionHeader}>
+            <div>
+              <div style={greenKicker}>Catalogo solo lettura</div>
+              <h2 style={sectionTitle}>Card predefinite da mostrare, stampare o salvare PDF</h2>
+            </div>
+          </div>
+
+          {catalogCards.length === 0 ? (
+            <div style={warningBox}>
+              💡 Nessuna card predefinita presente. Creale dal pulsante “+ Crea/modifica catalogo card” in alto.
+            </div>
+          ) : (
+            <div style={cardLibraryGrid}>
+              {catalogCards.map((card, index) => (
+                <button
+                  key={`${card.name}-${index}`}
+                  type="button"
+                  style={libraryCard}
+                  onClick={() => openPreviewCard(card)}
+                >
+                  <div style={greenKicker}>Card percorso</div>
+                  <h3 style={{ color: '#d4af37', margin: '8px 0 10px', fontSize: 22 }}>
+                    {card.name}
+                  </h3>
+                  <div style={{ color: '#fff', fontWeight: 900, fontSize: 24 }}>
+                    € {Number(card.price || 0).toFixed(2)}
+                  </div>
+                  <div className="sp-muted" style={{ marginTop: 8 }}>
+                    {card.sessionsCount || card.sessions?.length || 0} sedute · clicca per vedere/stampare
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
       </div>
     </main>
   );
@@ -1475,6 +1592,59 @@ const warningBox: React.CSSProperties = {
   color: '#f5d76e',
   fontWeight: 800,
 };
+
+
+const cardLibraryGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(240px, 1fr))',
+  gap: 16,
+};
+
+const libraryCard: React.CSSProperties = {
+  textAlign: 'left',
+  padding: 22,
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.045)',
+  border: '1px solid rgba(212,175,55,0.24)',
+  color: '#fff',
+  cursor: 'pointer',
+};
+
+const previewModal: React.CSSProperties = {
+  width: 'min(920px, 94vw)',
+  maxHeight: '90vh',
+  overflowY: 'auto',
+  borderRadius: 28,
+  padding: 24,
+  background: 'linear-gradient(180deg, rgba(25,25,25,0.98), rgba(8,8,8,0.98))',
+  border: '1px solid rgba(212,175,55,0.28)',
+  boxShadow: '0 30px 90px rgba(0,0,0,0.55)',
+};
+
+const previewHero: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 14,
+  padding: 18,
+  borderRadius: 20,
+  background: 'rgba(255,255,255,0.045)',
+  border: '1px solid rgba(212,175,55,0.22)',
+};
+
+const previewSession: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.045)',
+  border: '1px solid rgba(255,255,255,0.08)',
+};
+
+const previewActions: React.CSSProperties = {
+  display: 'flex',
+  gap: 12,
+  flexWrap: 'wrap',
+  marginTop: 22,
+};
+
 
 const table: React.CSSProperties = {
   width: '100%',
