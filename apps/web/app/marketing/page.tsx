@@ -41,22 +41,7 @@ const defaultCatalogCards: CatalogCard[] = [
   { name: 'Brian Prima Percorso', price: 121 },
 ];
 
-const defaultActiveCards: ActiveCard[] = [
-  {
-    client: 'Antonella Rossano',
-    card: 'Percorso Tre Mesi Colore Blindato',
-    whatsapp: '3759401867',
-    used: 1,
-    total: 4,
-  },
-  {
-    client: 'Acquaviva Michela',
-    card: 'Katìa Brigante',
-    whatsapp: '3201532246',
-    used: 0,
-    total: 4,
-  },
-];
+const defaultActiveCards: ActiveCard[] = [];
 
 export default function MarketingPage() {
   const [clientName, setClientName] = useState('');
