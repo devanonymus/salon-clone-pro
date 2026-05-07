@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "../../src/lib/api";
 
 type FixedCost = {
   id: string;
@@ -62,17 +63,28 @@ export default function DashboardCoachPage() {
 
   const [costName, setCostName] = useState("");
   const [costAmount, setCostAmount] = useState("");
-  const [fixedCosts, setFixedCosts] = useState<FixedCost[]>(INITIAL_COSTS);
+  const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
+  const [message, setMessage] = useState("");
 
   const report = useMemo(() => {
     const fatturatoLordo = 155;
-    const iva = 27.97;
+
+    const ivaPercent = Number(ivaServizi || 0);
+    const iva = ivaPercent > 0 ? fatturatoLordo - fatturatoLordo / (1 + ivaPercent / 100) : 0;
+
     const netto = fatturatoLordo - iva;
-    const commissioni = 0;
+
+    const commissioni =
+      fatturatoLordo * (Number(feePos || 0) / 100) + Number(feePosFisso || 0);
+
     const costoPersonale = 37.91;
     const costoProdotti = 5.5;
-    const costiFissi = fixedCosts.reduce((sum, item) => sum + item.amount, 0);
-    const utileOperativo = netto - commissioni - costoPersonale - costoProdotti - costiFissi;
+    const costiFissi = fixedCosts.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const overheadCost = netto * (Number(overhead || 0) / 100);
+
+    const utileOperativo =
+      netto - commissioni - costoPersonale - costoProdotti - costiFissi - overheadCost;
+
     const riserva = Math.max(0, utileOperativo * (Number(riservaTasse || 0) / 100));
     const utileReale = utileOperativo - riserva;
     const fishMedio = 25.83;
@@ -86,52 +98,134 @@ export default function DashboardCoachPage() {
       costoPersonale,
       costoProdotti,
       costiFissi,
+      overheadCost,
       utileOperativo,
       riserva,
       utileReale,
       fishMedio,
       crescita,
     };
-  }, [fixedCosts, riservaTasse]);
+  }, [fixedCosts, riservaTasse, ivaServizi, feePos, feePosFisso, overhead]);
 
   const baseline = Number(fishBase || 0) * Number(clientiPrevisti || 0);
   const multiplier = objective.includes("+20") ? 1.2 : objective.includes("+30") ? 1.3 : 1.1;
   const target = baseline * multiplier;
 
-  function addFixedCost() {
-    if (!costName.trim()) return;
+  async function loadCoachData() {
+    try {
+      const [settings, costs] = await Promise.all([
+        apiFetch("/coach/settings"),
+        apiFetch("/coach/fixed-costs"),
+      ]);
 
-    setFixedCosts((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        name: costName.trim().toUpperCase(),
-        amount: Number(String(costAmount || 0).replace(",", ".")),
-      },
-    ]);
+      setIvaServizi(String(settings.vatServicesPercent ?? 22));
+      setIvaRivendita(String(settings.vatResalePercent ?? 22));
+      setOreProd(String(settings.productiveHoursMonth ?? 140));
+      setFeePos(String(settings.posFeePercent ?? 1.5));
+      setFeePosFisso(String(settings.posFixedFee ?? 0));
+      setOverhead(String(settings.variableOverheadPercent ?? 3));
+      setRiservaTasse(String(settings.taxReservePercent ?? 25));
+      setGrigliaAgenda(String(settings.agendaGridMinutes ?? 5));
+      setDomain(String(settings.allowedDomains || "app.acquavivastrategic.it"));
+      setCardCostIncluded(Boolean(settings.cardGiftKitInCost));
 
-    setCostName("");
-    setCostAmount("");
+      setFixedCosts(Array.isArray(costs) && costs.length ? costs : INITIAL_COSTS);
+    } catch (error: any) {
+      setMessage(error.message || "Errore caricamento Dashboard Coach");
+      setFixedCosts(INITIAL_COSTS);
+    }
   }
 
-  function updateFixedCost(id: string, field: "name" | "amount", value: string) {
+  async function saveCoachSettings() {
+    try {
+      await apiFetch("/coach/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          vatServicesPercent: ivaServizi,
+          vatResalePercent: ivaRivendita,
+          productiveHoursMonth: oreProd,
+          posFeePercent: feePos,
+          posFixedFee: feePosFisso,
+          variableOverheadPercent: overhead,
+          taxReservePercent: riservaTasse,
+          agendaGridMinutes: grigliaAgenda,
+          allowedDomains: domain,
+          cardGiftKitInCost: cardCostIncluded,
+        }),
+      });
+
+      setMessage("✅ Impostazioni profitto reale salvate.");
+    } catch (error: any) {
+      setMessage(error.message || "Errore salvataggio impostazioni");
+    }
+  }
+
+  useEffect(() => {
+    loadCoachData();
+  }, []);
+
+  async function addFixedCost() {
+    if (!costName.trim()) return;
+
+    try {
+      const created = await apiFetch("/coach/fixed-costs", {
+        method: "POST",
+        body: JSON.stringify({
+          name: costName.trim().toUpperCase(),
+          amount: Number(String(costAmount || 0).replace(",", ".")),
+        }),
+      });
+
+      setFixedCosts((prev) => [...prev, created]);
+      setCostName("");
+      setCostAmount("");
+      setMessage("✅ Costo fisso aggiunto.");
+    } catch (error: any) {
+      setMessage(error.message || "Errore aggiunta costo fisso");
+    }
+  }
+
+  async function updateFixedCost(id: string, field: "name" | "amount", value: string) {
+    const nextValue =
+      field === "amount"
+        ? Number(String(value || 0).replace(",", "."))
+        : value.toUpperCase();
+
     setFixedCosts((prev) =>
       prev.map((item) =>
         item.id === id
           ? {
               ...item,
-              [field]:
-                field === "amount"
-                  ? Number(String(value || 0).replace(",", "."))
-                  : value.toUpperCase(),
+              [field]: nextValue,
             }
           : item,
       ),
     );
+
+    try {
+      await apiFetch(`/coach/fixed-costs/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          [field]: nextValue,
+        }),
+      });
+    } catch (error: any) {
+      setMessage(error.message || "Errore modifica costo fisso");
+      await loadCoachData();
+    }
   }
 
-  function removeCost(id: string) {
-    setFixedCosts((prev) => prev.filter((item) => item.id !== id));
+  async function removeCost(id: string) {
+    try {
+      await apiFetch(`/coach/fixed-costs/${id}`, {
+        method: "DELETE",
+      });
+
+      setFixedCosts((prev) => prev.filter((item) => item.id !== id));
+      setMessage("✅ Costo fisso eliminato.");
+    } catch (error: any) {
+      setMessage(error.message || "Errore eliminazione costo fisso");
+    }
   }
 
   return (
@@ -146,6 +240,8 @@ export default function DashboardCoachPage() {
             </p>
           </div>
         </header>
+
+        {message ? <div style={messageBox}>{message}</div> : null}
 
         <section style={statsGrid}>
           <StatCard label="Fatturato lordo" value={euro(report.fatturatoLordo)} />
@@ -325,7 +421,9 @@ export default function DashboardCoachPage() {
             <input style={input} value={domain} onChange={(e) => setDomain(e.target.value)} />
           </label>
 
-          <button style={primaryMini}>BLOCCA DOMINIO CORRENTE</button>
+          <button style={primaryMini} onClick={saveCoachSettings}>
+            SALVA IMPOSTAZIONI PROFITTO
+          </button>
         </section>
 
         <section style={card}>
@@ -460,6 +558,16 @@ const eyebrow: React.CSSProperties = {
   letterSpacing: 2,
   textTransform: "uppercase",
   margin: 0,
+};
+
+const messageBox: React.CSSProperties = {
+  marginBottom: 18,
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(139,92,246,0.14)",
+  border: "1px solid rgba(139,92,246,0.32)",
+  color: "#fff",
+  fontWeight: 900,
 };
 
 const statsGrid: React.CSSProperties = {
