@@ -95,6 +95,8 @@ export default function DashboardCoachPage() {
   const [appointments, setAppointments] = useState<CoachAppointment[]>([]);
   const [sales, setSales] = useState<CoachSale[]>([]);
   const [message, setMessage] = useState("");
+  const [coachRange, setCoachRange] = useState<"TODAY" | "LAST_7" | "MONTH">("TODAY");
+  const [focusCrm, setFocusCrm] = useState(true);
 
   const report = useMemo(() => {
     const fatturatoLordo = 155;
@@ -165,6 +167,116 @@ export default function DashboardCoachPage() {
   const baseline = effectiveFishBase * effectiveClientiPrevisti;
   const multiplier = objective.includes("+20") ? 1.2 : objective.includes("+30") ? 1.3 : 1.1;
   const target = baseline * multiplier;
+
+
+  const coachReportData = useMemo(() => {
+    const now = new Date();
+
+    const inRangeAppointments = appointments.filter((appointment) => {
+      const date = new Date(appointment.date);
+      const key = date.toISOString().slice(0, 10);
+
+      if (coachRange === "TODAY") {
+        return key === todayKey;
+      }
+
+      if (coachRange === "LAST_7") {
+        const from = new Date(now);
+        from.setDate(now.getDate() - 7);
+        return date >= from && date <= now;
+      }
+
+      return date.getMonth() === month && date.getFullYear() === year;
+    });
+
+    const serviceText = inRangeAppointments
+      .map((appointment) => appointment.note || "")
+      .join(" ")
+      .toLowerCase();
+
+    const colorClients = inRangeAppointments.filter((appointment) => {
+      const text = String(appointment.note || "").toLowerCase();
+      return (
+        text.includes("colore") ||
+        text.includes("gloss") ||
+        text.includes("tonalizzante") ||
+        text.includes("meches") ||
+        text.includes("balayage")
+      );
+    }).length;
+
+    const piegaClients = inRangeAppointments.filter((appointment) => {
+      const text = String(appointment.note || "").toLowerCase();
+      return text.includes("piega") || text.includes("styling");
+    }).length;
+
+    const repairClients = inRangeAppointments.filter((appointment) => {
+      const text = String(appointment.note || "").toLowerCase();
+      return text.includes("plex") || text.includes("repair") || text.includes("ricostruzione");
+    }).length;
+
+    const rangeSales = sales.filter((sale) => {
+      const date = new Date(sale.createdAt);
+      const key = date.toISOString().slice(0, 10);
+
+      if (coachRange === "TODAY") {
+        return key === todayKey;
+      }
+
+      if (coachRange === "LAST_7") {
+        const from = new Date(now);
+        from.setDate(now.getDate() - 7);
+        return date >= from && date <= now;
+      }
+
+      return date.getMonth() === month && date.getFullYear() === year;
+    });
+
+    const revenue = rangeSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+    const fish = rangeSales.length > 0 ? revenue / rangeSales.length : autoFishBase;
+    const expectedExtra =
+      coachRange === "TODAY" ? Math.max(0, target - baseline) : Math.max(0, revenue * 0.1);
+
+    const actions: string[] = [];
+
+    if (colorClients > 0) {
+      actions.push(`${colorClients} clienti colore: proponi trattamento/Plex + mantenimento colore.`);
+    }
+
+    if (piegaClients > 0) {
+      actions.push(`${piegaClients} clienti piega/styling: proponi termoprotettore o finish.`);
+    }
+
+    if (repairClients > 0) {
+      actions.push(`${repairClients} clienti repair: proponi mantenimento ricostruzione.`);
+    }
+
+    if (inRangeAppointments.length > 0) {
+      actions.push(`${inRangeAppointments.length} clienti: chiedi sempre il prossimo appuntamento prima dell’uscita.`);
+    }
+
+    if (actions.length === 0) {
+      actions.push("Nessun appuntamento nel periodo: usa la giornata per richiamare clienti dormienti e proporre prebooking.");
+    }
+
+    return {
+      appointmentsCount: inRangeAppointments.length,
+      revenue,
+      fish,
+      expectedExtra,
+      colorClients,
+      piegaClients,
+      repairClients,
+      actions,
+    };
+  }, [appointments, sales, coachRange, todayKey, month, year, autoFishBase, target, baseline]);
+
+  const coachRangeLabel =
+    coachRange === "TODAY"
+      ? "oggi"
+      : coachRange === "LAST_7"
+        ? "negli ultimi 7 giorni"
+        : "nel mese selezionato";
 
   function resetMorningBrief() {
     setFishBase("");
@@ -619,23 +731,69 @@ export default function DashboardCoachPage() {
 
         <section style={coachSection}>
           <p style={quote}>"IL REPORT TI DICE COSA FARE OGGI"</p>
-          <SectionTitle title="REPORT AI MOVIMENTI" />
+          <SectionTitle title="REPORT OPERATIVO" />
 
           <div style={reportToolbar}>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button style={primaryButton}>OGGI</button>
-              <button style={smallButton}>ULTIMI 7 GIORNI</button>
-              <button style={smallButton}>MESE SELEZIONATO</button>
+              <button
+                style={coachRange === "TODAY" ? primaryButton : smallButton}
+                onClick={() => setCoachRange("TODAY")}
+              >
+                OGGI
+              </button>
+              <button
+                style={coachRange === "LAST_7" ? primaryButton : smallButton}
+                onClick={() => setCoachRange("LAST_7")}
+              >
+                ULTIMI 7 GIORNI
+              </button>
+              <button
+                style={coachRange === "MONTH" ? primaryButton : smallButton}
+                onClick={() => setCoachRange("MONTH")}
+              >
+                MESE SELEZIONATO
+              </button>
             </div>
 
             <label style={checkLabel}>
-              <input type="checkbox" defaultChecked /> Focus clienti CRM + WhatsApp
+              <input
+                type="checkbox"
+                checked={focusCrm}
+                onChange={(e) => setFocusCrm(e.target.checked)}
+              />{" "}
+              Focus clienti CRM + WhatsApp
             </label>
           </div>
 
+          <div style={reportCardsGrid}>
+            <div style={briefStat}>
+              <span>Clienti {coachRangeLabel}</span>
+              <strong>{coachReportData.appointmentsCount}</strong>
+            </div>
+            <div style={briefStat}>
+              <span>Incasso periodo</span>
+              <strong>{euro(coachReportData.revenue)}</strong>
+            </div>
+            <div style={briefStat}>
+              <span>Fish medio</span>
+              <strong>{euro(coachReportData.fish)}</strong>
+            </div>
+            <div style={briefStat}>
+              <span>Extra consigliato</span>
+              <strong>{euro(coachReportData.expectedExtra)}</strong>
+            </div>
+          </div>
+
           <div style={coachBox}>
-            Oggi il margine è sotto controllo solo se aumenti il valore medio per cliente.
-            Spingi prebooking, trattamenti premium e card.
+            <strong>Piano operativo {coachRangeLabel}</strong>
+            <ul style={{ marginBottom: 0 }}>
+              {coachReportData.actions.map((action, index) => (
+                <li key={index}>{action}</li>
+              ))}
+              {focusCrm ? (
+                <li>Usa WhatsApp per confermare prebooking e recuperare clienti senza appuntamento.</li>
+              ) : null}
+            </ul>
           </div>
         </section>
 
@@ -1022,6 +1180,14 @@ const quote: React.CSSProperties = {
   marginBottom: 8,
 };
 
+
+const reportCardsGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(160px, 1fr))",
+  gap: 12,
+  marginTop: 18,
+  marginBottom: 18,
+};
 
 const briefStatsGrid: React.CSSProperties = {
   display: "grid",
