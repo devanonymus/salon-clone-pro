@@ -301,6 +301,13 @@ export default function DashboardCoachPage() {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;");
 
+    const labelStatus = (status: PrebookingStatus) => {
+      if (status === "PRENOTATO") return "Prenotato";
+      if (status === "DA_RICHIAMARE") return "Da richiamare WhatsApp";
+      if (status === "NON_INTERESSATA") return "Non interessata";
+      return "Non proposto";
+    };
+
     const rows = todayAppointments
       .map((appointment, index) => {
         const client = appointment.clientTenant?.clientGlobal?.name || "Cliente";
@@ -313,15 +320,19 @@ export default function DashboardCoachPage() {
         const staffName = appointment.staff?.name || "";
         const action = suggestedActionForAppointment(appointment);
         const status = prebookingStatus[appointment.id] || "NON_PROPOSTO";
+        const note = prebookingNotes[appointment.id] || "";
 
         return `
           <div class="client-card">
             <div class="client-head">
               <div>
                 <div class="client-index">${index + 1}. ${esc(time)} · ${esc(client)}</div>
-                <div class="muted">${phone ? `WhatsApp: ${esc(phone)} · ` : ""}${staffName ? `Operatore: ${esc(staffName)}` : ""}</div>
+                <div class="muted">
+                  ${phone ? `WhatsApp: ${esc(phone)} · ` : ""}
+                  ${staffName ? `Operatore: ${esc(staffName)}` : ""}
+                </div>
               </div>
-              <div class="badge">${status === "PRENOTATO" ? "Prenotato" : status === "DA_RICHIAMARE" ? "Da richiamare" : status === "NON_INTERESSATA" ? "Non interessata" : "Non proposto"}</div>
+              <div class="badge">${esc(labelStatus(status))}</div>
             </div>
 
             <div class="service">Servizio: <strong>${esc(service)}</strong></div>
@@ -345,8 +356,18 @@ export default function DashboardCoachPage() {
               “${esc(action.phrase)}”
             </div>
 
+            <div class="outcome">
+              <strong>Esito fine giornata:</strong> ${esc(labelStatus(status))}
+            </div>
+
+            ${
+              note
+                ? `<div class="note"><strong>Note:</strong> ${esc(note)}</div>`
+                : `<div class="note empty"><strong>Note:</strong> ________________________________</div>`
+            }
+
             <div class="checkline">
-              ☐ Proposto &nbsp;&nbsp; ☐ Prenotato &nbsp;&nbsp; ☐ Rifiutato &nbsp;&nbsp; ☐ Messaggio WhatsApp inviato
+              ☐ Prenotato &nbsp;&nbsp; ☐ Da richiamare WhatsApp &nbsp;&nbsp; ☐ Non interessata &nbsp;&nbsp; ☐ Non proposto
             </div>
           </div>
         `;
@@ -359,7 +380,7 @@ export default function DashboardCoachPage() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Prebooking del giorno</title>
+          <title>Controllo prebooking giornata</title>
           <style>
             * { box-sizing: border-box; }
             body {
@@ -379,7 +400,7 @@ export default function DashboardCoachPage() {
             }
             .summary {
               display: grid;
-              grid-template-columns: repeat(4, 1fr);
+              grid-template-columns: repeat(5, 1fr);
               gap: 10px;
               margin-bottom: 20px;
             }
@@ -392,7 +413,7 @@ export default function DashboardCoachPage() {
             .summary span {
               display: block;
               color: #666;
-              font-size: 12px;
+              font-size: 11px;
               text-transform: uppercase;
               margin-bottom: 4px;
             }
@@ -461,6 +482,23 @@ export default function DashboardCoachPage() {
               font-weight: 700;
               margin-top: 10px;
             }
+            .outcome {
+              margin-top: 12px;
+              padding: 10px;
+              background: #f1f5f9;
+              border-radius: 10px;
+              font-size: 14px;
+            }
+            .note {
+              margin-top: 10px;
+              padding: 10px;
+              border: 1px dashed #bbb;
+              border-radius: 10px;
+              font-size: 14px;
+            }
+            .note.empty {
+              color: #777;
+            }
             .checkline {
               margin-top: 12px;
               font-weight: 800;
@@ -468,18 +506,20 @@ export default function DashboardCoachPage() {
             }
             @media print {
               body { padding: 18px; }
+              .client-card { page-break-inside: avoid; }
             }
           </style>
         </head>
         <body>
-          <h1>Prebooking del giorno</h1>
+          <h1>Controllo prebooking giornata</h1>
           <div class="subtitle">Data: ${esc(new Date().toLocaleDateString("it-IT"))}</div>
 
           <div class="summary">
             <div><span>Clienti oggi</span><strong>${todayAppointments.length}</strong></div>
-            <div><span>Fish medio mese</span><strong>${esc(euro(autoFishBase))}</strong></div>
-            <div><span>Target oggi</span><strong>${esc(euro(target))}</strong></div>
-            <div><span>Extra da fare</span><strong>${esc(euro(Math.max(0, target - baseline)))}</strong></div>
+            <div><span>Prenotati</span><strong>${prebookingDone}</strong></div>
+            <div><span>Da richiamare</span><strong>${prebookingToCall}</strong></div>
+            <div><span>Non proposti</span><strong>${prebookingNotProposed}</strong></div>
+            <div><span>Tasso</span><strong>${prebookingRate}%</strong></div>
           </div>
 
           ${
