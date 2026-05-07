@@ -87,6 +87,7 @@ export default function DashboardCoachPage() {
   const [fishBase, setFishBase] = useState("");
   const [clientiPrevisti, setClientiPrevisti] = useState("");
   const [objective, setObjective] = useState("+10%");
+  const [prebookingStatus, setPrebookingStatus] = useState<Record<string, "DA_PROPORRE" | "FATTO" | "RIFIUTATO">>({});
 
   const [costName, setCostName] = useState("");
   const [costAmount, setCostAmount] = useState("");
@@ -330,6 +331,67 @@ export default function DashboardCoachPage() {
     }
   }
 
+
+  function suggestedActionForAppointment(appointment: CoachAppointment) {
+    const service = String(appointment.note || "").toLowerCase();
+
+    if (service.includes("colore") || service.includes("gloss") || service.includes("tonalizzante") || service.includes("meches") || service.includes("balayage")) {
+      return {
+        next: "Riprenota tra 30/45 giorni",
+        extra: "Proponi trattamento colore o Plex",
+        product: "Proponi shampoo/mask mantenimento colore",
+        phrase: "Ti blocco già il prossimo appuntamento colore, così manteniamo il risultato bello e non rischi di trovare tutto pieno.",
+      };
+    }
+
+    if (service.includes("piega") || service.includes("styling")) {
+      return {
+        next: "Riprenota tra 10/15 giorni",
+        extra: "Proponi finish o trattamento express",
+        product: "Proponi termoprotettore o prodotto styling",
+        phrase: "Ti preparo già la prossima piega, così resti sempre in ordine e non devi pensarci all’ultimo.",
+      };
+    }
+
+    if (service.includes("ricostruzione") || service.includes("plex") || service.includes("repair")) {
+      return {
+        next: "Riprenota controllo tra 30 giorni",
+        extra: "Proponi mantenimento ricostruzione",
+        product: "Proponi maschera repair a casa",
+        phrase: "Ti fisso già il controllo, così continuiamo il percorso e manteniamo il capello forte nel tempo.",
+      };
+    }
+
+    return {
+      next: "Riprenota tra 30 giorni",
+      extra: "Proponi trattamento adatto al servizio",
+      product: "Proponi prodotto mantenimento a casa",
+      phrase: "Ti preparo già il prossimo appuntamento, così manteniamo il risultato e sei tranquilla per le prossime settimane.",
+    };
+  }
+
+  function copyPrebookingPhrase(appointment: CoachAppointment) {
+    const client = appointment.clientTenant?.clientGlobal?.name || "cliente";
+    const action = suggestedActionForAppointment(appointment);
+    navigator.clipboard.writeText(`${client}, ${action.phrase}`);
+    setMessage("✅ Frase prebooking copiata.");
+  }
+
+  function setPrebookingResult(id: string, status: "DA_PROPORRE" | "FATTO" | "RIFIUTATO") {
+    setPrebookingStatus((prev) => ({
+      ...prev,
+      [id]: status,
+    }));
+  }
+
+  const prebookingDone = todayAppointments.filter(
+    (appointment) => prebookingStatus[appointment.id] === "FATTO",
+  ).length;
+
+  const prebookingRejected = todayAppointments.filter(
+    (appointment) => prebookingStatus[appointment.id] === "RIFIUTATO",
+  ).length;
+
   async function removeCost(id: string) {
     try {
       await apiFetch(`/coach/fixed-costs/${id}`, {
@@ -435,96 +497,135 @@ export default function DashboardCoachPage() {
 
         <section style={coachSection}>
           <p style={quote}>"LA MATTINA DECIDE IL FATTURATO"</p>
-          <SectionTitle title="BRIEF MATTINA + PREBOOKING" />
+          <SectionTitle title="BRIEF OPERATIVO DEL GIORNO" />
 
-          <div style={threeGrid}>
-            <label style={label}>
-              Fish Base €/cliente
-              <input
-                style={input}
-                placeholder={autoFishBase > 0 ? autoFishBase.toFixed(2) : "Automatico da vendite"}
-                value={fishBase}
-                onChange={(e) => setFishBase(e.target.value)}
-              />
-            </label>
+          <div style={briefStatsGrid}>
+            <div style={briefStat}>
+              <span>Clienti oggi</span>
+              <strong>{todayAppointments.length}</strong>
+            </div>
 
-            <label style={label}>
-              Clienti previsti oggi
-              <input
-                style={input}
-                placeholder={String(todayAppointments.length)}
-                value={clientiPrevisti}
-                onChange={(e) => setClientiPrevisti(e.target.value)}
-              />
-            </label>
+            <div style={briefStat}>
+              <span>Fish medio mese</span>
+              <strong>{euro(autoFishBase)}</strong>
+            </div>
 
+            <div style={briefStat}>
+              <span>Target oggi</span>
+              <strong>{euro(target)}</strong>
+            </div>
+
+            <div style={briefStat}>
+              <span>Extra da fare</span>
+              <strong>{euro(Math.max(0, target - baseline))}</strong>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
             <label style={label}>
-              Obiettivo oggi
+              Obiettivo del giorno
               <select style={input} value={objective} onChange={(e) => setObjective(e.target.value)}>
-                <option>+10%</option>
-                <option>+20%</option>
-                <option>+30%</option>
+                <option value="+10%">Tranquillo +10%</option>
+                <option value="+20%">Spinta +20%</option>
+                <option value="+30%">Forte +30%</option>
               </select>
             </label>
           </div>
 
-          <div style={morningBox}>
-            <strong>Oggi: {new Date().toLocaleDateString("it-IT")}</strong>
-            <p>
-              Clienti previsti: <Tag>{effectiveClientiPrevisti}</Tag> · Obiettivo:{" "}
-              <Tag>{objective}</Tag>
-            </p>
-            <p>
-              Baseline: <strong>{euro(baseline)}</strong> → Target:{" "}
-              <strong>{euro(target)}</strong>
-            </p>
-            <p>
-              Serve + <strong>{euro(Math.max(0, target - baseline))}</strong> di incremento totale.
-            </p>
-
-            <hr style={hr} />
-
-            <Tag>Piano semplice</Tag>
-            <ul style={{ marginTop: 10 }}>
-              <li>Proponi Plex add-on ai clienti colore.</li>
-              <li>Proponi Bio anti-frizz su clienti styling.</li>
-              <li>Chiudi ogni cliente con prebooking a 45 giorni.</li>
+          <div style={briefPlanBox}>
+            <strong>Piano semplice di oggi</strong>
+            <ul style={{ marginBottom: 0 }}>
+              <li>A ogni cliente proponi il prossimo appuntamento prima che esca.</li>
+              <li>A ogni colore proponi trattamento/Plex o mantenimento colore.</li>
+              <li>A ogni piega proponi prodotto styling o termoprotettore.</li>
             </ul>
-
-            <Tag>Frase chiusura</Tag>
-            <p style={{ marginBottom: 0 }}>
-              “Ti preparo il percorso così sei tranquilla per i prossimi 3 mesi?”
-            </p>
           </div>
 
-          <button style={primaryButtonFull} onClick={printPrebookingList}>
-            PREBOOKING DEL GIORNO
-          </button>
+          <div style={prebookingHeader}>
+            <div>
+              <h3 style={{ margin: 0, color: "#d4af37" }}>Lista clienti da riprenotare</h3>
+              <p className="sp-muted" style={{ marginTop: 6 }}>
+                Prebooking fatti: {prebookingDone}/{todayAppointments.length}
+                {prebookingRejected ? ` · Rifiutati: ${prebookingRejected}` : ""}
+              </p>
+            </div>
+
+            <button style={smallButton} onClick={printPrebookingList}>
+              STAMPA LISTA
+            </button>
+          </div>
 
           <div style={prebookingBox}>
             {todayAppointments.length === 0 ? (
-              <div className="sp-muted">Nessun appuntamento previsto oggi.</div>
+              <div style={emptyBox}>Nessun appuntamento previsto oggi.</div>
             ) : (
-              todayAppointments.map((appointment) => (
-                <div key={appointment.id} style={prebookingRow}>
-                  <strong>
-                    {new Date(appointment.date).toLocaleTimeString("it-IT", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </strong>
-                  <span>
-                    {appointment.clientTenant?.clientGlobal?.name || "Cliente"} ·{" "}
-                    {appointment.note || "Appuntamento"}
-                  </span>
-                </div>
-              ))
+              todayAppointments.map((appointment) => {
+                const action = suggestedActionForAppointment(appointment);
+                const status = prebookingStatus[appointment.id] || "DA_PROPORRE";
+
+                return (
+                  <div key={appointment.id} style={prebookingClientCard}>
+                    <div style={prebookingTopRow}>
+                      <div>
+                        <strong style={{ color: "#fff" }}>
+                          {new Date(appointment.date).toLocaleTimeString("it-IT", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}{" "}
+                          · {appointment.clientTenant?.clientGlobal?.name || "Cliente"}
+                        </strong>
+                        <div className="sp-muted" style={{ marginTop: 4 }}>
+                          {appointment.note || "Appuntamento"}
+                        </div>
+                      </div>
+
+                      <Tag>
+                        {status === "FATTO"
+                          ? "Fatto"
+                          : status === "RIFIUTATO"
+                            ? "Rifiutato"
+                            : "Da proporre"}
+                      </Tag>
+                    </div>
+
+                    <div style={actionGrid}>
+                      <div>
+                        <span style={miniLabel}>Prossimo passo</span>
+                        <strong>{action.next}</strong>
+                      </div>
+                      <div>
+                        <span style={miniLabel}>Extra</span>
+                        <strong>{action.extra}</strong>
+                      </div>
+                      <div>
+                        <span style={miniLabel}>Prodotto</span>
+                        <strong>{action.product}</strong>
+                      </div>
+                    </div>
+
+                    <div style={phraseBox}>“{action.phrase}”</div>
+
+                    <div style={buttonRow}>
+                      <button style={primaryMini} onClick={() => copyPrebookingPhrase(appointment)}>
+                        Copia frase
+                      </button>
+                      <button style={smallButton} onClick={() => setPrebookingResult(appointment.id, "FATTO")}>
+                        Fatto
+                      </button>
+                      <button style={deleteButton} onClick={() => setPrebookingResult(appointment.id, "RIFIUTATO")}>
+                        Rifiutato
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
 
-          <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-            <button style={smallButton} onClick={printPrebookingList}>STAMPA LISTA</button>
-            <button style={primaryMini} onClick={resetMorningBrief}>PULISCI</button>
+          <div style={{ marginTop: 16 }}>
+            <button style={primaryMini} onClick={resetMorningBrief}>
+              RESET BRIEF
+            </button>
           </div>
         </section>
 
@@ -766,6 +867,98 @@ const quote: React.CSSProperties = {
   fontWeight: 900,
   letterSpacing: 2,
   marginBottom: 8,
+};
+
+
+const briefStatsGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(160px, 1fr))",
+  gap: 12,
+};
+
+const briefStat: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(0,0,0,0.38)",
+  border: "1px solid rgba(212,175,55,0.18)",
+  display: "grid",
+  gap: 8,
+};
+
+const briefPlanBox: React.CSSProperties = {
+  marginTop: 16,
+  padding: 18,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  color: "#fff",
+  fontWeight: 800,
+};
+
+const prebookingHeader: React.CSSProperties = {
+  marginTop: 18,
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const prebookingClientCard: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 20,
+  background: "rgba(255,255,255,0.055)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  display: "grid",
+  gap: 14,
+};
+
+const prebookingTopRow: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  alignItems: "flex-start",
+  flexWrap: "wrap",
+};
+
+const actionGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(160px, 1fr))",
+  gap: 10,
+};
+
+const miniLabel: React.CSSProperties = {
+  display: "block",
+  color: "#d4af37",
+  fontSize: 12,
+  textTransform: "uppercase",
+  letterSpacing: 1,
+  marginBottom: 4,
+};
+
+const phraseBox: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 16,
+  background: "rgba(212,175,55,0.08)",
+  border: "1px solid rgba(212,175,55,0.18)",
+  color: "#fff",
+  fontWeight: 900,
+};
+
+const buttonRow: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
+const emptyBox: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 16,
+  background: "rgba(255,255,255,0.055)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  color: "#d7d7e7",
+  fontWeight: 800,
 };
 
 const prebookingBox: React.CSSProperties = {
