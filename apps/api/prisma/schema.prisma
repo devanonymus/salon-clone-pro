@@ -31,6 +31,7 @@ model Tenant {
   marketingCardPayments MarketingCardPayment[]
   coachSettings        CoachSettings?
   coachFixedCosts      CoachFixedCost[]
+  coachPrebookingResults CoachPrebookingResult[]
   marketingCardTemplate MarketingCardTemplate?
 
   @@schema("app")
@@ -419,5 +420,24 @@ model CoachFixedCost {
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
+  @@schema("app")
+}
+
+model CoachPrebookingResult {
+  id            String   @id @default(uuid())
+  tenantId      String
+  appointmentId String
+  dateKey       String
+  clientName    String
+  clientPhone   String?
+  serviceName   String?
+  status        String   @default("NON_PROPOSTO")
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, appointmentId])
   @@schema("app")
 }

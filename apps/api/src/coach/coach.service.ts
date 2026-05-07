@@ -83,6 +83,59 @@ export class CoachService {
     });
   }
 
+
+  listPrebooking(tenantId: string, dateKey?: string) {
+    return this.prisma.coachPrebookingResult.findMany({
+      where: {
+        tenantId,
+        ...(dateKey ? { dateKey } : {}),
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+  }
+
+  savePrebooking(
+    tenantId: string,
+    appointmentId: string,
+    body: {
+      dateKey?: string;
+      clientName?: string;
+      clientPhone?: string;
+      serviceName?: string;
+      status?: string;
+      note?: string;
+    },
+  ) {
+    return this.prisma.coachPrebookingResult.upsert({
+      where: {
+        tenantId_appointmentId: {
+          tenantId,
+          appointmentId,
+        },
+      },
+      update: {
+        dateKey: String(body.dateKey || ""),
+        clientName: String(body.clientName || ""),
+        clientPhone: body.clientPhone ? String(body.clientPhone) : null,
+        serviceName: body.serviceName ? String(body.serviceName) : null,
+        status: String(body.status || "NON_PROPOSTO"),
+        note: body.note !== undefined ? String(body.note || "") : undefined,
+      },
+      create: {
+        tenantId,
+        appointmentId,
+        dateKey: String(body.dateKey || ""),
+        clientName: String(body.clientName || ""),
+        clientPhone: body.clientPhone ? String(body.clientPhone) : null,
+        serviceName: body.serviceName ? String(body.serviceName) : null,
+        status: String(body.status || "NON_PROPOSTO"),
+        note: body.note ? String(body.note) : null,
+      },
+    });
+  }
+
   private num(value: any) {
     if (value === undefined) return undefined;
     const n = Number(String(value || 0).replace(",", "."));

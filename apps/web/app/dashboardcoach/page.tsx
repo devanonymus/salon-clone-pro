@@ -24,6 +24,14 @@ type CoachAppointment = {
   } | null;
 };
 
+type PrebookingStatus = "PRENOTATO" | "DA_RICHIAMARE" | "NON_INTERESSATA" | "NON_PROPOSTO";
+
+type PrebookingResult = {
+  appointmentId: string;
+  status: PrebookingStatus;
+  note?: string | null;
+};
+
 type CoachSale = {
   id: string;
   total: number;
@@ -87,7 +95,8 @@ export default function DashboardCoachPage() {
   const [fishBase, setFishBase] = useState("");
   const [clientiPrevisti, setClientiPrevisti] = useState("");
   const [objective, setObjective] = useState("+10%");
-  const [prebookingStatus, setPrebookingStatus] = useState<Record<string, "DA_PROPORRE" | "FATTO" | "RIFIUTATO">>({});
+  const [prebookingStatus, setPrebookingStatus] = useState<Record<string, PrebookingStatus>>({});
+  const [prebookingNotes, setPrebookingNotes] = useState<Record<string, string>>({});
 
   const [costName, setCostName] = useState("");
   const [costAmount, setCostAmount] = useState("");
@@ -488,11 +497,12 @@ export default function DashboardCoachPage() {
 
   async function loadCoachData() {
     try {
-      const [settings, costs, appointmentsData, salesData] = await Promise.all([
+      const [settings, costs, appointmentsData, salesData, prebookingData] = await Promise.all([
         apiFetch("/coach/settings"),
         apiFetch("/coach/fixed-costs"),
         apiFetch("/appointments"),
         apiFetch("/sales"),
+        apiFetch(`/coach/prebooking?dateKey=${new Date().toISOString().slice(0, 10)}`),
       ]);
 
       setIvaServizi(String(settings.vatServicesPercent ?? 22));
@@ -509,6 +519,19 @@ export default function DashboardCoachPage() {
       setFixedCosts(Array.isArray(costs) ? costs : []);
       setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
       setSales(Array.isArray(salesData) ? salesData : []);
+
+      const statuses: Record<string, PrebookingStatus> = {};
+      const notes: Record<string, string> = {};
+
+      if (Array.isArray(prebookingData)) {
+        prebookingData.forEach((item: any) => {
+          statuses[item.appointmentId] = item.status || "NON_PROPOSTO";
+          notes[item.appointmentId] = item.note || "";
+        });
+      }
+
+      setPrebookingStatus(statuses);
+      setPrebookingNotes(notes);
     } catch (error: any) {
       setMessage(error.message || "Errore caricamento Dashboard Coach");
       setFixedCosts([]);
@@ -642,20 +665,56 @@ export default function DashboardCoachPage() {
     setMessage("✅ Frase prebooking copiata.");
   }
 
-  function setPrebookingResult(id: string, status: "DA_PROPORRE" | "FATTO" | "RIFIUTATO") {
+  async function setPrebookingResult(appointment: CoachAppointment, status: PrebookingStatus) {
+    const appointmentId = appointment.id;
+    const clientName = appointment.clientTenant?.clientGlobal?.name || "Cliente";
+    const clientPhone = appointment.clientTenant?.clientGlobal?.phone || "";
+    const serviceName = appointment.note || "Appuntamento";
+    const note = prebookingNotes[appointmentId] || "";
+
     setPrebookingStatus((prev) => ({
       ...prev,
-      [id]: status,
+      [appointmentId]: status,
     }));
+
+    try {
+      await apiFetch(`/coach/prebooking/${appointmentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          dateKey: new Date(appointment.date).toISOString().slice(0, 10),
+          clientName,
+          clientPhone,
+          serviceName,
+          status,
+          note,
+        }),
+      });
+
+      setMessage("✅ Esito prebooking salvato.");
+    } catch (error: any) {
+      setMessage(error.message || "Errore salvataggio prebooking");
+      await loadCoachData();
+    }
   }
 
   const prebookingDone = todayAppointments.filter(
-    (appointment) => prebookingStatus[appointment.id] === "FATTO",
+    (appointment) => prebookingStatus[appointment.id] === "PRENOTATO",
   ).length;
 
   const prebookingRejected = todayAppointments.filter(
-    (appointment) => prebookingStatus[appointment.id] === "RIFIUTATO",
+    (appointment) => prebookingStatus[appointment.id] === "NON_INTERESSATA",
   ).length;
+
+  const prebookingToCall = todayAppointments.filter(
+    (appointment) => prebookingStatus[appointment.id] === "DA_RICHIAMARE",
+  ).length;
+
+  const prebookingNotProposed = todayAppointments.filter(
+    (appointment) => (prebookingStatus[appointment.id] || "NON_PROPOSTO") === "NON_PROPOSTO",
+  ).length;
+
+  const prebookingRate =
+    todayAppointments.length > 0 ? Math.round((prebookingDone / todayAppointments.length) * 100) : 0;
 
   async function removeCost(id: string) {
     try {
@@ -856,8 +915,10 @@ export default function DashboardCoachPage() {
             <div>
               <h3 style={{ margin: 0, color: "#d4af37" }}>Lista clienti da riprenotare</h3>
               <p className="sp-muted" style={{ marginTop: 6 }}>
-                Prebooking fatti: {prebookingDone}/{todayAppointments.length}
-                {prebookingRejected ? ` · Rifiutati: ${prebookingRejected}` : ""}
+                Prenotati: {prebookingDone}/{todayAppointments.length} · Tasso: {prebookingRate}%
+                {prebookingToCall ? ` · Da richiamare: ${prebookingToCall}` : ""}
+                {prebookingRejected ? ` · Non interessate: ${prebookingRejected}` : ""}
+                {prebookingNotProposed ? ` · Non proposti: ${prebookingNotProposed}` : ""}
               </p>
             </div>
 
@@ -891,11 +952,13 @@ export default function DashboardCoachPage() {
                       </div>
 
                       <Tag>
-                        {status === "FATTO"
-                          ? "Fatto"
-                          : status === "RIFIUTATO"
-                            ? "Rifiutato"
-                            : "Da proporre"}
+                        {status === "PRENOTATO"
+                          ? "Prenotato"
+                          : status === "DA_RICHIAMARE"
+                            ? "Da richiamare"
+                            : status === "NON_INTERESSATA"
+                              ? "Non interessata"
+                              : "Non proposto"}
                       </Tag>
                     </div>
 
@@ -916,15 +979,33 @@ export default function DashboardCoachPage() {
 
                     <div style={phraseBox}>“{action.phrase}”</div>
 
+                    <input
+                      style={input}
+                      placeholder="Note fine giornata: es. preferisce sabato mattina"
+                      value={prebookingNotes[appointment.id] || ""}
+                      onChange={(e) =>
+                        setPrebookingNotes((prev) => ({
+                          ...prev,
+                          [appointment.id]: e.target.value,
+                        }))
+                      }
+                    />
+
                     <div style={buttonRow}>
                       <button style={primaryMini} onClick={() => copyPrebookingPhrase(appointment)}>
                         Copia frase
                       </button>
-                      <button style={smallButton} onClick={() => setPrebookingResult(appointment.id, "FATTO")}>
-                        Fatto
+                      <button style={smallButton} onClick={() => setPrebookingResult(appointment, "PRENOTATO")}>
+                        Prenotato
                       </button>
-                      <button style={deleteButton} onClick={() => setPrebookingResult(appointment.id, "RIFIUTATO")}>
-                        Rifiutato
+                      <button style={smallButton} onClick={() => setPrebookingResult(appointment, "DA_RICHIAMARE")}>
+                        Da richiamare WhatsApp
+                      </button>
+                      <button style={deleteButton} onClick={() => setPrebookingResult(appointment, "NON_INTERESSATA")}>
+                        Non interessata
+                      </button>
+                      <button style={primaryMini} onClick={() => setPrebookingResult(appointment, "NON_PROPOSTO")}>
+                        Non proposto
                       </button>
                     </div>
                   </div>

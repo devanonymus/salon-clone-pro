@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtGuard } from "../auth/jwt.guard";
 import { CoachService } from "./coach.service";
 
@@ -35,5 +35,27 @@ export class CoachController {
   @Delete("fixed-costs/:id")
   deleteFixedCost(@Req() req: any, @Param("id") id: string) {
     return this.service.deleteFixedCost(req.user.tenantId, id);
+  }
+
+  @Get("prebooking")
+  listPrebooking(@Req() req: any, @Query("dateKey") dateKey?: string) {
+    return this.service.listPrebooking(req.user.tenantId, dateKey);
+  }
+
+  @Patch("prebooking/:appointmentId")
+  savePrebooking(
+    @Req() req: any,
+    @Param("appointmentId") appointmentId: string,
+    @Body()
+    body: {
+      dateKey?: string;
+      clientName?: string;
+      clientPhone?: string;
+      serviceName?: string;
+      status?: string;
+      note?: string;
+    },
+  ) {
+    return this.service.savePrebooking(req.user.tenantId, appointmentId, body);
   }
 }
