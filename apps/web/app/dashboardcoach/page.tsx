@@ -363,8 +363,21 @@ export default function DashboardCoachPage() {
               <tbody>
                 {fixedCosts.map((item) => (
                   <tr key={item.id}>
-                    <Td>{item.name}</Td>
-                    <Td>{euro(item.amount)}</Td>
+                    <Td>
+                      <input
+                        style={tableInput}
+                        value={item.name}
+                        onChange={(e) => updateFixedCost(item.id, "name", e.target.value)}
+                      />
+                    </Td>
+
+                    <Td>
+                      <input
+                        style={tableInput}
+                        value={String(item.amount || 0)}
+                        onChange={(e) => updateFixedCost(item.id, "amount", e.target.value)}
+                      />
+                    </Td>
                     <Td>
                       <button style={deleteButton} onClick={() => removeCost(item.id)}>
                         X
