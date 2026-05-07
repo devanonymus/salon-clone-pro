@@ -29,6 +29,8 @@ model Tenant {
   marketingCards        MarketingCard[]
   marketingCardSales    MarketingCardSale[]
   marketingCardPayments MarketingCardPayment[]
+  coachSettings        CoachSettings?
+  coachFixedCosts      CoachFixedCost[]
   marketingCardTemplate MarketingCardTemplate?
 
   @@schema("app")
@@ -381,6 +383,41 @@ model MarketingCardPayment {
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   sale   MarketingCardSale @relation(fields: [marketingCardSaleId], references: [id])
+
+  @@schema("app")
+}
+
+model CoachSettings {
+  id                      String   @id @default(uuid())
+  tenantId                String   @unique
+  vatServicesPercent       Float    @default(22)
+  vatResalePercent         Float    @default(22)
+  posFeePercent            Float    @default(1.5)
+  posFixedFee              Float    @default(0)
+  variableOverheadPercent  Float    @default(3)
+  taxReservePercent        Float    @default(25)
+  productiveHoursMonth     Float    @default(140)
+  agendaGridMinutes        Int      @default(5)
+  cardGiftKitInCost        Boolean  @default(false)
+  allowedDomains           String   @default("")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@schema("app")
+}
+
+model CoachFixedCost {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  amount    Float    @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@schema("app")
 }

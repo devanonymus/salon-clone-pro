@@ -7,6 +7,7 @@ import { SalesModule } from "./sales/sales.module";
 import { StaffModule } from "./staff/staff.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { ServicePricesModule } from "./service-prices/service-prices.module";
+import { CoachModule } from "./coach/coach.module";
 import { MarketingCardsModule } from "./marketing-cards/marketing-cards.module";
 
 @Module({
@@ -19,6 +20,7 @@ import { MarketingCardsModule } from "./marketing-cards/marketing-cards.module";
     StaffModule,
     InventoryModule,
     ServicePricesModule,
+    CoachModule,
     MarketingCardsModule,
   ],
 })
