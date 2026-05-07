@@ -183,32 +183,36 @@ export default function DashboardCoachPage() {
     }
   }
 
-  async function updateFixedCost(id: string, field: "name" | "amount", value: string) {
-    const nextValue =
-      field === "amount"
-        ? Number(String(value || 0).replace(",", "."))
-        : value.toUpperCase();
-
+  function updateFixedCost(id: string, field: "name" | "amount", value: string) {
     setFixedCosts((prev) =>
       prev.map((item) =>
         item.id === id
           ? {
               ...item,
-              [field]: nextValue,
+              [field]: field === "amount" ? Number(String(value || 0).replace(",", ".")) : value.toUpperCase(),
             }
           : item,
       ),
     );
+  }
 
+  async function saveFixedCost(item: FixedCost) {
     try {
-      await apiFetch(`/coach/fixed-costs/${id}`, {
+      const updated = await apiFetch(`/coach/fixed-costs/${item.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          [field]: nextValue,
+          name: item.name,
+          amount: item.amount,
         }),
       });
+
+      setFixedCosts((prev) =>
+        prev.map((cost) => (cost.id === item.id ? updated : cost)),
+      );
+
+      setMessage("✅ Costo fisso salvato.");
     } catch (error: any) {
-      setMessage(error.message || "Errore modifica costo fisso");
+      setMessage(error.message || "Errore salvataggio costo fisso");
       await loadCoachData();
     }
   }
@@ -458,6 +462,9 @@ export default function DashboardCoachPage() {
                       />
                     </Td>
                     <Td>
+                      <button style={primaryMini} onClick={() => saveFixedCost(item)}>
+                        Salva
+                      </button>{" "}
                       <button style={deleteButton} onClick={() => removeCost(item.id)}>
                         X
                       </button>
