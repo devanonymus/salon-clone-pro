@@ -114,6 +114,22 @@ export default function DashboardCoachPage() {
     setCostAmount("");
   }
 
+  function updateFixedCost(id: string, field: "name" | "amount", value: string) {
+    setFixedCosts((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              [field]:
+                field === "amount"
+                  ? Number(String(value || 0).replace(",", "."))
+                  : value.toUpperCase(),
+            }
+          : item,
+      ),
+    );
+  }
+
   function removeCost(id: string) {
     setFixedCosts((prev) => prev.filter((item) => item.id !== id));
   }
@@ -488,6 +504,18 @@ const quote: React.CSSProperties = {
   fontWeight: 900,
   letterSpacing: 2,
   marginBottom: 8,
+};
+
+const tableInput: React.CSSProperties = {
+  width: "100%",
+  minWidth: 160,
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(212,175,55,0.25)",
+  background: "rgba(0,0,0,0.42)",
+  color: "#fff",
+  fontWeight: 800,
+  outline: "none",
 };
 
 const input: React.CSSProperties = {
