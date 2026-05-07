@@ -173,6 +173,13 @@ export default function DashboardCoachPage() {
   }
 
   function printPrebookingList() {
+    const esc = (value: any) =>
+      String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+
     const rows = todayAppointments
       .map((appointment, index) => {
         const client = appointment.clientTenant?.clientGlobal?.name || "Cliente";
@@ -183,22 +190,49 @@ export default function DashboardCoachPage() {
         });
         const service = appointment.note || "Appuntamento";
         const staffName = appointment.staff?.name || "";
+        const action = suggestedActionForAppointment(appointment);
+        const status = prebookingStatus[appointment.id] || "DA_PROPORRE";
 
-        return `${index + 1}. ${time} - ${client} ${phone ? `(${phone})` : ""} - ${service}${staffName ? ` - ${staffName}` : ""}`;
+        return `
+          <div class="client-card">
+            <div class="client-head">
+              <div>
+                <div class="client-index">${index + 1}. ${esc(time)} · ${esc(client)}</div>
+                <div class="muted">${phone ? `WhatsApp: ${esc(phone)} · ` : ""}${staffName ? `Operatore: ${esc(staffName)}` : ""}</div>
+              </div>
+              <div class="badge">${status === "FATTO" ? "Fatto" : status === "RIFIUTATO" ? "Rifiutato" : "Da proporre"}</div>
+            </div>
+
+            <div class="service">Servizio: <strong>${esc(service)}</strong></div>
+
+            <div class="grid">
+              <div>
+                <span>Prebooking consigliato</span>
+                <strong>${esc(action.next)}</strong>
+              </div>
+              <div>
+                <span>Extra da proporre</span>
+                <strong>${esc(action.extra)}</strong>
+              </div>
+              <div>
+                <span>Prodotto consigliato</span>
+                <strong>${esc(action.product)}</strong>
+              </div>
+            </div>
+
+            <div class="phrase">
+              “${esc(action.phrase)}”
+            </div>
+
+            <div class="checkline">
+              ☐ Proposto &nbsp;&nbsp; ☐ Prenotato &nbsp;&nbsp; ☐ Rifiutato &nbsp;&nbsp; ☐ Messaggio WhatsApp inviato
+            </div>
+          </div>
+        `;
       })
-      .join("\n");
+      .join("");
 
-    const text = [
-      "PREBOOKING DEL GIORNO",
-      `Data: ${new Date().toLocaleDateString("it-IT")}`,
-      "",
-      rows || "Nessun appuntamento previsto oggi.",
-      "",
-      "Frase guida:",
-      "Ti preparo il percorso così sei tranquilla per i prossimi 3 mesi?",
-    ].join("\n");
-
-    const printWindow = window.open("", "_blank", "width=900,height=700");
+    const printWindow = window.open("", "_blank", "width=1000,height=800");
     if (!printWindow) return;
 
     printWindow.document.write(`
@@ -206,18 +240,137 @@ export default function DashboardCoachPage() {
         <head>
           <title>Prebooking del giorno</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 32px; line-height: 1.5; }
-            h1 { margin-bottom: 8px; }
-            pre { white-space: pre-wrap; font-size: 15px; }
+            * { box-sizing: border-box; }
+            body {
+              font-family: Arial, sans-serif;
+              padding: 28px;
+              color: #171717;
+              line-height: 1.45;
+            }
+            h1 {
+              margin: 0 0 6px;
+              font-size: 28px;
+            }
+            .subtitle {
+              color: #555;
+              margin-bottom: 22px;
+              font-size: 14px;
+            }
+            .summary {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 10px;
+              margin-bottom: 20px;
+            }
+            .summary div {
+              border: 1px solid #ddd;
+              border-radius: 12px;
+              padding: 12px;
+              background: #fafafa;
+            }
+            .summary span {
+              display: block;
+              color: #666;
+              font-size: 12px;
+              text-transform: uppercase;
+              margin-bottom: 4px;
+            }
+            .summary strong {
+              font-size: 18px;
+            }
+            .client-card {
+              border: 1px solid #ddd;
+              border-radius: 16px;
+              padding: 16px;
+              margin-bottom: 14px;
+              break-inside: avoid;
+            }
+            .client-head {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              align-items: flex-start;
+              margin-bottom: 10px;
+            }
+            .client-index {
+              font-size: 18px;
+              font-weight: 800;
+            }
+            .muted {
+              color: #666;
+              font-size: 13px;
+              margin-top: 3px;
+            }
+            .badge {
+              border: 1px solid #999;
+              border-radius: 999px;
+              padding: 5px 10px;
+              font-size: 12px;
+              font-weight: 800;
+              white-space: nowrap;
+            }
+            .service {
+              margin: 10px 0;
+              padding: 10px;
+              background: #f6f6f6;
+              border-radius: 10px;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 10px;
+              margin: 12px 0;
+            }
+            .grid div {
+              border: 1px solid #eee;
+              border-radius: 12px;
+              padding: 10px;
+            }
+            .grid span {
+              display: block;
+              color: #777;
+              font-size: 11px;
+              text-transform: uppercase;
+              margin-bottom: 4px;
+            }
+            .phrase {
+              border-left: 4px solid #111;
+              padding: 10px 12px;
+              background: #fafafa;
+              font-weight: 700;
+              margin-top: 10px;
+            }
+            .checkline {
+              margin-top: 12px;
+              font-weight: 800;
+              font-size: 13px;
+            }
+            @media print {
+              body { padding: 18px; }
+            }
           </style>
         </head>
         <body>
           <h1>Prebooking del giorno</h1>
-          <pre>${text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</pre>
+          <div class="subtitle">Data: ${esc(new Date().toLocaleDateString("it-IT"))}</div>
+
+          <div class="summary">
+            <div><span>Clienti oggi</span><strong>${todayAppointments.length}</strong></div>
+            <div><span>Fish medio mese</span><strong>${esc(euro(autoFishBase))}</strong></div>
+            <div><span>Target oggi</span><strong>${esc(euro(target))}</strong></div>
+            <div><span>Extra da fare</span><strong>${esc(euro(Math.max(0, target - baseline)))}</strong></div>
+          </div>
+
+          ${
+            rows ||
+            '<div class="client-card"><strong>Nessun appuntamento previsto oggi.</strong></div>'
+          }
+
           <script>window.print();</script>
         </body>
       </html>
     `);
+
     printWindow.document.close();
   }
 
