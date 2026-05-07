@@ -129,10 +129,10 @@ export default function DashboardCoachPage() {
       setDomain(String(settings.allowedDomains || "app.acquavivastrategic.it"));
       setCardCostIncluded(Boolean(settings.cardGiftKitInCost));
 
-      setFixedCosts(Array.isArray(costs) && costs.length ? costs : INITIAL_COSTS);
+      setFixedCosts(Array.isArray(costs) ? costs : []);
     } catch (error: any) {
       setMessage(error.message || "Errore caricamento Dashboard Coach");
-      setFixedCosts(INITIAL_COSTS);
+      setFixedCosts([]);
     }
   }
 
