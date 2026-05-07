@@ -148,9 +148,7 @@ export default function DashboardCoachPage() {
           posFixedFee: feePosFisso,
           variableOverheadPercent: overhead,
           taxReservePercent: riservaTasse,
-          agendaGridMinutes: grigliaAgenda,
-          allowedDomains: domain,
-          cardGiftKitInCost: cardCostIncluded,
+
         }),
       });
 
@@ -396,30 +394,13 @@ export default function DashboardCoachPage() {
             <Field label="Overhead variabile %" value={overhead} setValue={setOverhead} />
             <Field label="Riserva tasse %" value={riservaTasse} setValue={setRiservaTasse} />
 
-            <label style={label}>
-              Griglia Agenda minuti
-              <select style={input} value={grigliaAgenda} onChange={(e) => setGrigliaAgenda(e.target.value)}>
-                <option>5</option>
-                <option>10</option>
-                <option>15</option>
-                <option>30</option>
-              </select>
-            </label>
-
-            <label style={checkLabel}>
-              <input
-                type="checkbox"
-                checked={cardCostIncluded}
-                onChange={(e) => setCardCostIncluded(e.target.checked)}
-              />
-              Costo tecnico Card include kit omaggio
-            </label>
           </div>
 
-          <label style={{ ...label, display: "block", marginTop: 14 }}>
-            Domini autorizzati
-            <input style={input} value={domain} onChange={(e) => setDomain(e.target.value)} />
-          </label>
+          <div style={infoBox}>
+            Qui lasciamo solo le leve economiche che incidono sul profitto reale:
+            IVA, POS, overhead, riserva tasse, ore produttive e costi fissi mensili.
+            Agenda, domini e impostazioni tecniche card verranno gestiti nelle sezioni dedicate.
+          </div>
 
           <button style={primaryMini} onClick={saveCoachSettings}>
             SALVA IMPOSTAZIONI PROFITTO
@@ -558,6 +539,17 @@ const eyebrow: React.CSSProperties = {
   letterSpacing: 2,
   textTransform: "uppercase",
   margin: 0,
+};
+
+const infoBox: React.CSSProperties = {
+  marginTop: 14,
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  color: "#d7d7e7",
+  fontWeight: 800,
+  lineHeight: 1.45,
 };
 
 const messageBox: React.CSSProperties = {
