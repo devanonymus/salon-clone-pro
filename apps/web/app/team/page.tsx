@@ -23,6 +23,26 @@ type ShiftDay = {
   closed: boolean;
 };
 
+type SaleItem = {
+  id: string;
+  name: string;
+  type: string;
+  price: number;
+  cost?: number;
+  quantity: number;
+};
+
+type SaleRecord = {
+  id: string;
+  total: number;
+  createdAt: string;
+  items: SaleItem[];
+  appointment?: {
+    id: string;
+    staffId?: string | null;
+  } | null;
+};
+
 const DEFAULT_SHIFTS: ShiftDay[] = [
   { day: "LUN", open1: "09:00", close1: "13:00", open2: "15:00", close2: "19:30", closed: false },
   { day: "MAR", open1: "09:00", close1: "13:00", open2: "15:00", close2: "19:30", closed: false },
@@ -48,6 +68,7 @@ function displayRole(role: string) {
 
 export default function TeamPage() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [sales, setSales] = useState<SaleRecord[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -65,10 +86,16 @@ export default function TeamPage() {
       setLoading(true);
       setMessage("");
 
-      const data = await apiFetch("/staff");
-      const list = Array.isArray(data) ? data : [];
+      const [staffData, salesData] = await Promise.all([
+        apiFetch("/staff"),
+        apiFetch("/sales"),
+      ]);
+
+      const list = Array.isArray(staffData) ? staffData : [];
+      const salesList = Array.isArray(salesData) ? salesData : [];
 
       setStaff(list);
+      setSales(salesList);
       setSelectedStaffId((prev) => prev || list[0]?.id || "");
 
       setShifts((prev) => {
@@ -81,7 +108,7 @@ export default function TeamPage() {
         return next;
       });
     } catch (error: any) {
-      setMessage(error.message || "Errore caricamento staff");
+      setMessage(error.message || "Errore caricamento KPI team");
     } finally {
       setLoading(false);
     }
@@ -91,28 +118,76 @@ export default function TeamPage() {
     loadStaff();
   }, []);
 
+
+  function isCurrentMonthSale(sale: SaleRecord) {
+    const date = new Date(sale.createdAt);
+    const now = new Date();
+
+    return (
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth()
+    );
+  }
+
+
   const selectedStaff = staff.find((s) => s.id === selectedStaffId);
 
   const kpiRows = useMemo(() => {
-    return staff.map((member) => {
+    const monthSales = sales.filter(isCurrentMonthSale);
+
+    const baseRows = staff.map((member) => {
       const monthlyCostValue = Number(member.monthlyCost || 0);
       const productiveHoursValue = Number(member.productiveHours || 140);
       const monthlyTargetValue = Number(member.monthlyTarget || 0);
+
+      const memberSales = monthSales.filter((sale) => {
+        return sale.appointment?.staffId === member.id;
+      });
+
+      const services = memberSales.reduce((sum, sale) => {
+        return (
+          sum +
+          (sale.items || [])
+            .filter((item) => item.type !== "product")
+            .reduce((itemSum, item) => itemSum + Number(item.price || 0) * Number(item.quantity || 1), 0)
+        );
+      }, 0);
+
+      const resale = memberSales.reduce((sum, sale) => {
+        return (
+          sum +
+          (sale.items || [])
+            .filter((item) => item.type === "product")
+            .reduce((itemSum, item) => itemSum + Number(item.price || 0) * Number(item.quantity || 1), 0)
+        );
+      }, 0);
+
+      const total = services + resale;
+      const fish = memberSales.length > 0 ? total / memberSales.length : 0;
+      const productivity = monthlyTargetValue > 0 ? (total / monthlyTargetValue) * 100 : 0;
 
       return {
         ...member,
         monthlyCost: monthlyCostValue,
         productiveHours: productiveHoursValue,
         monthlyTarget: monthlyTargetValue,
-        services: 0,
-        resale: 0,
-        total: 0,
-        fish: 0,
+        services,
+        resale,
+        total,
+        fish,
         weight: 0,
-        productivity: 0,
+        productivity,
+        salesCount: memberSales.length,
       };
     });
-  }, [staff]);
+
+    const teamTotal = baseRows.reduce((sum, row) => sum + row.total, 0);
+
+    return baseRows.map((row) => ({
+      ...row,
+      weight: teamTotal > 0 ? (row.total / teamTotal) * 100 : 0,
+    }));
+  }, [staff, sales]);
 
   const totals = useMemo(() => {
     return kpiRows.reduce(
@@ -244,6 +319,7 @@ export default function TeamPage() {
                   <Th>Rivendita</Th>
                   <Th>Totale</Th>
                   <Th>Fish</Th>
+                  <Th>Vendite</Th>
                   <Th>Peso %</Th>
                   <Th>Target</Th>
                 </tr>
@@ -252,6 +328,8 @@ export default function TeamPage() {
                 {loading ? (
                   <tr>
                     <Td>Caricamento staff...</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
                     <Td>-</Td>
                     <Td>-</Td>
                     <Td>-</Td>
@@ -277,6 +355,7 @@ export default function TeamPage() {
                       <Td>{euro(row.resale)}</Td>
                       <Td>{euro(row.total)}</Td>
                       <Td>{euro(row.fish)}</Td>
+                      <Td>{row.salesCount || 0}</Td>
                       <Td>{row.weight.toFixed(1)}%</Td>
                       <Td>{row.productivity.toFixed(0)}%</Td>
                     </tr>
