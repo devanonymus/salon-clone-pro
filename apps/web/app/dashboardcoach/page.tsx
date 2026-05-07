@@ -312,7 +312,7 @@ export default function DashboardCoachPage() {
         const service = appointment.note || "Appuntamento";
         const staffName = appointment.staff?.name || "";
         const action = suggestedActionForAppointment(appointment);
-        const status = prebookingStatus[appointment.id] || "DA_PROPORRE";
+        const status = prebookingStatus[appointment.id] || "NON_PROPOSTO";
 
         return `
           <div class="client-card">
@@ -321,7 +321,7 @@ export default function DashboardCoachPage() {
                 <div class="client-index">${index + 1}. ${esc(time)} · ${esc(client)}</div>
                 <div class="muted">${phone ? `WhatsApp: ${esc(phone)} · ` : ""}${staffName ? `Operatore: ${esc(staffName)}` : ""}</div>
               </div>
-              <div class="badge">${status === "FATTO" ? "Fatto" : status === "RIFIUTATO" ? "Rifiutato" : "Da proporre"}</div>
+              <div class="badge">${status === "PRENOTATO" ? "Prenotato" : status === "DA_RICHIAMARE" ? "Da richiamare" : status === "NON_INTERESSATA" ? "Non interessata" : "Non proposto"}</div>
             </div>
 
             <div class="service">Servizio: <strong>${esc(service)}</strong></div>
@@ -933,7 +933,7 @@ export default function DashboardCoachPage() {
             ) : (
               todayAppointments.map((appointment) => {
                 const action = suggestedActionForAppointment(appointment);
-                const status = prebookingStatus[appointment.id] || "DA_PROPORRE";
+                const status = prebookingStatus[appointment.id] || "NON_PROPOSTO";
 
                 return (
                   <div key={appointment.id} style={prebookingClientCard}>
