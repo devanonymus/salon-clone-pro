@@ -9,6 +9,33 @@ type FixedCost = {
   amount: number;
 };
 
+type CoachAppointment = {
+  id: string;
+  date: string;
+  note?: string | null;
+  clientTenant?: {
+    clientGlobal?: {
+      name?: string;
+      phone?: string;
+    };
+  };
+  staff?: {
+    name?: string;
+  } | null;
+};
+
+type CoachSale = {
+  id: string;
+  total: number;
+  createdAt: string;
+  items?: {
+    name: string;
+    type: string;
+    price: number;
+    quantity: number;
+  }[];
+};
+
 const MONTHS = [
   "Gennaio",
   "Febbraio",
@@ -64,6 +91,8 @@ export default function DashboardCoachPage() {
   const [costName, setCostName] = useState("");
   const [costAmount, setCostAmount] = useState("");
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
+  const [appointments, setAppointments] = useState<CoachAppointment[]>([]);
+  const [sales, setSales] = useState<CoachSale[]>([]);
   const [message, setMessage] = useState("");
 
   const report = useMemo(() => {
@@ -107,15 +136,97 @@ export default function DashboardCoachPage() {
     };
   }, [fixedCosts, riservaTasse, ivaServizi, feePos, feePosFisso, overhead]);
 
-  const baseline = Number(fishBase || 0) * Number(clientiPrevisti || 0);
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  const todayAppointments = useMemo(() => {
+    return appointments.filter((appointment) => {
+      return new Date(appointment.date).toISOString().slice(0, 10) === todayKey;
+    });
+  }, [appointments, todayKey]);
+
+  const monthSales = useMemo(() => {
+    return sales.filter((sale) => {
+      const date = new Date(sale.createdAt);
+      return date.getMonth() === month && date.getFullYear() === year;
+    });
+  }, [sales, month, year]);
+
+  const autoFishBase = useMemo(() => {
+    if (monthSales.length === 0) return 0;
+
+    const totalSales = monthSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+    return totalSales / monthSales.length;
+  }, [monthSales]);
+
+  const effectiveFishBase = Number(fishBase || 0) || autoFishBase;
+  const effectiveClientiPrevisti = Number(clientiPrevisti || 0) || todayAppointments.length;
+
+  const baseline = effectiveFishBase * effectiveClientiPrevisti;
   const multiplier = objective.includes("+20") ? 1.2 : objective.includes("+30") ? 1.3 : 1.1;
   const target = baseline * multiplier;
 
+  function resetMorningBrief() {
+    setFishBase("");
+    setClientiPrevisti("");
+    setObjective("+10%");
+  }
+
+  function printPrebookingList() {
+    const rows = todayAppointments
+      .map((appointment, index) => {
+        const client = appointment.clientTenant?.clientGlobal?.name || "Cliente";
+        const phone = appointment.clientTenant?.clientGlobal?.phone || "";
+        const time = new Date(appointment.date).toLocaleTimeString("it-IT", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const service = appointment.note || "Appuntamento";
+        const staffName = appointment.staff?.name || "";
+
+        return `${index + 1}. ${time} - ${client} ${phone ? `(${phone})` : ""} - ${service}${staffName ? ` - ${staffName}` : ""}`;
+      })
+      .join("\n");
+
+    const text = [
+      "PREBOOKING DEL GIORNO",
+      `Data: ${new Date().toLocaleDateString("it-IT")}`,
+      "",
+      rows || "Nessun appuntamento previsto oggi.",
+      "",
+      "Frase guida:",
+      "Ti preparo il percorso così sei tranquilla per i prossimi 3 mesi?",
+    ].join("\n");
+
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Prebooking del giorno</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 32px; line-height: 1.5; }
+            h1 { margin-bottom: 8px; }
+            pre { white-space: pre-wrap; font-size: 15px; }
+          </style>
+        </head>
+        <body>
+          <h1>Prebooking del giorno</h1>
+          <pre>${text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</pre>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   async function loadCoachData() {
     try {
-      const [settings, costs] = await Promise.all([
+      const [settings, costs, appointmentsData, salesData] = await Promise.all([
         apiFetch("/coach/settings"),
         apiFetch("/coach/fixed-costs"),
+        apiFetch("/appointments"),
+        apiFetch("/sales"),
       ]);
 
       setIvaServizi(String(settings.vatServicesPercent ?? 22));
@@ -130,6 +241,8 @@ export default function DashboardCoachPage() {
       setCardCostIncluded(Boolean(settings.cardGiftKitInCost));
 
       setFixedCosts(Array.isArray(costs) ? costs : []);
+      setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
+      setSales(Array.isArray(salesData) ? salesData : []);
     } catch (error: any) {
       setMessage(error.message || "Errore caricamento Dashboard Coach");
       setFixedCosts([]);
@@ -327,13 +440,19 @@ export default function DashboardCoachPage() {
           <div style={threeGrid}>
             <label style={label}>
               Fish Base €/cliente
-              <input style={input} value={fishBase} onChange={(e) => setFishBase(e.target.value)} />
+              <input
+                style={input}
+                placeholder={autoFishBase > 0 ? autoFishBase.toFixed(2) : "Automatico da vendite"}
+                value={fishBase}
+                onChange={(e) => setFishBase(e.target.value)}
+              />
             </label>
 
             <label style={label}>
               Clienti previsti oggi
               <input
                 style={input}
+                placeholder={String(todayAppointments.length)}
                 value={clientiPrevisti}
                 onChange={(e) => setClientiPrevisti(e.target.value)}
               />
@@ -352,7 +471,7 @@ export default function DashboardCoachPage() {
           <div style={morningBox}>
             <strong>Oggi: {new Date().toLocaleDateString("it-IT")}</strong>
             <p>
-              Clienti previsti: <Tag>{Number(clientiPrevisti || 0)}</Tag> · Obiettivo:{" "}
+              Clienti previsti: <Tag>{effectiveClientiPrevisti}</Tag> · Obiettivo:{" "}
               <Tag>{objective}</Tag>
             </p>
             <p>
@@ -378,11 +497,34 @@ export default function DashboardCoachPage() {
             </p>
           </div>
 
-          <button style={primaryButtonFull}>PREBOOKING DEL GIORNO</button>
+          <button style={primaryButtonFull} onClick={printPrebookingList}>
+            PREBOOKING DEL GIORNO
+          </button>
+
+          <div style={prebookingBox}>
+            {todayAppointments.length === 0 ? (
+              <div className="sp-muted">Nessun appuntamento previsto oggi.</div>
+            ) : (
+              todayAppointments.map((appointment) => (
+                <div key={appointment.id} style={prebookingRow}>
+                  <strong>
+                    {new Date(appointment.date).toLocaleTimeString("it-IT", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </strong>
+                  <span>
+                    {appointment.clientTenant?.clientGlobal?.name || "Cliente"} ·{" "}
+                    {appointment.note || "Appuntamento"}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
 
           <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-            <button style={smallButton}>STAMPA LISTA</button>
-            <button style={primaryMini}>PULISCI</button>
+            <button style={smallButton} onClick={printPrebookingList}>STAMPA LISTA</button>
+            <button style={primaryMini} onClick={resetMorningBrief}>PULISCI</button>
           </div>
         </section>
 
@@ -624,6 +766,22 @@ const quote: React.CSSProperties = {
   fontWeight: 900,
   letterSpacing: 2,
   marginBottom: 8,
+};
+
+const prebookingBox: React.CSSProperties = {
+  marginTop: 14,
+  display: "grid",
+  gap: 8,
+};
+
+const prebookingRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "90px 1fr",
+  gap: 10,
+  padding: "12px 14px",
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.055)",
+  border: "1px solid rgba(255,255,255,0.1)",
 };
 
 const tableInput: React.CSSProperties = {
