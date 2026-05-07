@@ -44,6 +44,9 @@ export class StaffService {
       name: string;
       role?: string;
       color?: string;
+      monthlyCost?: number | string;
+      productiveHours?: number | string;
+      monthlyTarget?: number | string;
       active?: boolean;
     },
   ) {
@@ -65,6 +68,9 @@ export class StaffService {
       name?: string;
       role?: string;
       color?: string;
+      monthlyCost?: number | string;
+      productiveHours?: number | string;
+      monthlyTarget?: number | string;
       active?: boolean;
     },
   ) {

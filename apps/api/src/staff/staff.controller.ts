@@ -22,6 +22,9 @@ export class StaffController {
       name: string;
       role?: string;
       color?: string;
+      monthlyCost?: number | string;
+      productiveHours?: number | string;
+      monthlyTarget?: number | string;
       active?: boolean;
     },
   ) {
@@ -37,6 +40,9 @@ export class StaffController {
       name?: string;
       role?: string;
       color?: string;
+      monthlyCost?: number | string;
+      productiveHours?: number | string;
+      monthlyTarget?: number | string;
       active?: boolean;
     },
   ) {

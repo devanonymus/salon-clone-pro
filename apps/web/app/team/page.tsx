@@ -244,6 +244,40 @@ export default function TeamPage() {
     }
   }
 
+
+  async function updateStaffField(
+    id: string,
+    field: "name" | "role" | "monthlyCost" | "productiveHours" | "monthlyTarget",
+    value: string,
+  ) {
+    const current = staff.find((member) => member.id === id);
+    if (!current) return;
+
+    const nextValue =
+      field === "monthlyCost" || field === "productiveHours" || field === "monthlyTarget"
+        ? Number(String(value || 0).replace(",", "."))
+        : value;
+
+    const nextMember = {
+      ...current,
+      [field]: nextValue,
+    };
+
+    setStaff((prev) => prev.map((member) => (member.id === id ? nextMember : member)));
+
+    try {
+      await apiFetch(`/staff/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          [field]: nextValue,
+        }),
+      });
+    } catch (error: any) {
+      setMessage(error.message || "Errore modifica collaboratore");
+      await loadStaff();
+    }
+  }
+
   async function deleteStaff(id: string) {
     try {
       setMessage("");
@@ -336,6 +370,7 @@ export default function TeamPage() {
                     <Td>-</Td>
                     <Td>-</Td>
                     <Td>-</Td>
+                    <Td>-</Td>
                   </tr>
                 ) : kpiRows.length === 0 ? (
                   <tr>
@@ -413,6 +448,7 @@ export default function TeamPage() {
                   <Th>Ruolo</Th>
                   <Th>Costo mese</Th>
                   <Th>Ore prod</Th>
+                  <Th>Target mese</Th>
                   <Th>Azioni</Th>
                 </tr>
               </thead>
@@ -428,10 +464,51 @@ export default function TeamPage() {
                 ) : (
                   staff.map((member) => (
                     <tr key={member.id}>
-                      <Td>{member.name}</Td>
-                      <Td>{displayRole(member.role)}</Td>
-                      <Td>{euro(Number(member.monthlyCost || 0))}</Td>
-                      <Td>{Number(member.productiveHours || 140)}</Td>
+                      <Td>
+                        <input
+                          style={tableInput}
+                          value={member.name}
+                          onChange={(e) => updateStaffField(member.id, "name", e.target.value)}
+                        />
+                      </Td>
+
+                      <Td>
+                        <select
+                          style={tableInput}
+                          value={member.role}
+                          onChange={(e) => updateStaffField(member.id, "role", e.target.value)}
+                        >
+                          <option value="COLLABORATORE">Collaboratore</option>
+                          <option value="TITOLARE">Titolare</option>
+                          <option value="RECEPTION">Reception</option>
+                          <option value="MANAGER">Manager</option>
+                        </select>
+                      </Td>
+
+                      <Td>
+                        <input
+                          style={tableInput}
+                          value={String(member.monthlyCost || 0)}
+                          onChange={(e) => updateStaffField(member.id, "monthlyCost", e.target.value)}
+                        />
+                      </Td>
+
+                      <Td>
+                        <input
+                          style={tableInput}
+                          value={String(member.productiveHours || 140)}
+                          onChange={(e) => updateStaffField(member.id, "productiveHours", e.target.value)}
+                        />
+                      </Td>
+
+                      <Td>
+                        <input
+                          style={tableInput}
+                          value={String(member.monthlyTarget || 0)}
+                          onChange={(e) => updateStaffField(member.id, "monthlyTarget", e.target.value)}
+                        />
+                      </Td>
+
                       <Td>
                         <button style={deleteButton} onClick={() => deleteStaff(member.id)}>
                           X
@@ -685,6 +762,18 @@ const input: React.CSSProperties = {
   color: "#fff",
   fontWeight: 800,
   fontSize: 15,
+  outline: "none",
+};
+
+const tableInput: React.CSSProperties = {
+  width: "100%",
+  minWidth: 120,
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(212,175,55,0.25)",
+  background: "rgba(0,0,0,0.42)",
+  color: "#fff",
+  fontWeight: 800,
   outline: "none",
 };
 
