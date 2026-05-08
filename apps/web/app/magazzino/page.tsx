@@ -370,8 +370,14 @@ export default function MagazzinoPage() {
           <div style={sectionHeader}>
             <div>
               <div style={greenKicker}>Ricette servizi</div>
-              <h2 style={sectionTitle}>Scarico automatico prodotti uso interno</h2>
+              <h2 style={sectionTitle}>Ricetta prodotti per servizio</h2>
             </div>
+          </div>
+
+          <div style={recipeHelpBox}>
+            <strong>Come funziona:</strong> per ogni servizio puoi aggiungere più prodotti usati.
+            Esempio: Piega → Shampoo 10 ml + Maschera 8 ml + Fiala 1 pz.
+            Ogni riga che salvi aggiunge un prodotto alla ricetta dello stesso servizio.
           </div>
 
           <div style={recipeGrid}>
@@ -410,13 +416,13 @@ export default function MagazzinoPage() {
 
             <input
               className="sp-input"
-              placeholder="Quantità consumata"
+              placeholder="Es. 10 ml / 1 pz / 60 g"
               value={recipeQuantity}
               onChange={(e) => setRecipeQuantity(e.target.value)}
             />
 
             <button className="sp-button-purple" onClick={addRecipeItem}>
-              Salva ricetta
+              + Aggiungi prodotto al servizio
             </button>
           </div>
 
@@ -426,8 +432,8 @@ export default function MagazzinoPage() {
                 <tr>
                   <th style={th}>Servizio</th>
                   <th style={th}>Tipologia</th>
-                    <th style={th}>Prodotto consumato</th>
-                  <th style={th}>Quantità</th>
+                  <th style={th}>Prodotto usato</th>
+                  <th style={th}>Quantità usata</th>
                   <th style={th}>Azione</th>
                 </tr>
               </thead>
@@ -680,6 +686,17 @@ const grid5: React.CSSProperties = {
   gridTemplateColumns: "0.45fr 0.8fr 0.8fr 0.8fr 1fr",
   gap: 14,
   marginBottom: 14,
+};
+
+const recipeHelpBox: React.CSSProperties = {
+  margin: "12px 0 18px",
+  padding: 16,
+  borderRadius: 18,
+  border: "1px solid rgba(34,197,94,0.22)",
+  background: "rgba(34,197,94,0.08)",
+  color: "#dcfce7",
+  fontWeight: 800,
+  lineHeight: 1.45,
 };
 
 const recipeGrid: React.CSSProperties = {
