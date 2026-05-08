@@ -90,6 +90,7 @@ export default function MagazzinoPage() {
   const [recipeProductId, setRecipeProductId] = useState("");
   const [recipeQuantity, setRecipeQuantity] = useState("");
   const [recipeDrafts, setRecipeDrafts] = useState<Record<string, { productId: string; quantity: string }>>({});
+  const [openRecipeService, setOpenRecipeService] = useState<string | null>(null);
 
   async function fetchWithAuth(path: string, options?: RequestInit) {
     const token = localStorage.getItem("salonpro_token") || localStorage.getItem("token");
@@ -134,6 +135,21 @@ export default function MagazzinoPage() {
     });
 
     return next;
+  }
+
+  function recipeSummary(serviceName: string) {
+    const serviceRecipes = RECIPE_CATEGORIES.map((category) => {
+      const key = recipeKey(serviceName, category);
+      const draft = recipeDrafts[key];
+      if (!draft?.productId || !draft?.quantity) return null;
+
+      const product = products.find((item) => item.id === draft.productId);
+      if (!product) return null;
+
+      return `${category}: ${product.name} ${draft.quantity} ${product.unit}`;
+    }).filter(Boolean);
+
+    return serviceRecipes.length > 0 ? serviceRecipes.join(" · ") : "Nessun prodotto impostato";
   }
 
   function recipeProductOptions(category: string) {
@@ -553,88 +569,98 @@ export default function MagazzinoPage() {
               <thead>
                 <tr>
                   <th style={th}>Servizio</th>
-                  {RECIPE_CATEGORIES.map((category) => (
-                    <th key={category} style={th}>
-                      {category}
-                    </th>
-                  ))}
+                  <th style={th}>Ricetta prodotti</th>
                   <th style={th}>Azione</th>
                 </tr>
               </thead>
 
               <tbody>
-                {SERVICES.map((service) => (
-                  <tr key={service}>
-                    <td style={recipeServiceCell}>{service}</td>
+                {SERVICES.map((service) => {
+                  const isOpen = openRecipeService === service;
 
-                    {RECIPE_CATEGORIES.map((category) => {
-                      const key = recipeKey(service, category);
-                      const draft = recipeDrafts[key] || { productId: "", quantity: "" };
-                      const options = recipeProductOptions(category);
-                      const selectedProduct = products.find((product) => product.id === draft.productId);
+                  return (
+                    <tr key={service}>
+                      <td style={recipeServiceCell}>{service}</td>
 
-                      return (
-                        <td key={category} style={recipeCell}>
-                          <select
-                            className="sp-input"
-                            style={recipeMiniSelect}
-                            value={draft.productId}
-                            onChange={(e) =>
-                              updateRecipeDraft(service, category, "productId", e.target.value)
-                            }
-                          >
-                            <option value="">Nessuno</option>
-                            {options.map((product) => (
-                              <option key={product.id} value={product.id}>
-                                {product.name} ({product.unit})
-                              </option>
-                            ))}
-                          </select>
+                      <td style={recipeSummaryCell}>
+                        <div style={recipeSummaryText}>{recipeSummary(service)}</div>
 
-                          <div style={recipeInlineControls}>
-                            <input
-                              className="sp-input"
-                              style={recipeMiniInput}
-                              placeholder={selectedProduct?.unit ? `q.tà ${selectedProduct.unit}` : "q.tà"}
-                              value={draft.quantity}
-                              onChange={(e) =>
-                                updateRecipeDraft(service, category, "quantity", e.target.value)
-                              }
-                            />
+                        {isOpen ? (
+                          <div style={recipeEditorGrid}>
+                            {RECIPE_CATEGORIES.map((category) => {
+                              const key = recipeKey(service, category);
+                              const draft = recipeDrafts[key] || { productId: "", quantity: "" };
+                              const options = recipeProductOptions(category);
+                              const selectedProduct = products.find((product) => product.id === draft.productId);
+
+                              return (
+                                <div key={category} style={recipeEditorCard}>
+                                  <strong>{category}</strong>
+
+                                  <select
+                                    className="sp-input"
+                                    style={recipeMiniSelect}
+                                    value={draft.productId}
+                                    onChange={(e) =>
+                                      updateRecipeDraft(service, category, "productId", e.target.value)
+                                    }
+                                  >
+                                    <option value="">Nessuno</option>
+                                    {options.map((product) => (
+                                      <option key={product.id} value={product.id}>
+                                        {product.name} ({product.unit})
+                                      </option>
+                                    ))}
+                                  </select>
+
+                                  <input
+                                    className="sp-input"
+                                    style={recipeMiniInputWide}
+                                    placeholder={selectedProduct?.unit ? `Quantità ${selectedProduct.unit}` : "Quantità"}
+                                    value={draft.quantity}
+                                    onChange={(e) =>
+                                      updateRecipeDraft(service, category, "quantity", e.target.value)
+                                    }
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </td>
+
+                      <td style={recipeActionCell}>
+                        {isOpen ? (
+                          <>
+                            <button
+                              type="button"
+                              style={recipeRowSaveButton}
+                              onClick={() => saveRecipeRow(service)}
+                            >
+                              Salva ricetta
+                            </button>
 
                             <button
                               type="button"
-                              style={recipeSaveMini}
-                              onClick={() => saveRecipeCell(service, category)}
+                              style={recipeSecondaryButton}
+                              onClick={() => setOpenRecipeService(null)}
                             >
-                              OK
+                              Chiudi
                             </button>
-
-                            {draft.productId ? (
-                              <button
-                                type="button"
-                                style={recipeClearMini}
-                                onClick={() => clearRecipeCell(service, category)}
-                              >
-                                X
-                              </button>
-                            ) : null}
-                          </div>
-                        </td>
-                      );
-                    })}
-
-                    <td style={recipeActionCell}>
-                      <button
-                        type="button"
-                        style={recipeRowSaveButton}
-                        onClick={() => saveRecipeRow(service)}
-                      >
-                        Salva riga
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            style={recipeRowSaveButton}
+                            onClick={() => setOpenRecipeService(service)}
+                          >
+                            Modifica ricetta
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -901,7 +927,7 @@ const recipeMatrixWrap: React.CSSProperties = {
 
 const recipeMatrixTable: React.CSSProperties = {
   width: "100%",
-  minWidth: 1450,
+  minWidth: 950,
   borderCollapse: "collapse",
 };
 
@@ -952,6 +978,58 @@ const recipeSaveMini: React.CSSProperties = {
   borderRadius: 10,
   padding: "10px 12px",
   background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
+  color: "#fff",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const recipeSummaryCell: React.CSSProperties = {
+  padding: "14px 12px",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+  color: "#fff",
+  fontWeight: 800,
+  minWidth: 650,
+  verticalAlign: "top",
+};
+
+const recipeSummaryText: React.CSSProperties = {
+  padding: "12px 14px",
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  color: "#dcfce7",
+};
+
+const recipeEditorGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(180px, 1fr))",
+  gap: 10,
+  marginTop: 12,
+};
+
+const recipeEditorCard: React.CSSProperties = {
+  display: "grid",
+  gap: 8,
+  padding: 12,
+  borderRadius: 14,
+  background: "rgba(0,0,0,0.35)",
+  border: "1px solid rgba(212,175,55,0.16)",
+};
+
+const recipeMiniInputWide: React.CSSProperties = {
+  width: "100%",
+  height: 38,
+  padding: "8px 10px",
+  fontSize: 13,
+};
+
+const recipeSecondaryButton: React.CSSProperties = {
+  width: "100%",
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: 14,
+  padding: "12px 14px",
+  marginTop: 8,
+  background: "rgba(255,255,255,0.08)",
   color: "#fff",
   fontWeight: 900,
   cursor: "pointer",
