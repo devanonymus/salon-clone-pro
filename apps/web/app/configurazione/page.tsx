@@ -579,7 +579,6 @@ export default function ConfigurazionePage() {
                     <th style={serviceTh}>Categoria</th>
                     <th style={serviceTh}>Prezzo</th>
                     <th style={serviceTh}>Durata</th>
-                    <th style={serviceTh}>Costo</th>
                     <th style={serviceTh}>X</th>
                   </tr>
                 </thead>
@@ -610,9 +609,6 @@ export default function ConfigurazionePage() {
                         <input className="sp-input" value={service.duration} onChange={(e) => updateService(service.id, "duration", e.target.value)} />
                       </td>
 
-                      <td style={serviceTd}>
-                        <input className="sp-input" value={service.cost} onChange={(e) => updateService(service.id, "cost", e.target.value)} />
-                      </td>
 
                       <td style={serviceTd}>
                         <button style={deleteButton} onClick={() => deleteService(service.id)}>
