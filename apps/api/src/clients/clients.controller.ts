@@ -23,6 +23,20 @@ export class ClientsController {
   }
 
 
+
+  @Patch(":id")
+  updateClient(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { name?: string; phone?: string; notes?: string },
+  ) {
+    return this.clientsService.updateClient(req.user.tenantId, id, {
+      name: body.name,
+      phone: body.phone,
+      notes: body.notes,
+    });
+  }
+
   @Patch(":id/notes")
   updateNotes(
     @Req() req: any,

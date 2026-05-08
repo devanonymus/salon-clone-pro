@@ -32,6 +32,10 @@ export default function ClientiPage() {
   const [phone, setPhone] = useState("");
   const [search, setSearch] = useState("");
   const [relationshipNotes, setRelationshipNotes] = useState("");
+  const [editingClient, setEditingClient] = useState(false);
+  const [editClientName, setEditClientName] = useState("");
+  const [editClientPhone, setEditClientPhone] = useState("");
+  const [savingClient, setSavingClient] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesMessage, setNotesMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -102,6 +106,9 @@ export default function ClientiPage() {
 
   useEffect(() => {
     setRelationshipNotes(selectedClient?.notes || "");
+    setEditClientName(selectedClient?.name || "");
+    setEditClientPhone(selectedClient?.phone || "");
+    setEditingClient(false);
     setNotesMessage("");
   }, [selectedClient?.id]);
 
@@ -144,6 +151,66 @@ export default function ClientiPage() {
       setPhone("");
     } finally {
       setSaving(false);
+    }
+  }
+
+
+  async function saveClientChanges() {
+    if (!selectedClient) return;
+
+    if (!editClientName.trim()) {
+      setNotesMessage("Inserisci il nome cliente.");
+      return;
+    }
+
+    if (!editClientPhone.trim()) {
+      setNotesMessage("Inserisci il telefono cliente.");
+      return;
+    }
+
+    try {
+      setSavingClient(true);
+      setNotesMessage("");
+
+      const token = getToken();
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/clients/${selectedClient.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: editClientName.trim(),
+          phone: editClientPhone.trim(),
+          notes: relationshipNotes,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Errore modifica cliente");
+      }
+
+      const updated = normalizeClient(data);
+
+      setClients((prev) =>
+        prev.map((client) => (client.id === updated.id ? updated : client)),
+      );
+
+      setSelectedClientId(updated.id);
+      setEditingClient(false);
+      setNotesMessage("Cliente aggiornato correttamente.");
+    } catch (error: any) {
+      setNotesMessage(error.message || "Errore modifica cliente");
+    } finally {
+      setSavingClient(false);
     }
   }
 
@@ -292,13 +359,66 @@ export default function ClientiPage() {
             ) : (
               <>
                 <div style={selectedHeaderStyle}>
-                  <div>
+                  <div style={{ width: "100%" }}>
                     <p style={eyebrowSmallStyle}>CLIENTE ATTIVO</p>
-                    <h3 style={clientNameStyle}>{selectedClient.name}</h3>
-                    <p style={mutedTextStyle}>{selectedClient.phone}</p>
+
+                    {editingClient ? (
+                      <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                        <input
+                          value={editClientName}
+                          onChange={(event) => setEditClientName(event.target.value)}
+                          placeholder="Nome cliente"
+                          style={inputStyle}
+                        />
+
+                        <input
+                          value={editClientPhone}
+                          onChange={(event) => setEditClientPhone(event.target.value)}
+                          placeholder="Telefono"
+                          style={inputStyle}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <h3 style={clientNameStyle}>{selectedClient.name}</h3>
+                        <p style={mutedTextStyle}>{selectedClient.phone}</p>
+                      </>
+                    )}
                   </div>
 
-                  <div style={statusPillStyle}>Attivo</div>
+                  <div style={{ display: "grid", gap: 10, minWidth: 150 }}>
+                    <div style={statusPillStyle}>Attivo</div>
+
+                    {editingClient ? (
+                      <>
+                        <button
+                          style={smallGoldButtonStyle}
+                          onClick={saveClientChanges}
+                          disabled={savingClient}
+                        >
+                          {savingClient ? "Salvataggio..." : "Salva"}
+                        </button>
+
+                        <button
+                          style={smallDarkButtonStyle}
+                          onClick={() => {
+                            setEditingClient(false);
+                            setEditClientName(selectedClient.name);
+                            setEditClientPhone(selectedClient.phone);
+                          }}
+                        >
+                          Annulla
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        style={smallGoldButtonStyle}
+                        onClick={() => setEditingClient(true)}
+                      >
+                        Modifica
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div style={metricGridStyle}>
@@ -494,6 +614,29 @@ const primaryTopButton: React.CSSProperties = {
   background: "linear-gradient(135deg,#8b5cf6,#d4af37)",
   color: "#fff",
   fontSize: 15,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+
+const smallGoldButtonStyle: React.CSSProperties = {
+  border: 0,
+  borderRadius: 14,
+  padding: "11px 14px",
+  background: "linear-gradient(135deg,#d4af37,#f7df88)",
+  color: "#050505",
+  fontSize: 13,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const smallDarkButtonStyle: React.CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: 14,
+  padding: "11px 14px",
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
+  fontSize: 13,
   fontWeight: 950,
   cursor: "pointer",
 };

@@ -20,6 +20,67 @@ export class ClientsService {
   }
 
 
+
+  async updateClient(
+    tenantId: string,
+    clientGlobalId: string,
+    body: {
+      name?: string;
+      phone?: string;
+      notes?: string;
+    },
+  ) {
+    const clientTenant = await this.prisma.clientTenant.findFirst({
+      where: {
+        tenantId,
+        clientGlobalId,
+      },
+      include: {
+        clientGlobal: true,
+      },
+    });
+
+    if (!clientTenant) {
+      throw new Error("Cliente non trovato");
+    }
+
+    if (body.name !== undefined || body.phone !== undefined) {
+      await this.prisma.clientGlobal.update({
+        where: {
+          id: clientGlobalId,
+        },
+        data: {
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.phone !== undefined ? { phone: body.phone } : {}),
+        },
+      });
+    }
+
+    if (body.notes !== undefined) {
+      await this.prisma.clientTenant.update({
+        where: {
+          tenantId_clientGlobalId: {
+            tenantId,
+            clientGlobalId,
+          },
+        },
+        data: {
+          notes: body.notes,
+        },
+      });
+    }
+
+    return this.prisma.clientTenant.findFirst({
+      where: {
+        tenantId,
+        clientGlobalId,
+      },
+      include: {
+        clientGlobal: true,
+      },
+    });
+  }
+
   async updateNotes(
     tenantId: string,
     clientGlobalId: string,
