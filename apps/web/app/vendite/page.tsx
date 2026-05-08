@@ -619,6 +619,30 @@ export default function VenditePage() {
     );
   }
 
+  function itemTechnicalTotal(item: CartItem) {
+    const quantity = Number(item.quantity || 1);
+    return Number(item.technicalCost ?? (item.type === "product" ? item.cost : 0)) * quantity;
+  }
+
+  function itemLaborTotal(item: CartItem) {
+    const quantity = Number(item.quantity || 1);
+    return Number(item.laborCost || 0) * quantity;
+  }
+
+  function itemRealCostTotal(item: CartItem) {
+    return itemTechnicalTotal(item) + itemLaborTotal(item);
+  }
+
+  function itemNetTotal(item: CartItem) {
+    const gross = Number(item.price || 0) * Number(item.quantity || 1);
+    const discount = gross * (Number(item.discount || 0) / 100);
+    return Math.max(0, gross - discount);
+  }
+
+  function itemMarginTotal(item: CartItem) {
+    return itemNetTotal(item) - itemRealCostTotal(item);
+  }
+
   function updateItem(id: string, field: keyof CartItem, value: string) {
     setCart((prev) =>
       prev.map((item) => {
@@ -761,8 +785,8 @@ export default function VenditePage() {
 
         <section style={stepBar}>
           <Step active={Boolean(selectedClient)} number="1" title="Cliente" text={selectedClient ? selectedClient.clientGlobal.name : "Seleziona"} />
-          <Step active={cart.length > 0} number="2" title="Carrello" text={`${cart.length} voci`} />
-          <Step active={total > 0} number="3" title="Incasso" text={money(total)} />
+          <Step active={cart.length > 0} number="2" title="Carrello cliente" text={`${cart.length} voci`} />
+          <Step active={total > 0} number="3" title="3. Incasso" text={money(total)} />
         </section>
 
         {message ? <div style={messageBox}>{message}</div> : null}
@@ -772,7 +796,7 @@ export default function VenditePage() {
             <div style={sectionHeader}>
               <div>
                 <span style={stepBadge}>1</span>
-                <h2 style={title}>Cliente o appuntamento</h2>
+                <h2 style={title}>1. Cliente</h2>
               </div>
             </div>
 
@@ -860,7 +884,7 @@ export default function VenditePage() {
             <div style={sectionHeader}>
               <div>
                 <span style={stepBadge}>2</span>
-                <h2 style={title}>Vendita collegata</h2>
+                <h2 style={title}>2. Servizi e prodotti</h2>
               </div>
             </div>
 
@@ -882,7 +906,7 @@ export default function VenditePage() {
 
             {staff.length > 0 ? (
               <div style={staffSelectBox}>
-                <label style={label}>Operatore che ha eseguito il servizio</label>
+                <label style={label}>Operatore</label>
                 <select
                   className="sp-input"
                   value={selectedStaffId}
@@ -896,13 +920,13 @@ export default function VenditePage() {
                   ))}
                 </select>
                 <small>
-                  Il costo personale viene calcolato da Team KPI: costo reale mensile lordo / ore produttive / minuti servizio.
+                  Serve per calcolare il costo personale reale del servizio.
                 </small>
               </div>
             ) : null}
 
             <div style={quickPanel}>
-              <h3 style={smallTitleNoMargin}>Aggiunte rapide</h3>
+              <h3 style={smallTitleNoMargin}>Servizi rapidi</h3>
               <div style={quickGrid}>
                 {["Piega", "Colore Base + Piega", "Taglio Donna + Piega", "Ricostruzione"].map((name) => (
                   <button key={name} style={quickButton} onClick={() => addService(name)}>
@@ -946,7 +970,7 @@ export default function VenditePage() {
             </div>
 
             <div style={cartHeader}>
-              <h2 style={title}>Carrello</h2>
+              <h2 style={title}>Carrello cliente</h2>
               {cart.length > 0 ? (
                 <button style={miniDanger} onClick={() => setCart([])}>
                   Svuota
@@ -956,8 +980,8 @@ export default function VenditePage() {
 
             {cart.length === 0 ? (
               <div style={bigEmptyCart}>
-                <strong>Carrello vuoto</strong>
-                <span>Aggiungi un servizio o carica un appuntamento pronto.</span>
+                <strong>Carrello cliente vuoto</strong>
+                <span>Aggiungi un servizio rapido oppure carica un appuntamento finito.</span>
               </div>
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
@@ -1015,7 +1039,7 @@ export default function VenditePage() {
                         <div style={rowRight}>
                           <strong style={{ color: "#d4af37" }}>{money(itemTotal)}</strong>
                           <small style={{ color: "#cbd5e1" }}>
-                            costo reale {money(item.cost * item.quantity)}
+                            Costo reale {money(item.cost * item.quantity)}
                           </small>
                           {item.discount > 0 ? (
                             <small style={{ color: "#fecaca" }}>-{money(itemDiscount)}</small>
@@ -1036,16 +1060,16 @@ export default function VenditePage() {
             <div style={sectionHeader}>
               <div>
                 <span style={stepBadge}>3</span>
-                <h2 style={title}>Incasso</h2>
+                <h2 style={title}>3. Incasso</h2>
               </div>
             </div>
 
             <div style={coachBlock}>
-              <h3>💎 Coach prodotti</h3>
+              <h3>💎 Prodotti consigliati</h3>
               <p>
                 {cart.length === 0
                   ? "Aggiungi un servizio: ti suggerirò i prodotti giusti."
-                  : "Proposte consigliate in base al carrello."}
+                  : "Suggerimenti utili in base ai servizi inseriti."}
               </p>
 
               <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
