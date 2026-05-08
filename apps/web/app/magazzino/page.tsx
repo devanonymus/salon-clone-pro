@@ -219,6 +219,8 @@ export default function MagazzinoPage() {
 
   async function saveRecipeRow(serviceName: string) {
     try {
+      setMessage(`Salvataggio ricetta "${serviceName}" in corso...`);
+
       for (const category of RECIPE_CATEGORIES) {
         const key = recipeKey(serviceName, category);
         const draft = recipeDrafts[key] || { productId: "", quantity: "" };
@@ -248,10 +250,17 @@ export default function MagazzinoPage() {
         }
       }
 
-      setMessage(`✅ Ricetta "${serviceName}" salvata.`);
-      await loadData();
+      const recipesData = await fetchWithAuth("/inventory/recipes");
+      const recipeList = Array.isArray(recipesData) ? recipesData : [];
+
+      setRecipes(recipeList);
+      setRecipeDrafts(buildRecipeDrafts(recipeList));
+      setOpenRecipeService(null);
+
+      setMessage(`✅ Ricetta "${serviceName}" salvata correttamente.`);
     } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore salvataggio ricetta servizio"}`);
+      console.error(err);
+      setMessage(`⚠️ Errore salvataggio ricetta: ${err.message || "controlla backend/database"}`);
     }
   }
 
