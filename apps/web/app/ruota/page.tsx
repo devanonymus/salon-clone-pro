@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Prize = {
   label: string;
@@ -12,6 +12,20 @@ type Win = {
   prize: string;
   date: string;
 };
+
+type ClientItem = {
+  id: string;
+  name: string;
+  phone: string;
+};
+
+function normalizeClient(client: any): ClientItem {
+  return {
+    id: String(client.clientGlobal?.id ?? client.id),
+    name: client.clientGlobal?.name ?? client.name ?? "Senza nome",
+    phone: client.clientGlobal?.phone ?? client.phone ?? "",
+  };
+}
 
 const defaultPrizes: Prize[] = [
   { label: 'Piega -20%', type: 'Sconto' },
@@ -35,6 +49,91 @@ export default function RuotaFortunaPage() {
   const [winner, setWinner] = useState<Prize | null>(null);
   const [wins, setWins] = useState<Win[]>([]);
   const [message, setMessage] = useState('');
+  const [clients, setClients] = useState<ClientItem[]>([]);
+  const [selectedClientGlobalId, setSelectedClientGlobalId] = useState('');
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
+  const [awardPopupOpen, setAwardPopupOpen] = useState(false);
+  const [savingAward, setSavingAward] = useState(false);
+  const [appointmentDate, setAppointmentDate] = useState('');
+  const [appointmentTime, setAppointmentTime] = useState('');
+  const [appointmentService, setAppointmentService] = useState('Piega');
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  function getToken() {
+    return localStorage.getItem('salonpro_token') || localStorage.getItem('token');
+  }
+
+  async function apiFetch(path: string, options?: RequestInit) {
+    const token = getToken();
+
+    if (!token) {
+      throw new Error('Token mancante. Rifai login.');
+    }
+
+    const res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+
+    if (!res.ok) {
+      const msg =
+        typeof data?.message === 'object'
+          ? JSON.stringify(data.message)
+          : data?.message;
+
+      throw new Error(msg || text || 'Errore richiesta');
+    }
+
+    return data;
+  }
+
+  async function loadClients() {
+    try {
+      const data = await apiFetch('/clients');
+
+      const list = Array.isArray(data)
+        ? data.map(normalizeClient)
+        : Array.isArray(data.clients)
+          ? data.clients.map(normalizeClient)
+          : [];
+
+      setClients(list);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  const filteredClients = clients
+    .filter((client) => {
+      const q = clientName.toLowerCase().trim();
+
+      if (!q) return false;
+
+      return (
+        client.name.toLowerCase().includes(q) ||
+        client.phone.toLowerCase().includes(q)
+      );
+    })
+    .slice(0, 6);
+
+  function selectClient(client: ClientItem) {
+    setSelectedClientGlobalId(client.id);
+    setClientName(client.name);
+    setPhone(client.phone);
+    setShowClientSuggestions(false);
+  }
 
   const wheelGradient = useMemo(() => {
     const colors = [
@@ -93,6 +192,7 @@ export default function RuotaFortunaPage() {
       ]);
 
       setMessage(`🎁 Premio vinto: ${prize.label}`);
+      setAwardPopupOpen(true);
       setSpinning(false);
     }, 4200);
   }
@@ -129,7 +229,10 @@ Hai vinto alla Ruota della Fortuna Salon Pro:
 
 🎁 ${winner.label}
 
-Mostra questo messaggio in salone per usare il premio.`;
+Il premio è stato salvato nella tua scheda cliente.
+
+Puoi usarlo al prossimo appuntamento in salone.
+Ti aspettiamo!`;
   }
 
   async function sendWhatsappInsideSoftware() {
@@ -154,7 +257,7 @@ Mostra questo messaggio in salone per usare il premio.`;
     setMessage('');
 
     try {
-      const res = await fetch('http://localhost:3001/whatsapp/send', {
+      const res = await fetch(`${API_URL}/whatsapp/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,6 +288,93 @@ Mostra questo messaggio in salone per usare il premio.`;
     }
   }
 
+  function awardExpiresAt() {
+    const date = new Date();
+    date.setDate(date.getDate() + 30);
+    return date.toISOString();
+  }
+
+  async function saveAwardToClient(options?: {
+    whatsappSent?: boolean;
+    status?: string;
+    appointmentId?: string | null;
+    notes?: string;
+  }) {
+    if (!winner) {
+      setMessage('⚠️ Prima fai girare la ruota.');
+      return null;
+    }
+
+    if (!selectedClientGlobalId) {
+      setMessage('⚠️ Seleziona un cliente dal CRM prima di salvare la vincita.');
+      return null;
+    }
+
+    return apiFetch('/client-awards', {
+      method: 'POST',
+      body: JSON.stringify({
+        clientGlobalId: selectedClientGlobalId,
+        prizeName: winner.label,
+        prizeType: winner.type || 'WHEEL_PRIZE',
+        value: 0,
+        source: 'WHEEL',
+        status: options?.status || 'ACTIVE',
+        expiresAt: awardExpiresAt(),
+        appointmentId: options?.appointmentId || null,
+        whatsappSent: Boolean(options?.whatsappSent || false),
+        notes: options?.notes || 'Premio generato dalla Ruota della Fortuna.',
+      }),
+    });
+  }
+
+  async function saveAwardOnly() {
+    try {
+      setSavingAward(true);
+      await saveAwardToClient();
+      setAwardPopupOpen(false);
+      setMessage('✅ Premio salvato nello storico cliente.');
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || 'Errore salvataggio premio'}`);
+    } finally {
+      setSavingAward(false);
+    }
+  }
+
+  async function saveAwardAndWhatsapp() {
+    try {
+      setSavingAward(true);
+
+      await saveAwardToClient({
+        whatsappSent: true,
+      });
+
+      await sendWhatsappInsideSoftware();
+
+      setAwardPopupOpen(false);
+      setMessage('✅ Premio salvato nello storico cliente e WhatsApp inviato.');
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || 'Errore salvataggio premio/WhatsApp'}`);
+    } finally {
+      setSavingAward(false);
+    }
+  }
+
+  async function prepareAppointmentWithAward() {
+    if (!winner) return;
+
+    if (!selectedClientGlobalId) {
+      setMessage('⚠️ Seleziona un cliente dal CRM prima di creare appuntamento.');
+      return;
+    }
+
+    if (!appointmentDate || !appointmentTime) {
+      setMessage('⚠️ Inserisci data e ora appuntamento nel popup.');
+      return;
+    }
+
+    setMessage('✅ Ora colleghiamo la vincita all’appuntamento. Mi serve confermare il formato API appuntamenti.');
+  }
+
   function copyMessage() {
     if (!winner) return;
     navigator.clipboard.writeText(whatsappMessage());
@@ -207,6 +397,80 @@ Mostra questo messaggio in salone per usare il premio.`;
         </header>
 
         {message ? <div style={messageBox}>{message}</div> : null}
+
+        {awardPopupOpen && winner ? (
+          <div style={awardPopupBackdrop}>
+            <div style={awardPopup}>
+              <div style={awardPopupHeader}>
+                <div>
+                  <div style={eyebrow}>Premio vinto</div>
+                  <h2 style={{ margin: '6px 0', color: '#d4af37' }}>
+                    🎉 {clientName} ha vinto
+                  </h2>
+                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.72)' }}>
+                    Usa questa vincita come scusa per far tornare il cliente.
+                  </p>
+                </div>
+
+                <button style={popupCloseButton} onClick={() => setAwardPopupOpen(false)}>
+                  X
+                </button>
+              </div>
+
+              <div style={awardPrizeBox}>
+                <span>Premio</span>
+                <strong>{winner.label}</strong>
+              </div>
+
+              <div style={appointmentMiniGrid}>
+                <input
+                  className="sp-input"
+                  type="date"
+                  value={appointmentDate}
+                  onChange={(e) => setAppointmentDate(e.target.value)}
+                />
+
+                <input
+                  className="sp-input"
+                  type="time"
+                  value={appointmentTime}
+                  onChange={(e) => setAppointmentTime(e.target.value)}
+                />
+
+                <input
+                  className="sp-input"
+                  placeholder="Servizio principale es. Piega"
+                  value={appointmentService}
+                  onChange={(e) => setAppointmentService(e.target.value)}
+                />
+              </div>
+
+              <button
+                style={popupPrimaryButton}
+                onClick={prepareAppointmentWithAward}
+                disabled={savingAward}
+              >
+                Crea appuntamento con questa vincita
+              </button>
+
+              <button
+                style={popupWhatsappButton}
+                onClick={saveAwardAndWhatsapp}
+                disabled={savingAward}
+              >
+                Salva nello storico + invia WhatsApp
+              </button>
+
+              <button
+                style={popupSecondaryButton}
+                onClick={saveAwardOnly}
+                disabled={savingAward}
+              >
+                Solo salva nello storico cliente
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <section style={mainGrid}>
           <div className="sp-card" style={wheelCard}>
@@ -255,12 +519,35 @@ Mostra questo messaggio in salone per usare il premio.`;
             <h2 style={sectionTitle}>Cliente</h2>
 
             <div style={{ display: 'grid', gap: 12 }}>
-              <input
-                className="sp-input"
-                placeholder="Nome cliente"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-              />
+              <div style={clientAutocompleteWrap}>
+                <input
+                  className="sp-input"
+                  placeholder="Digita nome cliente dal CRM..."
+                  value={clientName}
+                  onChange={(e) => {
+                    setClientName(e.target.value);
+                    setSelectedClientGlobalId('');
+                    setShowClientSuggestions(true);
+                  }}
+                  onFocus={() => setShowClientSuggestions(true)}
+                />
+
+                {showClientSuggestions && filteredClients.length > 0 ? (
+                  <div style={clientSuggestionsBox}>
+                    {filteredClients.map((client) => (
+                      <button
+                        key={client.id}
+                        type="button"
+                        style={clientSuggestionItem}
+                        onClick={() => selectClient(client)}
+                      >
+                        <strong>{client.name}</strong>
+                        <span>{client.phone}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
 
               <input
                 className="sp-input"
@@ -601,4 +888,128 @@ const prizePill: React.CSSProperties = {
   color: '#d4af37',
   fontWeight: 900,
   whiteSpace: 'nowrap',
+};
+
+
+const clientAutocompleteWrap: React.CSSProperties = {
+  position: 'relative',
+  width: '100%',
+};
+
+const clientSuggestionsBox: React.CSSProperties = {
+  position: 'absolute',
+  top: 'calc(100% + 8px)',
+  left: 0,
+  right: 0,
+  zIndex: 40,
+  display: 'grid',
+  gap: 8,
+  padding: 10,
+  borderRadius: 16,
+  background: 'rgba(10,10,10,0.98)',
+  border: '1px solid rgba(212,175,55,0.28)',
+  boxShadow: '0 22px 60px rgba(0,0,0,0.45)',
+};
+
+const clientSuggestionItem: React.CSSProperties = {
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: 14,
+  padding: '12px 14px',
+  background: 'rgba(255,255,255,0.06)',
+  color: '#fff',
+  textAlign: 'left',
+  display: 'grid',
+  gap: 4,
+  cursor: 'pointer',
+  fontWeight: 850,
+};
+
+const awardPopupBackdrop: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 100,
+  background: 'rgba(0,0,0,0.72)',
+  display: 'grid',
+  placeItems: 'center',
+  padding: 20,
+};
+
+const awardPopup: React.CSSProperties = {
+  width: 'min(680px, 100%)',
+  borderRadius: 28,
+  padding: 24,
+  background: 'linear-gradient(180deg,rgba(20,14,30,0.98),rgba(8,6,12,0.98))',
+  border: '1px solid rgba(212,175,55,0.30)',
+  boxShadow: '0 32px 90px rgba(0,0,0,0.55)',
+  color: '#fff',
+};
+
+const awardPopupHeader: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: 18,
+  alignItems: 'flex-start',
+  marginBottom: 18,
+};
+
+const popupCloseButton: React.CSSProperties = {
+  border: 0,
+  borderRadius: 12,
+  padding: '10px 13px',
+  background: 'rgba(255,255,255,0.10)',
+  color: '#fff',
+  fontWeight: 950,
+  cursor: 'pointer',
+};
+
+const awardPrizeBox: React.CSSProperties = {
+  display: 'grid',
+  gap: 6,
+  padding: 18,
+  borderRadius: 20,
+  background: 'rgba(212,175,55,0.12)',
+  border: '1px solid rgba(212,175,55,0.22)',
+  marginBottom: 16,
+};
+
+const appointmentMiniGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr 1.4fr',
+  gap: 10,
+  marginBottom: 14,
+};
+
+const popupPrimaryButton: React.CSSProperties = {
+  width: '100%',
+  border: 0,
+  borderRadius: 16,
+  padding: '15px 18px',
+  background: 'linear-gradient(135deg,#8b5cf6,#d4af37)',
+  color: '#fff',
+  fontWeight: 950,
+  cursor: 'pointer',
+  marginBottom: 10,
+};
+
+const popupWhatsappButton: React.CSSProperties = {
+  width: '100%',
+  border: 0,
+  borderRadius: 16,
+  padding: '15px 18px',
+  background: '#22c55e',
+  color: '#04130a',
+  fontWeight: 950,
+  cursor: 'pointer',
+  marginBottom: 10,
+};
+
+const popupSecondaryButton: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid rgba(255,255,255,0.14)',
+  borderRadius: 16,
+  padding: '15px 18px',
+  background: 'rgba(255,255,255,0.08)',
+  color: '#fff',
+  fontWeight: 950,
+  cursor: 'pointer',
 };
