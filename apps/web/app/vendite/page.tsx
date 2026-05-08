@@ -977,39 +977,6 @@ export default function VenditePage() {
                 </button>
               ) : null}
             </div>
-
-            <div style={checkoutQuickSummary}>
-              <div style={checkoutSummaryTile}>
-                <span>Cliente paga</span>
-                <strong>{money(total)}</strong>
-              </div>
-
-              <div style={checkoutSummaryTile}>
-                <span>Materiali</span>
-                <strong>{money(technicalCostTotal || 0)}</strong>
-              </div>
-
-              <div style={checkoutSummaryTile}>
-                <span>Personale</span>
-                <strong>{missingStaffForServices ? "Operatore mancante" : money(laborCostTotal || 0)}</strong>
-              </div>
-
-              <div style={checkoutSummaryTile}>
-                <span>Margine</span>
-                <strong>{missingStaffForServices ? "Incompleto" : money(margin)}</strong>
-              </div>
-            </div>
-
-            <div style={checkoutHelpBox}>
-              Formula margine reale: cliente paga - materiali da ricetta - costo personale da Team KPI.
-            </div>
-
-            {missingStaffForServices ? (
-              <div style={missingStaffWarningBox}>
-                Seleziona l’operatore: senza operatore il costo personale non viene calcolato.
-              </div>
-            ) : null}
-
             {cart.length === 0 ? (
               <div style={bigEmptyCart}>
                 <strong>Carrello cliente vuoto</strong>
@@ -1068,28 +1035,35 @@ export default function VenditePage() {
                           </button>
                         </div>
 
-                        <div style={rowRight}>
-                          <div style={cartResultBox}>
-                            <div style={cartResultTile}>
-                              <span>Cliente paga</span>
-                              <strong>{money(itemTotal)}</strong>
-                            </div>
+                        <div style={rowRightEasy}>
+                          <div style={easyTotalBox}>
+                            <span>Totale</span>
+                            <strong>{money(itemTotal)}</strong>
+                          </div>
 
-                            <div style={cartResultTile}>
+                          <div style={easyMarginBox}>
+                            <span>Margine</span>
+                            <strong>
+                              {item.type === "service" && !selectedStaffId
+                                ? "Incompleto"
+                                : money(itemMarginTotal(item))}
+                            </strong>
+                          </div>
+
+                          <details style={costDetailsBox}>
+                            <summary>Dettaglio costi</summary>
+
+                            <div style={costDetailsGrid}>
                               <span>Materiali</span>
                               <strong>{money(itemTechnicalTotal(item))}</strong>
-                            </div>
 
-                            <div style={cartResultTile}>
                               <span>Personale</span>
                               <strong>
                                 {item.type === "service" && !selectedStaffId
                                   ? "Manca operatore"
                                   : money(itemLaborTotal(item))}
                               </strong>
-                            </div>
 
-                            <div style={cartResultTile}>
                               <span>Costo reale</span>
                               <strong>
                                 {item.type === "service" && !selectedStaffId
@@ -1097,16 +1071,7 @@ export default function VenditePage() {
                                   : money(itemRealCostTotal(item))}
                               </strong>
                             </div>
-
-                            <div style={cartResultTile}>
-                              <span>Margine</span>
-                              <strong style={{ color: itemMarginTotal(item) >= 0 ? "#86efac" : "#fecaca" }}>
-                                {item.type === "service" && !selectedStaffId
-                                  ? "Incompleto"
-                                  : money(itemMarginTotal(item))}
-                              </strong>
-                            </div>
-                          </div>
+                          </details>
 
                           {item.discount > 0 ? (
                             <small style={{ color: "#fecaca", fontWeight: 900 }}>
@@ -1154,11 +1119,11 @@ export default function VenditePage() {
             </div>
 
             <div style={summaryBox}>
-              <SummaryRow label="Subtotale" value={money(rowSubtotal)} />
-              <SummaryRow label="Sconti riga" value={`-${money(rowDiscountTotal)}`} danger />
+              <SummaryRow label="Totale servizi/prodotti" value={money(rowSubtotal)} />
+              <SummaryRow label="Sconti sui servizi" value={`-${money(rowDiscountTotal)}`} danger />
 
               <div style={discountPanel}>
-                <label style={label}>Sconto extra</label>
+                <label style={label}>Sconto finale</label>
                 <div style={discountGrid}>
                   <select
                     className="sp-input"
@@ -1180,15 +1145,15 @@ export default function VenditePage() {
                 </div>
               </div>
 
-              <SummaryRow label="Sconto extra" value={`-${money(globalDiscountAmount)}`} danger />
+              <SummaryRow label="Sconto finale" value={`-${money(globalDiscountAmount)}`} danger />
               <SummaryRow label="Sconto totale" value={`-${money(discountTotal)}`} danger />
 
               <div style={totalBox}>
-                <span>Totale da pagare</span>
+                <span>Cliente paga</span>
                 <strong>{money(total)}</strong>
               </div>
 
-              <SummaryRow label="Margine reale stimato" value={money(margin)} success />
+              <SummaryRow label="Margine reale" value={money(margin)} success />
             </div>
 
             <div style={{ marginTop: 16 }}>
@@ -1770,4 +1735,49 @@ const cartResultTile: React.CSSProperties = {
   background: "rgba(0,0,0,0.25)",
   border: "1px solid rgba(255,255,255,0.08)",
   fontSize: 12,
+};
+
+
+const rowRightEasy: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "110px 110px 1fr auto",
+  gap: 10,
+  alignItems: "center",
+  width: "100%",
+};
+
+const easyTotalBox: React.CSSProperties = {
+  display: "grid",
+  gap: 3,
+  padding: "10px 12px",
+  borderRadius: 12,
+  background: "rgba(212,175,55,0.12)",
+  border: "1px solid rgba(212,175,55,0.18)",
+};
+
+const easyMarginBox: React.CSSProperties = {
+  display: "grid",
+  gap: 3,
+  padding: "10px 12px",
+  borderRadius: 12,
+  background: "rgba(34,197,94,0.10)",
+  border: "1px solid rgba(34,197,94,0.18)",
+  color: "#86efac",
+};
+
+const costDetailsBox: React.CSSProperties = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  background: "rgba(255,255,255,0.055)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
+  fontWeight: 850,
+};
+
+const costDetailsGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr auto",
+  gap: "6px 12px",
+  marginTop: 10,
+  fontSize: 13,
 };
