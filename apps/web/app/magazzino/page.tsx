@@ -447,13 +447,11 @@ export default function MagazzinoPage() {
             <input className="sp-input" placeholder="Nome prodotto" value={name} onChange={(e) => setName(e.target.value)} />
 
             <select className="sp-input" value={category} onChange={(e) => setCategory(e.target.value)}>
-              <option>Shampoo</option>
-              <option>Trattamento</option>
-              <option>Styling</option>
-              <option>Colore</option>
-              <option>Tecnico</option>
-              <option>Rivendita</option>
-              <option>Altro</option>
+              {PRODUCT_CATEGORIES.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
 
             <select className="sp-input" value={productType} onChange={(e) => setProductType(e.target.value as ProductType)}>

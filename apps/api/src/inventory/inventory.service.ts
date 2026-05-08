@@ -1,6 +1,21 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
 
+const PRODUCT_CATEGORIES = [
+  "Shampoo",
+  "Maschera",
+  "Tonalizzante",
+  "Colore",
+  "Decolorante",
+  "Ossigeno",
+  "Fiala",
+];
+
+function normalizeProductCategory(value?: string) {
+  const category = String(value || "Shampoo").trim();
+  return PRODUCT_CATEGORIES.includes(category) ? category : "Shampoo";
+}
+
 @Injectable()
 export class InventoryService {
   constructor(private prisma: PrismaService) {}
@@ -17,7 +32,7 @@ export class InventoryService {
       data: {
         tenantId,
         name: body.name,
-        category: body.category || "Generale",
+        category: normalizeProductCategory(body.category),
         productType: body.productType || "INTERNAL",
         unit: body.unit || "pz",
         stock: Number(body.stock || 0),
@@ -40,7 +55,7 @@ export class InventoryService {
       where: { id, tenantId },
       data: {
         name: body.name,
-        category: body.category,
+        category: body.category !== undefined ? normalizeProductCategory(body.category) : undefined,
         productType: body.productType,
         unit: body.unit,
         stock: body.stock !== undefined ? Number(body.stock) : undefined,
@@ -115,7 +130,7 @@ export class InventoryService {
       data: {
         tenantId,
         serviceName: body.serviceName,
-        productCategory: body.productCategory || "Shampoo",
+        productCategory: normalizeProductCategory(body.productCategory),
         productId: body.productId,
         quantity: Number(body.quantity || 0),
       },
