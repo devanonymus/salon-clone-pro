@@ -201,6 +201,44 @@ export default function MagazzinoPage() {
     }
   }
 
+  async function saveRecipeRow(serviceName: string) {
+    try {
+      for (const category of RECIPE_CATEGORIES) {
+        const key = recipeKey(serviceName, category);
+        const draft = recipeDrafts[key] || { productId: "", quantity: "" };
+        const quantity = Number(String(draft.quantity || 0).replace(",", "."));
+
+        const existing = recipes.filter((recipe) => {
+          const recipeCategory = recipe.productCategory || recipe.product?.category || "Shampoo";
+          return recipe.serviceName === serviceName && recipeCategory === category;
+        });
+
+        for (const recipe of existing) {
+          await fetchWithAuth(`/inventory/recipes/${recipe.id}`, {
+            method: "DELETE",
+          });
+        }
+
+        if (draft.productId && quantity > 0) {
+          await fetchWithAuth("/inventory/recipes", {
+            method: "POST",
+            body: JSON.stringify({
+              serviceName,
+              productCategory: category,
+              productId: draft.productId,
+              quantity,
+            }),
+          });
+        }
+      }
+
+      setMessage(`✅ Ricetta "${serviceName}" salvata.`);
+      await loadData();
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore salvataggio ricetta servizio"}`);
+    }
+  }
+
   async function clearRecipeCell(serviceName: string, category: string) {
     const key = recipeKey(serviceName, category);
 
@@ -520,6 +558,7 @@ export default function MagazzinoPage() {
                       {category}
                     </th>
                   ))}
+                  <th style={th}>Azione</th>
                 </tr>
               </thead>
 
@@ -568,7 +607,7 @@ export default function MagazzinoPage() {
                               style={recipeSaveMini}
                               onClick={() => saveRecipeCell(service, category)}
                             >
-                              Salva
+                              OK
                             </button>
 
                             {draft.productId ? (
@@ -584,6 +623,16 @@ export default function MagazzinoPage() {
                         </td>
                       );
                     })}
+
+                    <td style={recipeActionCell}>
+                      <button
+                        type="button"
+                        style={recipeRowSaveButton}
+                        onClick={() => saveRecipeRow(service)}
+                      >
+                        Salva riga
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -905,6 +954,24 @@ const recipeSaveMini: React.CSSProperties = {
   background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
   color: "#fff",
   fontWeight: 900,
+  cursor: "pointer",
+};
+
+const recipeActionCell: React.CSSProperties = {
+  padding: "14px 12px",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+  minWidth: 150,
+  verticalAlign: "middle",
+};
+
+const recipeRowSaveButton: React.CSSProperties = {
+  width: "100%",
+  border: 0,
+  borderRadius: 14,
+  padding: "14px 16px",
+  background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
+  color: "#fff",
+  fontWeight: 950,
   cursor: "pointer",
 };
 
