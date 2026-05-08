@@ -215,6 +215,9 @@ export default function TeamPage() {
           name: name.trim(),
           role: normalizeRole(role),
           color: "#8b5cf6",
+          monthlyCost: Number(String(monthlyCost || 0).replace(",", ".")),
+          productiveHours: Number(String(productiveHours || 140).replace(",", ".")),
+          monthlyTarget: Number(String(monthlyTarget || 0).replace(",", ".")),
           active: true,
         }),
       });
@@ -245,35 +248,50 @@ export default function TeamPage() {
   }
 
 
-  async function updateStaffField(
+  function updateStaffField(
     id: string,
     field: "name" | "role" | "monthlyCost" | "productiveHours" | "monthlyTarget",
     value: string,
   ) {
-    const current = staff.find((member) => member.id === id);
-    if (!current) return;
-
     const nextValue =
       field === "monthlyCost" || field === "productiveHours" || field === "monthlyTarget"
         ? Number(String(value || 0).replace(",", "."))
         : value;
 
-    const nextMember = {
-      ...current,
-      [field]: nextValue,
-    };
+    setStaff((prev) =>
+      prev.map((member) =>
+        member.id === id
+          ? {
+              ...member,
+              [field]: nextValue,
+            }
+          : member,
+      ),
+    );
+  }
 
-    setStaff((prev) => prev.map((member) => (member.id === id ? nextMember : member)));
-
+  async function saveStaffRow(member: StaffMember) {
     try {
-      await apiFetch(`/staff/${id}`, {
+      setMessage("");
+
+      const updated = await apiFetch(`/staff/${member.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          [field]: nextValue,
+          name: member.name,
+          role: normalizeRole(member.role),
+          monthlyCost: Number(member.monthlyCost || 0),
+          productiveHours: Number(member.productiveHours || 140),
+          monthlyTarget: Number(member.monthlyTarget || 0),
         }),
       });
+
+      setStaff((prev) =>
+        prev.map((item) => (item.id === member.id ? { ...item, ...updated } : item)),
+      );
+
+      setMessage(`✅ Dati economici di ${member.name} salvati. Cassa e Dashboard ora useranno questi valori.`);
     } catch (error: any) {
-      setMessage(error.message || "Errore modifica collaboratore");
+      setMessage(error.message || "Errore salvataggio collaboratore");
       await loadStaff();
     }
   }
@@ -371,6 +389,8 @@ export default function TeamPage() {
                     <Td>-</Td>
                     <Td>-</Td>
                     <Td>-</Td>
+                    <Td>-</Td>
+                    <Td>-</Td>
                   </tr>
                 ) : kpiRows.length === 0 ? (
                   <tr>
@@ -446,8 +466,10 @@ export default function TeamPage() {
                 <tr>
                   <Th>Nome</Th>
                   <Th>Ruolo</Th>
-                  <Th>Costo mese</Th>
-                  <Th>Ore prod</Th>
+                  <Th>Costo reale mese</Th>
+                  <Th>Ore prod/mese</Th>
+                  <Th>Costo ora</Th>
+                  <Th>Costo minuto</Th>
                   <Th>Target mese</Th>
                   <Th>Azioni</Th>
                 </tr>
@@ -502,6 +524,26 @@ export default function TeamPage() {
                       </Td>
 
                       <Td>
+                        <strong>
+                          {euro(
+                            Number(member.productiveHours || 0) > 0
+                              ? Number(member.monthlyCost || 0) / Number(member.productiveHours || 140)
+                              : 0,
+                          )}
+                        </strong>
+                      </Td>
+
+                      <Td>
+                        <strong>
+                          {euro(
+                            Number(member.productiveHours || 0) > 0
+                              ? Number(member.monthlyCost || 0) / Number(member.productiveHours || 140) / 60
+                              : 0,
+                          )}
+                        </strong>
+                      </Td>
+
+                      <Td>
                         <input
                           style={tableInput}
                           value={String(member.monthlyTarget || 0)}
@@ -510,9 +552,15 @@ export default function TeamPage() {
                       </Td>
 
                       <Td>
-                        <button style={deleteButton} onClick={() => deleteStaff(member.id)}>
-                          X
-                        </button>
+                        <div style={actionRow}>
+                          <button style={saveMiniButton} onClick={() => saveStaffRow(member)}>
+                            Salva
+                          </button>
+
+                          <button style={deleteButton} onClick={() => deleteStaff(member.id)}>
+                            X
+                          </button>
+                        </div>
                       </Td>
                     </tr>
                   ))
@@ -806,6 +854,22 @@ const smallButton: React.CSSProperties = {
   color: "#f5d76e",
   fontWeight: 900,
   fontSize: 12,
+};
+
+const actionRow: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  alignItems: "center",
+};
+
+const saveMiniButton: React.CSSProperties = {
+  border: 0,
+  borderRadius: 10,
+  padding: "10px 12px",
+  background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
+  color: "#fff",
+  fontWeight: 950,
+  cursor: "pointer",
 };
 
 const deleteButton: React.CSSProperties = {
