@@ -122,6 +122,14 @@ function numberFromInput(value: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function isAppointmentFinished(appointment: AppointmentItem) {
+  const start = new Date(appointment.date).getTime();
+  const durationMs = Number(appointment.duration || 0) * 60 * 1000;
+  const end = start + durationMs;
+
+  return end <= Date.now();
+}
+
 function appointmentStatus(appointment: AppointmentItem) {
   const end = new Date(appointment.date).getTime() + appointment.duration * 60 * 1000;
   const diffMinutes = Math.floor((Date.now() - end) / 60000);
@@ -216,7 +224,10 @@ export default function VenditePage() {
 
   const filteredAppointments = useMemo(() => {
     const q = appointmentSearch.toLowerCase().trim();
-    const ready = appointments.filter((a) => !a.sale);
+
+    const ready = appointments.filter((appointment) => {
+      return !appointment.sale && isAppointmentFinished(appointment);
+    });
 
     if (!q) return ready;
 
@@ -565,7 +576,7 @@ export default function VenditePage() {
               {dataLoading ? (
                 <EmptyBox text="Caricamento appuntamenti..." />
               ) : filteredAppointments.length === 0 ? (
-                <EmptyBox text="Nessun appuntamento pronto. Seleziona un cliente sotto." />
+                <EmptyBox text="Nessun appuntamento finito da incassare. Se serve, seleziona un cliente sotto." />
               ) : (
                 filteredAppointments.slice(0, 8).map((appointment) => {
                   const active = selectedAppointment?.id === appointment.id;
