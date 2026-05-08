@@ -93,22 +93,22 @@ type DiscountType = "none" | "percent" | "fixed";
 type ReceiptType = "FISCAL" | "NON_FISCAL";
 
 const SERVICE_PRICES: Record<string, { price: number; cost: number }> = {
-  Piega: { price: 18, cost: 1.5 },
-  "Piega Atelier Extra Styling": { price: 25, cost: 2 },
+  Piega: { price: 18, cost: 0 },
+  "Piega Atelier Extra Styling": { price: 25, cost: 0 },
   "Taglio Donna": { price: 20, cost: 0 },
-  "Taglio Donna + Piega": { price: 32, cost: 2 },
-  "Shampoo + Taglio Uomo": { price: 22, cost: 1 },
-  "Barba Rifinitura": { price: 10, cost: 0.5 },
-  "Colore Base": { price: 28, cost: 7 },
-  "Colore Base + Piega": { price: 42, cost: 8.5 },
-  "Colore Base + Taglio + Piega": { price: 55, cost: 9.5 },
-  "Tonalizzante/Gloss": { price: 22, cost: 4.5 },
-  "Tonalizzante + Piega": { price: 35, cost: 6 },
-  "Decapaggio Colore": { price: 45, cost: 10 },
-  "Decapaggio + Piega": { price: 70, cost: 12 },
-  "Schiariture Parziali Meches Light": { price: 65, cost: 18 },
-  "Colpi di Sole/Meches + Piega": { price: 85, cost: 24 },
-  "Ricostruzione": { price: 30, cost: 7 },
+  "Taglio Donna + Piega": { price: 32, cost: 0 },
+  "Shampoo + Taglio Uomo": { price: 22, cost: 0 },
+  "Barba Rifinitura": { price: 10, cost: 0 },
+  "Colore Base": { price: 28, cost: 0 },
+  "Colore Base + Piega": { price: 42, cost: 0 },
+  "Colore Base + Taglio + Piega": { price: 55, cost: 0 },
+  "Tonalizzante/Gloss": { price: 22, cost: 0 },
+  "Tonalizzante + Piega": { price: 35, cost: 0 },
+  "Decapaggio Colore": { price: 45, cost: 0 },
+  "Decapaggio + Piega": { price: 70, cost: 0 },
+  "Schiariture Parziali Meches Light": { price: 65, cost: 0 },
+  "Colpi di Sole/Meches + Piega": { price: 85, cost: 0 },
+  "Ricostruzione": { price: 30, cost: 0 },
 };
 
 const PRODUCTS: ProductSuggestion[] = [
@@ -253,11 +253,29 @@ export default function VenditePage() {
   const discountTotal = rowDiscountTotal + globalDiscountAmount;
   const total = Math.max(0, rowSubtotal - discountTotal);
 
-  const costTotal = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.cost * item.quantity, 0);
+  const technicalCostTotal = useMemo(() => {
+    return cart.reduce((sum, item) => {
+      const quantity = Number(item.quantity || 1);
+      const technicalCost = Number(item.technicalCost ?? (item.type === "product" ? item.cost : 0));
+
+      return sum + technicalCost * quantity;
+    }, 0);
   }, [cart]);
 
+  const laborCostTotal = useMemo(() => {
+    return cart.reduce((sum, item) => {
+      const quantity = Number(item.quantity || 1);
+      const laborCost = Number(item.laborCost || 0);
+
+      return sum + laborCost * quantity;
+    }, 0);
+  }, [cart]);
+
+  const costTotal = technicalCostTotal + laborCostTotal;
   const margin = total - costTotal;
+
+  const hasServiceItems = cart.some((item) => item.type === "service");
+  const missingStaffForServices = hasServiceItems && !selectedStaffId;
 
   const filteredClients = useMemo(() => {
     const q = clientSearch.toLowerCase().trim();
@@ -315,7 +333,13 @@ export default function VenditePage() {
     return PRODUCTS.filter((p) => tags.includes(p.tag) && !already.includes(p.name)).slice(0, 3);
   }, [cart]);
 
-  const canCloseSale = Boolean(selectedClient && cart.length > 0 && total > 0 && !loading);
+  const canCloseSale = Boolean(
+    selectedClient &&
+      cart.length > 0 &&
+      total > 0 &&
+      !loading &&
+      !missingStaffForServices,
+  );
 
   const serviceCatalog = useMemo(() => {
     const catalog: Record<string, { price: number; cost: number; duration: number }> = {};
@@ -333,7 +357,7 @@ export default function VenditePage() {
 
       catalog[service.name] = {
         price: Number(service.price || 0),
-        cost: recipeCost > 0 ? recipeCost : Number(service.cost || 0),
+        cost: recipeCost > 0 ? recipeCost : 0,
         duration: Number(service.duration || 30),
       };
     });
@@ -374,7 +398,7 @@ export default function VenditePage() {
   }
 
   function getServiceData(name: string) {
-    return serviceCatalog[name] || { price: 30, cost: 5, duration: 30 };
+    return serviceCatalog[name] || { price: 30, cost: 0, duration: 30 };
   }
 
   function getStaffMinuteCost(staffId?: string) {
@@ -858,7 +882,7 @@ export default function VenditePage() {
 
             {staff.length > 0 ? (
               <div style={staffSelectBox}>
-                <label style={label}>Operatore per costo personale</label>
+                <label style={label}>Operatore che ha eseguito il servizio</label>
                 <select
                   className="sp-input"
                   value={selectedStaffId}
@@ -872,7 +896,7 @@ export default function VenditePage() {
                   ))}
                 </select>
                 <small>
-                  Il costo personale viene calcolato da Team KPI: stipendio mensile / ore produttive / minuti servizio.
+                  Il costo personale viene calcolato da Team KPI: costo reale mensile lordo / ore produttive / minuti servizio.
                 </small>
               </div>
             ) : null}
@@ -1070,7 +1094,7 @@ export default function VenditePage() {
                 <strong>{money(total)}</strong>
               </div>
 
-              <SummaryRow label="Margine lordo stimato" value={money(margin)} success />
+              <SummaryRow label="Margine reale stimato" value={money(margin)} success />
             </div>
 
             <div style={{ marginTop: 16 }}>
@@ -1100,7 +1124,9 @@ export default function VenditePage() {
             </div>
 
             {!selectedClient ? (
-              <div style={warningBox}>Seleziona un cliente per incassare.</div>
+              <div style={warningBox}>{missingStaffForServices
+                    ? "Seleziona un operatore per calcolare il costo personale e incassare."
+                    : "Seleziona un cliente per incassare."}</div>
             ) : cart.length === 0 ? (
               <div style={warningBox}>Aggiungi almeno una voce al carrello.</div>
             ) : null}
