@@ -958,7 +958,7 @@ export default function DashboardCoachPage() {
             <Metric label="Fatturato Netto IVA" value={euro(report.netto)} />
             <Metric label="Commissioni POS" value={euro(report.commissioni)} />
             <Metric label="Costo personale mese" value={euro(report.costoPersonale)} />
-            <Metric label="Costo prodotti mese" value={euro(report.costoProdotti)} />
+            <Metric label="Costo tecnico/materiali mese" value={euro(report.costoProdotti)} />
             <Metric label="Costi fissi" value={euro(report.costiFissi)} />
             <Metric label="Utile operativo" value={euro(report.utileOperativo)} />
             <Metric label="Riserva tasse" value={euro(report.riserva)} />

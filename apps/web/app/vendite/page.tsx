@@ -61,6 +61,26 @@ type StaffMember = {
   active?: boolean;
 };
 
+type InventoryProduct = {
+  id: string;
+  name: string;
+  productType: string;
+  unit: string;
+  stock: number;
+  cost: number;
+  unitCost?: number;
+  sellPrice?: number;
+  active?: boolean;
+};
+
+type RecipeItem = {
+  id: string;
+  serviceName: string;
+  productId: string;
+  quantity: number;
+  product?: InventoryProduct;
+};
+
 type ProductSuggestion = {
   name: string;
   tag: string;
@@ -181,6 +201,7 @@ export default function VenditePage() {
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [servicePrices, setServicePrices] = useState<ServicePrice[]>([]);
+  const [recipes, setRecipes] = useState<RecipeItem[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null);
@@ -308,15 +329,49 @@ export default function VenditePage() {
     });
 
     servicePrices.forEach((service) => {
+      const recipeCost = getRecipeTechnicalCost(service.name);
+
       catalog[service.name] = {
         price: Number(service.price || 0),
-        cost: Number(service.cost || 0),
+        cost: recipeCost > 0 ? recipeCost : Number(service.cost || 0),
         duration: Number(service.duration || 30),
       };
     });
 
     return catalog;
-  }, [servicePrices]);
+  }, [servicePrices, recipes]);
+
+  function getProductUnitCost(product?: InventoryProduct) {
+    if (!product) return 0;
+
+    const directUnitCost = Number(product.unitCost || 0);
+    if (directUnitCost > 0) return directUnitCost;
+
+    const stock = Number(product.stock || 0);
+    const cost = Number(product.cost || 0);
+
+    if (stock > 0 && cost > 0) return cost / stock;
+
+    return cost;
+  }
+
+  function getRecipeTechnicalCost(serviceName: string) {
+    const serviceRecipes = recipes.filter((recipe) => recipe.serviceName === serviceName);
+
+    if (serviceRecipes.length === 0) return 0;
+
+    return Number(
+      serviceRecipes
+        .reduce((sum, recipe) => {
+          const product = recipe.product;
+          const unitCost = getProductUnitCost(product);
+          const quantity = Number(recipe.quantity || 0);
+
+          return sum + unitCost * quantity;
+        }, 0)
+        .toFixed(2),
+    );
+  }
 
   function getServiceData(name: string) {
     return serviceCatalog[name] || { price: 30, cost: 5, duration: 30 };
@@ -399,15 +454,17 @@ export default function VenditePage() {
     try {
       setDataLoading(true);
 
-      const [clientsData, appointmentsData, servicePricesData, staffData] = await Promise.all([
+      const [clientsData, appointmentsData, servicePricesData, recipesData, staffData] = await Promise.all([
         fetchWithAuth("/clients"),
         fetchWithAuth("/appointments"),
         fetchWithAuth("/service-prices"),
+        fetchWithAuth("/inventory/recipes"),
         fetchWithAuth("/staff"),
       ]);
 
       setClients(clientsData || []);
       setServicePrices(Array.isArray(servicePricesData) ? servicePricesData.filter((item: ServicePrice) => item.active !== false) : []);
+      setRecipes(Array.isArray(recipesData) ? recipesData : []);
       setStaff(Array.isArray(staffData) ? staffData.filter((item: StaffMember) => item.active !== false) : []);
 
       const ready = (appointmentsData || []).sort(
@@ -934,7 +991,7 @@ export default function VenditePage() {
                         <div style={rowRight}>
                           <strong style={{ color: "#d4af37" }}>{money(itemTotal)}</strong>
                           <small style={{ color: "#cbd5e1" }}>
-                            costo {money(item.cost * item.quantity)}
+                            costo reale {money(item.cost * item.quantity)}
                           </small>
                           {item.discount > 0 ? (
                             <small style={{ color: "#fecaca" }}>-{money(itemDiscount)}</small>

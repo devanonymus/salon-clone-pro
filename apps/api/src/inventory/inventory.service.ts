@@ -23,6 +23,12 @@ export class InventoryService {
         stock: Number(body.stock || 0),
         minStock: Number(body.minStock || 0),
         cost: Number(body.cost || 0),
+        unitCost:
+          Number(body.unitCost || 0) > 0
+            ? Number(body.unitCost || 0)
+            : Number(body.stock || 0) > 0
+              ? Number(body.cost || 0) / Number(body.stock || 0)
+              : 0,
         sellPrice: Number(body.sellPrice || 0),
         supplier: body.supplier || null,
       },
@@ -40,6 +46,12 @@ export class InventoryService {
         stock: body.stock !== undefined ? Number(body.stock) : undefined,
         minStock: body.minStock !== undefined ? Number(body.minStock) : undefined,
         cost: body.cost !== undefined ? Number(body.cost) : undefined,
+        unitCost:
+          body.unitCost !== undefined
+            ? Number(body.unitCost)
+            : body.cost !== undefined && body.stock !== undefined && Number(body.stock) > 0
+              ? Number(body.cost) / Number(body.stock)
+              : undefined,
         sellPrice: body.sellPrice !== undefined ? Number(body.sellPrice) : undefined,
         supplier: body.supplier,
       },

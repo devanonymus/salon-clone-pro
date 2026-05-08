@@ -196,6 +196,7 @@ model InventoryProduct {
   stock       Float    @default(0)
   minStock    Float    @default(0)
   cost        Float    @default(0)
+  unitCost    Float    @default(0)
   sellPrice   Float    @default(0)
   supplier    String?
   active      Boolean  @default(true)

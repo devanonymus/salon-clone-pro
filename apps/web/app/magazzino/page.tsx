@@ -282,7 +282,7 @@ export default function MagazzinoPage() {
         {message ? <div style={messageBox}>{message}</div> : null}
 
         <section style={kpiGrid}>
-          <Kpi title="Valore magazzino" value={`€ ${totalStockValue.toFixed(2)}`} sub="Costo prodotti in stock" />
+          <Kpi title="Valore tecnico magazzino" value={`€ ${totalStockValue.toFixed(2)}`} sub="Valore tecnico prodotti" />
           <Kpi title="Ricavo potenziale" value={`€ ${potentialRevenue.toFixed(2)}`} sub="Solo prodotti rivendita" />
           <Kpi title="Margine potenziale" value={`€ ${potentialProfit.toFixed(2)}`} sub="Profitto teorico rivendita" />
           <Kpi title="Scorte basse" value={String(lowStock.length)} sub="Da riordinare" danger={lowStock.length > 0} />
@@ -328,7 +328,7 @@ export default function MagazzinoPage() {
 
             <input className="sp-input" placeholder="Quantità" value={stock} onChange={(e) => setStock(e.target.value)} />
             <input className="sp-input" placeholder="Scorta minima" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
-            <input className="sp-input" placeholder="Costo unitario €" value={cost} onChange={(e) => setCost(e.target.value)} />
+            <input className="sp-input" placeholder="Costo confezione/stock €" value={cost} onChange={(e) => setCost(e.target.value)} />
             <input
               className="sp-input"
               placeholder={productType === "RETAIL" ? "Prezzo vendita €" : "Prezzo vendita non usato"}
