@@ -14,6 +14,7 @@ type Product = {
   stock: number;
   minStock: number;
   cost: number;
+  unitCost?: number;
   sellPrice: number;
   supplier?: string | null;
 };
@@ -66,6 +67,29 @@ const SERVICES = [
 ];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+function getInventoryUnitCost(product: Product) {
+  const directUnitCost = Number(product.unitCost || 0);
+
+  if (directUnitCost > 0) return directUnitCost;
+
+  const stock = Number(product.stock || 0);
+  const cost = Number(product.cost || 0);
+
+  // Fallback per prodotti vecchi creati prima di unitCost:
+  // se cost è costo confezione/stock e stock è ancora quello caricato,
+  // stimiamo il costo unitario dividendo.
+  if (stock > 0 && cost > 0) return cost / stock;
+
+  return cost;
+}
+
+function getInventoryRemainingValue(product: Product) {
+  const stock = Number(product.stock || 0);
+  const unitCost = getInventoryUnitCost(product);
+
+  return stock * unitCost;
+}
 
 export default function MagazzinoPage() {
   const router = useRouter();
@@ -348,14 +372,19 @@ export default function MagazzinoPage() {
   const retailProducts = products.filter((p) => p.productType === "RETAIL");
 
   const totalStockValue = useMemo(() => {
-    return products.reduce((sum, p) => sum + p.stock * p.cost, 0);
+    return products.reduce((sum, p) => sum + getInventoryRemainingValue(p), 0);
   }, [products]);
 
   const potentialRevenue = useMemo(() => {
     return retailProducts.reduce((sum, p) => sum + p.stock * p.sellPrice, 0);
   }, [retailProducts]);
 
-  const potentialProfit = potentialRevenue - retailProducts.reduce((sum, p) => sum + p.stock * p.cost, 0);
+  const retailCostValue = retailProducts.reduce(
+    (sum, p) => sum + getInventoryRemainingValue(p),
+    0,
+  );
+
+  const potentialProfit = potentialRevenue - retailCostValue;
 
   const lowStock = products.filter((p) => p.stock <= p.minStock);
 
@@ -492,9 +521,9 @@ export default function MagazzinoPage() {
         {message ? <div style={messageBox}>{message}</div> : null}
 
         <section style={kpiGrid}>
-          <Kpi title="Valore tecnico magazzino" value={`€ ${totalStockValue.toFixed(2)}`} sub="Valore tecnico prodotti" />
-          <Kpi title="Ricavo potenziale" value={`€ ${potentialRevenue.toFixed(2)}`} sub="Solo prodotti rivendita" />
-          <Kpi title="Margine potenziale" value={`€ ${potentialProfit.toFixed(2)}`} sub="Profitto teorico rivendita" />
+          <Kpi title="Valore tecnico magazzino" value={`€ ${totalStockValue.toFixed(2)}`} sub="Valore residuo prodotti" />
+          <Kpi title="Ricavo potenziale" value={`€ ${potentialRevenue.toFixed(2)}`} sub="Solo prodotti da rivendita" />
+          <Kpi title="Margine potenziale" value={`€ ${potentialProfit.toFixed(2)}`} sub="Margine teorico rivendita" />
           <Kpi title="Scorte basse" value={String(lowStock.length)} sub="Da riordinare" danger={lowStock.length > 0} />
         </section>
 
@@ -536,7 +565,7 @@ export default function MagazzinoPage() {
 
             <input className="sp-input" placeholder="Quantità" value={stock} onChange={(e) => setStock(e.target.value)} />
             <input className="sp-input" placeholder="Scorta minima" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
-            <input className="sp-input" placeholder="Costo confezione/stock €" value={cost} onChange={(e) => setCost(e.target.value)} />
+            <input className="sp-input" placeholder="Costo conf./stock confezione/stock €" value={cost} onChange={(e) => setCost(e.target.value)} />
             <input
               className="sp-input"
               placeholder={productType === "RETAIL" ? "Prezzo vendita €" : "Prezzo vendita non usato"}
@@ -700,7 +729,7 @@ export default function MagazzinoPage() {
                     <th style={th}>Tipo</th>
                     <th style={th}>Cat.</th>
                     <th style={th}>Stock</th>
-                    <th style={th}>Costo</th>
+                    <th style={th}>Costo conf./stock</th>
                     <th style={th}>Vendita</th>
                     <th style={th}>Margine</th>
                     <th style={th}>Azioni</th>
