@@ -978,6 +978,38 @@ export default function VenditePage() {
               ) : null}
             </div>
 
+            <div style={checkoutQuickSummary}>
+              <div style={checkoutSummaryTile}>
+                <span>Cliente paga</span>
+                <strong>{money(total)}</strong>
+              </div>
+
+              <div style={checkoutSummaryTile}>
+                <span>Materiali</span>
+                <strong>{money(technicalCostTotal || 0)}</strong>
+              </div>
+
+              <div style={checkoutSummaryTile}>
+                <span>Personale</span>
+                <strong>{missingStaffForServices ? "Operatore mancante" : money(laborCostTotal || 0)}</strong>
+              </div>
+
+              <div style={checkoutSummaryTile}>
+                <span>Margine</span>
+                <strong>{missingStaffForServices ? "Incompleto" : money(margin)}</strong>
+              </div>
+            </div>
+
+            <div style={checkoutHelpBox}>
+              Formula margine reale: cliente paga - materiali da ricetta - costo personale da Team KPI.
+            </div>
+
+            {missingStaffForServices ? (
+              <div style={missingStaffWarningBox}>
+                Seleziona l’operatore: senza operatore il costo personale non viene calcolato.
+              </div>
+            ) : null}
+
             {cart.length === 0 ? (
               <div style={bigEmptyCart}>
                 <strong>Carrello cliente vuoto</strong>
@@ -1037,13 +1069,51 @@ export default function VenditePage() {
                         </div>
 
                         <div style={rowRight}>
-                          <strong style={{ color: "#d4af37" }}>{money(itemTotal)}</strong>
-                          <small style={{ color: "#cbd5e1" }}>
-                            Costo reale {money(item.cost * item.quantity)}
-                          </small>
+                          <div style={cartResultBox}>
+                            <div style={cartResultTile}>
+                              <span>Cliente paga</span>
+                              <strong>{money(itemTotal)}</strong>
+                            </div>
+
+                            <div style={cartResultTile}>
+                              <span>Materiali</span>
+                              <strong>{money(itemTechnicalTotal(item))}</strong>
+                            </div>
+
+                            <div style={cartResultTile}>
+                              <span>Personale</span>
+                              <strong>
+                                {item.type === "service" && !selectedStaffId
+                                  ? "Manca operatore"
+                                  : money(itemLaborTotal(item))}
+                              </strong>
+                            </div>
+
+                            <div style={cartResultTile}>
+                              <span>Costo reale</span>
+                              <strong>
+                                {item.type === "service" && !selectedStaffId
+                                  ? "Incompleto"
+                                  : money(itemRealCostTotal(item))}
+                              </strong>
+                            </div>
+
+                            <div style={cartResultTile}>
+                              <span>Margine</span>
+                              <strong style={{ color: itemMarginTotal(item) >= 0 ? "#86efac" : "#fecaca" }}>
+                                {item.type === "service" && !selectedStaffId
+                                  ? "Incompleto"
+                                  : money(itemMarginTotal(item))}
+                              </strong>
+                            </div>
+                          </div>
+
                           {item.discount > 0 ? (
-                            <small style={{ color: "#fecaca" }}>-{money(itemDiscount)}</small>
+                            <small style={{ color: "#fecaca", fontWeight: 900 }}>
+                              Sconto riga -{money(itemDiscount)}
+                            </small>
                           ) : null}
+
                           <button type="button" style={deleteButton} onClick={() => removeItem(item.id)}>
                             X
                           </button>
@@ -1641,4 +1711,63 @@ const warningBox: React.CSSProperties = {
   border: "1px solid rgba(239,68,68,0.22)",
   color: "#fecaca",
   fontWeight: 900,
+};
+
+
+const checkoutQuickSummary: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(120px, 1fr))",
+  gap: 10,
+  margin: "12px 0",
+};
+
+const checkoutSummaryTile: React.CSSProperties = {
+  display: "grid",
+  gap: 5,
+  padding: 12,
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.065)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const checkoutHelpBox: React.CSSProperties = {
+  margin: "10px 0 14px",
+  padding: 13,
+  borderRadius: 14,
+  border: "1px solid rgba(212,175,55,0.18)",
+  background: "rgba(212,175,55,0.08)",
+  color: "#fef3c7",
+  fontSize: 13,
+  fontWeight: 850,
+  lineHeight: 1.35,
+};
+
+const missingStaffWarningBox: React.CSSProperties = {
+  margin: "10px 0 14px",
+  padding: 13,
+  borderRadius: 14,
+  border: "1px solid rgba(239,68,68,0.35)",
+  background: "rgba(239,68,68,0.14)",
+  color: "#fecaca",
+  fontSize: 13,
+  fontWeight: 900,
+  lineHeight: 1.35,
+};
+
+const cartResultBox: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, minmax(86px, 1fr))",
+  gap: 8,
+  width: "100%",
+  marginTop: 8,
+};
+
+const cartResultTile: React.CSSProperties = {
+  display: "grid",
+  gap: 4,
+  padding: "8px 9px",
+  borderRadius: 12,
+  background: "rgba(0,0,0,0.25)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  fontSize: 12,
 };
