@@ -72,6 +72,7 @@ export default function TeamPage() {
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [saveAlert, setSaveAlert] = useState("");
 
   const [name, setName] = useState("");
   const [role, setRole] = useState("COLLABORATORE");
@@ -80,6 +81,14 @@ export default function TeamPage() {
   const [monthlyTarget, setMonthlyTarget] = useState("");
 
   const [shifts, setShifts] = useState<Record<string, ShiftDay[]>>({});
+
+  function showTemporarySaveAlert(text: string) {
+    setSaveAlert(text);
+
+    window.setTimeout(() => {
+      setSaveAlert("");
+    }, 2200);
+  }
 
   async function loadStaff() {
     try {
@@ -270,26 +279,43 @@ export default function TeamPage() {
     );
   }
 
+
   async function saveStaffRow(member: StaffMember) {
     try {
       setMessage("");
 
+      const payload = {
+        name: member.name,
+        role: normalizeRole(member.role),
+        monthlyCost: Number(String(member.monthlyCost || 0).replace(",", ".")),
+        productiveHours: Number(String(member.productiveHours || 140).replace(",", ".")),
+        monthlyTarget: Number(String(member.monthlyTarget || 0).replace(",", ".")),
+        active: true,
+      };
+
       const updated = await apiFetch(`/staff/${member.id}`, {
         method: "PATCH",
-        body: JSON.stringify({
-          name: member.name,
-          role: normalizeRole(member.role),
-          monthlyCost: Number(member.monthlyCost || 0),
-          productiveHours: Number(member.productiveHours || 140),
-          monthlyTarget: Number(member.monthlyTarget || 0),
-        }),
+        body: JSON.stringify(payload),
       });
 
       setStaff((prev) =>
-        prev.map((item) => (item.id === member.id ? { ...item, ...updated } : item)),
+        prev.map((item) =>
+          item.id === member.id
+            ? {
+                ...item,
+                ...updated,
+                monthlyCost: payload.monthlyCost,
+                productiveHours: payload.productiveHours,
+                monthlyTarget: payload.monthlyTarget,
+              }
+            : item,
+        ),
       );
 
-      setMessage(`✅ Dati economici di ${member.name} salvati. Cassa e Dashboard ora useranno questi valori.`);
+      showTemporarySaveAlert(`✅ Salvato: ${member.name}`);
+      setMessage(
+        `✅ Costo reale mensile lordo di ${member.name} salvato. Cassa e Dashboard useranno questi valori.`,
+      );
     } catch (error: any) {
       setMessage(error.message || "Errore salvataggio collaboratore");
       await loadStaff();
@@ -350,6 +376,7 @@ export default function TeamPage() {
           </div>
         </header>
 
+        {saveAlert ? <div style={saveAlertBox}>{saveAlert}</div> : null}
         {message ? <div style={messageBox}>{message}</div> : null}
 
         <section style={statsGrid}>
@@ -436,7 +463,7 @@ export default function TeamPage() {
 
             <input
               style={input}
-              placeholder="Costo mensile €"
+              placeholder="Costo reale mensile lordo €"
               value={monthlyCost}
               onChange={(e) => setMonthlyCost(e.target.value)}
             />
@@ -663,7 +690,7 @@ export default function TeamPage() {
             <div style={summaryBox}>
               <strong>{selectedStaff.name}</strong>
               <span>Ruolo: {displayRole(selectedStaff.role)}</span>
-              <span>Costo mese: {euro(Number(selectedStaff.monthlyCost || 0))}</span>
+              <span>Costo reale mese lordo: {euro(Number(selectedStaff.monthlyCost || 0))}</span>
               <span>Target: {euro(Number(selectedStaff.monthlyTarget || 0))}</span>
             </div>
           ) : null}
@@ -697,6 +724,35 @@ function Th({ children }: { children: React.ReactNode }) {
 function Td({ children }: { children: React.ReactNode }) {
   return <td style={td}>{children}</td>;
 }
+
+const saveAlertBox: React.CSSProperties = {
+  position: "fixed",
+  top: 22,
+  right: 22,
+  zIndex: 9999,
+  padding: "14px 18px",
+  borderRadius: 16,
+  background: "rgba(34,197,94,0.96)",
+  color: "#052e16",
+  fontWeight: 950,
+  boxShadow: "0 18px 55px rgba(0,0,0,0.35)",
+};
+
+const actionRow: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  alignItems: "center",
+};
+
+const saveMiniButton: React.CSSProperties = {
+  border: 0,
+  borderRadius: 10,
+  padding: "10px 12px",
+  background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
+  color: "#fff",
+  fontWeight: 950,
+  cursor: "pointer",
+};
 
 const messageBox: React.CSSProperties = {
   marginBottom: 18,
@@ -856,21 +912,9 @@ const smallButton: React.CSSProperties = {
   fontSize: 12,
 };
 
-const actionRow: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  alignItems: "center",
-};
 
-const saveMiniButton: React.CSSProperties = {
-  border: 0,
-  borderRadius: 10,
-  padding: "10px 12px",
-  background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
-  color: "#fff",
-  fontWeight: 950,
-  cursor: "pointer",
-};
+
+
 
 const deleteButton: React.CSSProperties = {
   border: 0,
