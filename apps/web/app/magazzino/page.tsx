@@ -21,10 +21,21 @@ type Product = {
 type RecipeItem = {
   id: string;
   serviceName: string;
+  productCategory?: string;
   productId: string;
   quantity: number;
   product: Product;
 };
+
+const RECIPE_CATEGORIES = [
+  "Shampoo",
+  "Maschera",
+  "Tonalizzante",
+  "Colore",
+  "Decolorante",
+  "Ossigeno",
+  "Fiala",
+];
 
 const SERVICES = [
   "Piega",
@@ -65,6 +76,7 @@ export default function MagazzinoPage() {
   const [message, setMessage] = useState("");
 
   const [recipeService, setRecipeService] = useState(SERVICES[0]);
+  const [recipeCategory, setRecipeCategory] = useState("Shampoo");
   const [recipeProductId, setRecipeProductId] = useState("");
   const [recipeQuantity, setRecipeQuantity] = useState("");
 
@@ -136,6 +148,13 @@ export default function MagazzinoPage() {
   }, [products, search]);
 
   const internalProducts = products.filter((p) => p.productType === "INTERNAL");
+  const recipeProductsByCategory = products.filter(
+    (p) =>
+      p.productType === "INTERNAL" &&
+      String(p.category || "").toLowerCase() === recipeCategory.toLowerCase(),
+  );
+
+
   const retailProducts = products.filter((p) => p.productType === "RETAIL");
 
   const totalStockValue = useMemo(() => {
@@ -237,6 +256,7 @@ export default function MagazzinoPage() {
         method: "POST",
         body: JSON.stringify({
           serviceName: recipeService,
+          productCategory: recipeCategory,
           productId: recipeProductId,
           quantity,
         }),
@@ -363,9 +383,25 @@ export default function MagazzinoPage() {
               ))}
             </select>
 
+            
+            <select
+              className="sp-input"
+              value={recipeCategory}
+              onChange={(e) => {
+                setRecipeCategory(e.target.value);
+                setRecipeProductId("");
+              }}
+            >
+              {RECIPE_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+
             <select className="sp-input" value={recipeProductId} onChange={(e) => setRecipeProductId(e.target.value)}>
-              <option value="">Prodotto uso interno...</option>
-              {internalProducts.map((product) => (
+              <option value="">Seleziona prodotto...</option>
+              {recipeProductsByCategory.map((product) => (
                 <option key={product.id} value={product.id}>
                   {product.name} ({product.unit})
                 </option>
@@ -389,7 +425,8 @@ export default function MagazzinoPage() {
               <thead>
                 <tr>
                   <th style={th}>Servizio</th>
-                  <th style={th}>Prodotto consumato</th>
+                  <th style={th}>Tipologia</th>
+                    <th style={th}>Prodotto consumato</th>
                   <th style={th}>Quantità</th>
                   <th style={th}>Azione</th>
                 </tr>
@@ -398,6 +435,7 @@ export default function MagazzinoPage() {
                 {recipes.map((recipe) => (
                   <tr key={recipe.id}>
                     <td style={td}>{recipe.serviceName}</td>
+                    <td style={td}>{recipe.productCategory || recipe.product?.category || "-"}</td>
                     <td style={td}>{recipe.product?.name}</td>
                     <td style={td}>
                       {recipe.quantity} {recipe.product?.unit}

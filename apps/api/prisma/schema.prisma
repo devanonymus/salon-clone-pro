@@ -213,9 +213,10 @@ model InventoryProduct {
 model ServiceRecipeItem {
   id          String @id @default(uuid())
   tenantId    String
-  serviceName String
-  productId   String
-  quantity    Float
+  serviceName     String
+  productCategory String @default("Shampoo")
+  productId       String
+  quantity        Float
 
   tenant  Tenant           @relation(fields: [tenantId], references: [id])
   product InventoryProduct @relation(fields: [productId], references: [id])

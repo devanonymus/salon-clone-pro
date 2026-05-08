@@ -104,12 +104,18 @@ export class InventoryService {
 
   saveRecipe(
     tenantId: string,
-    body: { serviceName: string; productId: string; quantity: number | string },
+    body: {
+      serviceName: string;
+      productCategory?: string;
+      productId: string;
+      quantity: number | string;
+    },
   ) {
     return this.prisma.serviceRecipeItem.create({
       data: {
         tenantId,
         serviceName: body.serviceName,
+        productCategory: body.productCategory || "Shampoo",
         productId: body.productId,
         quantity: Number(body.quantity || 0),
       },
