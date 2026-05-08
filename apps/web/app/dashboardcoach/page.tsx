@@ -3,6 +3,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../src/lib/api";
 
+type SaleItemRow = {
+  id?: string;
+  name: string;
+  type: string;
+  price: number;
+  cost?: number;
+  quantity: number;
+};
+
+type SaleRow = {
+  id: string;
+  total: number;
+  paymentMethod?: string | null;
+  fiscalStatus?: string | null;
+  createdAt: string;
+  items?: SaleItemRow[];
+};
+
 type FixedCost = {
   id: string;
   name: string;
@@ -108,75 +126,165 @@ export default function DashboardCoachPage() {
   const [focusCrm, setFocusCrm] = useState(true);
 
   const report = useMemo(() => {
-    const fatturatoLordo = 155;
+    const selectedSales = sales.filter((sale) => {
+      const d = new Date(sale.createdAt);
+      return d.getMonth() === Number(month) && d.getFullYear() === Number(year);
+    });
 
-    const ivaPercent = Number(ivaServizi || 0);
-    const iva = ivaPercent > 0 ? fatturatoLordo - fatturatoLordo / (1 + ivaPercent / 100) : 0;
+    const previousMonth = Number(month) === 0 ? 11 : Number(month) - 1;
+    const previousYear = Number(month) === 0 ? Number(year) - 1 : Number(year);
 
+    const previousSales = sales.filter((sale) => {
+      const d = new Date(sale.createdAt);
+      return d.getMonth() === previousMonth && d.getFullYear() === previousYear;
+    });
+
+    const calcRevenueSplit = (rows: SaleRow[]) => {
+      return rows.reduce(
+        (acc, sale) => {
+          const items = sale.items || [];
+          const itemsGross = items.reduce(
+            (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+            0,
+          );
+
+          const factor = itemsGross > 0 ? Number(sale.total || 0) / itemsGross : 1;
+
+          const servicesGross = items
+            .filter((item) => item.type !== "product")
+            .reduce(
+              (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1) * factor,
+              0,
+            );
+
+          const resaleGross = items
+            .filter((item) => item.type === "product")
+            .reduce(
+              (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1) * factor,
+              0,
+            );
+
+          const technicalCost = items.reduce(
+            (sum, item) => sum + Number(item.cost || 0) * Number(item.quantity || 1),
+            0,
+          );
+
+          acc.services += servicesGross;
+          acc.resale += resaleGross;
+          acc.technicalCost += technicalCost;
+          acc.total += Number(sale.total || 0);
+
+          const method = String(sale.paymentMethod || "").toLowerCase();
+          if (method === "card" || method === "mixed") {
+            acc.posBase += Number(sale.total || 0);
+            acc.posSales += 1;
+          }
+
+          return acc;
+        },
+        { services: 0, resale: 0, technicalCost: 0, total: 0, posBase: 0, posSales: 0 },
+      );
+    };
+
+    const current = calcRevenueSplit(selectedSales);
+    const previous = calcRevenueSplit(previousSales);
+
+    const ivaServiziValue = Number(String(ivaServizi || 0).replace(",", "."));
+    const ivaRivenditaValue = Number(String(ivaRivendita || 0).replace(",", "."));
+    const feePosPercentValue = Number(String(feePos || 0).replace(",", "."));
+    const feePosFixedValue = Number(String(feePosFisso || 0).replace(",", "."));
+    const overheadValue = Number(String(overhead || 0).replace(",", "."));
+    const taxReserveValue = Number(String(riservaTasse || 0).replace(",", "."));
+
+    const fatturatoLordo = current.total;
+
+    const ivaServiziStimata =
+      ivaServiziValue > 0
+        ? current.services - current.services / (1 + ivaServiziValue / 100)
+        : 0;
+
+    const ivaRivenditaStimata =
+      ivaRivenditaValue > 0
+        ? current.resale - current.resale / (1 + ivaRivenditaValue / 100)
+        : 0;
+
+    const iva = ivaServiziStimata + ivaRivenditaStimata;
     const netto = fatturatoLordo - iva;
 
     const commissioni =
-      fatturatoLordo * (Number(feePos || 0) / 100) + Number(feePosFisso || 0);
+      current.posBase * (feePosPercentValue / 100) + current.posSales * feePosFixedValue;
 
-    const costoPersonale = 37.91;
-    const costoProdotti = 5.5;
-    const costiFissi = fixedCosts.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const overheadCost = netto * (Number(overhead || 0) / 100);
+    const costoPersonale = 0;
+    const costoProdotti = current.technicalCost;
+
+    const costiFissi =
+      fixedCosts.length > 0
+        ? fixedCosts.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+        : 0;
+
+    const overheadVariabile = netto * (overheadValue / 100);
 
     const utileOperativo =
-      netto - commissioni - costoPersonale - costoProdotti - costiFissi - overheadCost;
+      netto - commissioni - costoPersonale - costoProdotti - costiFissi - overheadVariabile;
 
-    const riserva = Math.max(0, utileOperativo * (Number(riservaTasse || 0) / 100));
+    const riserva = Math.max(0, utileOperativo * (taxReserveValue / 100));
     const utileReale = utileOperativo - riserva;
-    const fishMedio = 25.83;
-    const crescita = 3.3;
+
+    const fishMedio = selectedSales.length > 0 ? fatturatoLordo / selectedSales.length : 0;
+
+    const crescita =
+      previous.total > 0
+        ? ((fatturatoLordo - previous.total) / previous.total) * 100
+        : fatturatoLordo > 0
+          ? 100
+          : 0;
 
     return {
       fatturatoLordo,
+      servizi: current.services,
+      rivendita: current.resale,
       iva,
       netto,
       commissioni,
       costoPersonale,
       costoProdotti,
       costiFissi,
-      overheadCost,
+      overheadVariabile,
       utileOperativo,
       riserva,
       utileReale,
       fishMedio,
       crescita,
+      vendite: selectedSales.length,
     };
-  }, [fixedCosts, riservaTasse, ivaServizi, feePos, feePosFisso, overhead]);
+  }, [
+    sales,
+    month,
+    year,
+    ivaServizi,
+    ivaRivendita,
+    feePos,
+    feePosFisso,
+    overhead,
+    riservaTasse,
+    fixedCosts,
+  ]);
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const parsedFishBase = Number(String(fishBase || 0).replace(",", "."));
+  const parsedClientiPrevisti = Number(String(clientiPrevisti || 0).replace(",", "."));
 
-  const todayAppointments = useMemo(() => {
-    return appointments.filter((appointment) => {
-      return new Date(appointment.date).toISOString().slice(0, 10) === todayKey;
-    });
-  }, [appointments, todayKey]);
+  const effectiveFishBase =
+    parsedFishBase > 0 ? parsedFishBase : Number(report.fishMedio || 0);
 
-  const monthSales = useMemo(() => {
-    return sales.filter((sale) => {
-      const date = new Date(sale.createdAt);
-      return date.getMonth() === month && date.getFullYear() === year;
-    });
-  }, [sales, month, year]);
-
-  const autoFishBase = useMemo(() => {
-    if (monthSales.length === 0) return 0;
-
-    const totalSales = monthSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
-    return totalSales / monthSales.length;
-  }, [monthSales]);
-
-  const effectiveFishBase = Number(fishBase || 0) || autoFishBase;
-  const effectiveClientiPrevisti = Number(clientiPrevisti || 0) || todayAppointments.length;
+  const effectiveClientiPrevisti =
+    parsedClientiPrevisti > 0 ? parsedClientiPrevisti : Number(report.vendite || 0);
 
   const baseline = effectiveFishBase * effectiveClientiPrevisti;
   const multiplier = objective.includes("+20") ? 1.2 : objective.includes("+30") ? 1.3 : 1.1;
   const target = baseline * multiplier;
 
+
+  const todayKey = new Date().toISOString().slice(0, 10);
 
   const coachReportData = useMemo(() => {
     const now = new Date();
@@ -242,7 +350,7 @@ export default function DashboardCoachPage() {
     });
 
     const revenue = rangeSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
-    const fish = rangeSales.length > 0 ? revenue / rangeSales.length : autoFishBase;
+    const fish = rangeSales.length > 0 ? revenue / rangeSales.length : effectiveFishBase;
     const expectedExtra =
       coachRange === "TODAY" ? Math.max(0, target - baseline) : Math.max(0, revenue * 0.1);
 
@@ -278,7 +386,7 @@ export default function DashboardCoachPage() {
       repairClients,
       actions,
     };
-  }, [appointments, sales, coachRange, todayKey, month, year, autoFishBase, target, baseline]);
+  }, [appointments, sales, coachRange, todayKey, month, year, effectiveFishBase, target, baseline]);
 
   const coachRangeLabel =
     coachRange === "TODAY"
@@ -292,6 +400,18 @@ export default function DashboardCoachPage() {
     setClientiPrevisti("");
     setObjective("+10%");
   }
+
+  const todayAppointments = useMemo(() => {
+    return appointments
+      .filter((appointment) => {
+        const key = new Date(appointment.date).toISOString().slice(0, 10);
+        return key === todayKey;
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
+  }, [appointments, todayKey]);
 
   function printPrebookingList() {
     const esc = (value: any) =>
@@ -602,6 +722,9 @@ export default function DashboardCoachPage() {
 
   useEffect(() => {
     loadCoachData();
+
+    const timer = setInterval(loadCoachData, 30000);
+    return () => clearInterval(timer);
   }, []);
 
   async function addFixedCost() {
@@ -814,6 +937,9 @@ export default function DashboardCoachPage() {
 
           <div style={summaryBox}>
             <Metric label="Fatturato Lordo" value={euro(report.fatturatoLordo)} />
+            <Metric label="Servizi" value={euro(report.servizi)} />
+            <Metric label="Rivendita" value={euro(report.rivendita)} />
+            <Metric label="Vendite registrate" value={String(report.vendite)} />
             <Metric label="IVA stimata" value={euro(report.iva)} />
             <Metric label="Fatturato Netto IVA" value={euro(report.netto)} />
             <Metric label="Commissioni POS" value={euro(report.commissioni)} />
@@ -917,7 +1043,7 @@ export default function DashboardCoachPage() {
 
             <div style={briefStat}>
               <span>Fish medio mese</span>
-              <strong>{euro(autoFishBase)}</strong>
+              <strong>{euro(effectiveFishBase)}</strong>
             </div>
 
             <div style={briefStat}>
