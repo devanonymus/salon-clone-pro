@@ -27,6 +27,16 @@ type RecipeItem = {
   product: Product;
 };
 
+const PRODUCT_CATEGORIES = [
+  "Shampoo",
+  "Maschera",
+  "Tonalizzante",
+  "Colore",
+  "Decolorante",
+  "Ossigeno",
+  "Fiala",
+];
+
 const RECIPE_CATEGORIES = [
   "Shampoo",
   "Maschera",
