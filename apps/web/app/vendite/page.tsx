@@ -18,8 +18,8 @@ type AppointmentItem = {
   duration: number;
   note: string | null;
   sale?: { id: string } | null;
+  staff?: { id: string; name: string } | null;
   clientTenant: {
-    id: string;
     clientGlobal: {
       id: string;
       name: string;
@@ -36,31 +36,6 @@ type CartItem = {
   cost: number;
   quantity: number;
   discount: number;
-  cardSaleId?: string;
-  cardPaymentType?: "RATA_SEDUTA" | "SALDO_INTERO";
-};
-
-type SoldCardPayment = {
-  id: string;
-  amount: number;
-  paymentType: string;
-  method: string;
-  paidAt: string;
-};
-
-type SoldCard = {
-  id: string;
-  clientTenantId?: string | null;
-  clientName: string;
-  whatsapp?: string | null;
-  cardName: string;
-  price: number;
-  used: number;
-  total: number;
-  sessions?: any[];
-  appointments?: { index?: number; date?: string; time?: string }[];
-  paymentMode: "RATE_SEDUTE" | "INTERO_PRIMA_SEDUTA";
-  payments?: SoldCardPayment[];
 };
 
 type ProductSuggestion = {
@@ -90,6 +65,7 @@ const SERVICE_PRICES: Record<string, { price: number; cost: number }> = {
   "Decapaggio + Piega": { price: 70, cost: 12 },
   "Schiariture Parziali Meches Light": { price: 65, cost: 18 },
   "Colpi di Sole/Meches + Piega": { price: 85, cost: 24 },
+  "Ricostruzione": { price: 30, cost: 7 },
 };
 
 const PRODUCTS: ProductSuggestion[] = [
@@ -138,7 +114,7 @@ const PRODUCTS: ProductSuggestion[] = [
 ];
 
 function money(value: number) {
-  return `€ ${value.toFixed(2)}`;
+  return `€ ${Number(value || 0).toFixed(2)}`;
 }
 
 function numberFromInput(value: string) {
@@ -146,16 +122,39 @@ function numberFromInput(value: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function appointmentStatus(appointment: AppointmentItem) {
+  const end = new Date(appointment.date).getTime() + appointment.duration * 60 * 1000;
+  const diffMinutes = Math.floor((Date.now() - end) / 60000);
+
+  if (diffMinutes < 0) {
+    const mins = Math.abs(diffMinutes);
+    if (mins < 60) return `Finisce tra ${mins} min`;
+    const hours = Math.floor(mins / 60);
+    const rest = mins % 60;
+    return `Finisce tra ${hours}h ${rest}m`;
+  }
+
+  if (diffMinutes < 5) return "Appena finito";
+  if (diffMinutes < 60) return `Finito da ${diffMinutes} min`;
+
+  const hours = Math.floor(diffMinutes / 60);
+  if (hours < 24) return `Finito da ${hours} ore`;
+
+  const days = Math.floor(hours / 24);
+  return `Finito da ${days} giorni`;
+}
+
 export default function VenditePage() {
   const router = useRouter();
 
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
-  const [soldCards, setSoldCards] = useState<SoldCard[]>([]);
-  const [selectedAppointment, setSelectedAppointment] =
-    useState<AppointmentItem | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null);
 
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
+  const [appointmentSearch, setAppointmentSearch] = useState("");
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("card");
 
@@ -165,6 +164,7 @@ export default function VenditePage() {
 
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
 
@@ -204,6 +204,28 @@ export default function VenditePage() {
 
   const margin = total - costTotal;
 
+  const filteredClients = useMemo(() => {
+    const q = clientSearch.toLowerCase().trim();
+    if (!q) return clients;
+
+    return clients.filter((client) => {
+      const text = `${client.clientGlobal.name} ${client.clientGlobal.phone}`.toLowerCase();
+      return text.includes(q);
+    });
+  }, [clients, clientSearch]);
+
+  const filteredAppointments = useMemo(() => {
+    const q = appointmentSearch.toLowerCase().trim();
+    const ready = appointments.filter((a) => !a.sale);
+
+    if (!q) return ready;
+
+    return ready.filter((appointment) => {
+      const text = `${appointment.clientTenant.clientGlobal.name} ${appointment.clientTenant.clientGlobal.phone} ${appointment.note || ""}`.toLowerCase();
+      return text.includes(q);
+    });
+  }, [appointments, appointmentSearch]);
+
   const suggestions = useMemo(() => {
     const text = cart.map((i) => i.name).join(" ").toLowerCase();
     const tags: string[] = [];
@@ -232,11 +254,10 @@ export default function VenditePage() {
 
     const already = cart.map((i) => i.name);
 
-    return PRODUCTS.filter((p) => tags.includes(p.tag) && !already.includes(p.name)).slice(
-      0,
-      4,
-    );
+    return PRODUCTS.filter((p) => tags.includes(p.tag) && !already.includes(p.name)).slice(0, 3);
   }, [cart]);
+
+  const canCloseSale = Boolean(selectedClient && cart.length > 0 && total > 0 && !loading);
 
   async function fetchWithAuth(path: string, options?: RequestInit) {
     const token = localStorage.getItem("salonpro_token") || localStorage.getItem("token");
@@ -269,108 +290,27 @@ export default function VenditePage() {
     return data;
   }
 
-
-  function soldCardPaidTotal(card: SoldCard) {
-    return (card.payments || []).reduce(
-      (sum, payment) => sum + Number(payment.amount || 0),
-      0,
-    );
-  }
-
-  function soldCardResidual(card: SoldCard) {
-    return Math.max(0, Number(card.price || 0) - soldCardPaidTotal(card));
-  }
-
-  function soldCardInstallment(card: SoldCard) {
-    return Number(card.price || 0) / Math.max(1, Number(card.total || 1));
-  }
-
-  function sameAppointmentMinute(a: string, date?: string, time?: string) {
-    if (!date || !time) return false;
-
-    const left = new Date(a);
-    const right = new Date(`${date}T${time}:00`);
-
-    return Math.abs(left.getTime() - right.getTime()) <= 15 * 60 * 1000;
-  }
-
-  function findCardForAppointment(appointment: AppointmentItem) {
-    const activeForClient = soldCards.filter((card) => {
-      return (
-        card.clientTenantId === appointment.clientTenant.id &&
-        soldCardResidual(card) > 0
-      );
-    });
-
-    const exact = activeForClient.find((card) => {
-      return (card.appointments || []).some((planned) =>
-        sameAppointmentMinute(appointment.date, planned.date, planned.time),
-      );
-    });
-
-    return exact || activeForClient[0] || null;
-  }
-
-  function buildCardPaymentItem(card: SoldCard): CartItem | null {
-    const residual = soldCardResidual(card);
-
-    if (residual <= 0) return null;
-
-    const amount =
-      card.paymentMode === "INTERO_PRIMA_SEDUTA"
-        ? residual
-        : Math.min(soldCardInstallment(card), residual);
-
-    return {
-      id: crypto.randomUUID(),
-      type: "service",
-      name:
-        card.paymentMode === "INTERO_PRIMA_SEDUTA"
-          ? `Saldo card: ${card.cardName}`
-          : `Rata card: ${card.cardName}`,
-      price: Number(amount.toFixed(2)),
-      cost: 0,
-      quantity: 1,
-      discount: 0,
-      cardSaleId: card.id,
-      cardPaymentType:
-        card.paymentMode === "INTERO_PRIMA_SEDUTA"
-          ? "SALDO_INTERO"
-          : "RATA_SEDUTA",
-    };
-  }
-
   async function loadData() {
     try {
-      const [clientsData, appointmentsData, soldCardsData] = await Promise.all([
+      setDataLoading(true);
+
+      const [clientsData, appointmentsData] = await Promise.all([
         fetchWithAuth("/clients"),
         fetchWithAuth("/appointments"),
-        fetchWithAuth("/marketing/cards/sales"),
       ]);
 
       setClients(clientsData || []);
-      setSoldCards(soldCardsData || []);
 
-      const now = Date.now();
-
-      const ready = (appointmentsData || [])
-        .filter((a: AppointmentItem) => {
-          if (a.sale) return false;
-
-          const start = new Date(a.date).getTime();
-
-          // In cassa mostriamo solo appuntamenti già iniziati o passati.
-          // Così non escono appuntamenti card futuri con "Finisce tra 80000 min".
-          return start <= now;
-        })
-        .sort(
-          (a: AppointmentItem, b: AppointmentItem) =>
-            new Date(a.date).getTime() - new Date(b.date).getTime(),
-        );
+      const ready = (appointmentsData || []).sort(
+        (a: AppointmentItem, b: AppointmentItem) =>
+          new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
 
       setAppointments(ready);
     } catch (err: any) {
       setMessage(`⚠️ ${err.message || "Errore caricamento cassa"}`);
+    } finally {
+      setDataLoading(false);
     }
   }
 
@@ -425,26 +365,6 @@ export default function VenditePage() {
 
     if (client) setSelectedClientId(client.id);
 
-    const linkedCard = findCardForAppointment(appointment);
-
-    if (linkedCard) {
-      const cardItem = buildCardPaymentItem(linkedCard);
-
-      if (cardItem) {
-        setCart([cardItem]);
-        setMessage(
-          linkedCard.paymentMode === "INTERO_PRIMA_SEDUTA"
-            ? `✅ Appuntamento card caricato: saldo intero ${money(cardItem.price)}.`
-            : `✅ Appuntamento card caricato: rata seduta ${money(cardItem.price)}.`,
-        );
-        return;
-      }
-
-      setCart([]);
-      setMessage("✅ Card già saldata. Nessun importo da incassare.");
-      return;
-    }
-
     const services =
       appointment.note && appointment.note !== "Appuntamento"
         ? appointment.note.split(" + ")
@@ -466,6 +386,14 @@ export default function VenditePage() {
 
     setCart(items);
     setMessage(`✅ Appuntamento di ${appointment.clientTenant.clientGlobal.name} caricato in cassa.`);
+  }
+
+  function loadClientOnly(clientId: string) {
+    setSelectedClientId(clientId);
+    setSelectedAppointment(null);
+    setCart([]);
+    const client = clients.find((c) => c.id === clientId);
+    setMessage(client ? `Cliente ${client.clientGlobal.name} selezionato.` : "");
   }
 
   function updateItem(id: string, field: keyof CartItem, value: string) {
@@ -517,14 +445,25 @@ export default function VenditePage() {
     setCart((prev) => prev.filter((item) => item.id !== id));
   }
 
+  function clearCheckout() {
+    setSelectedAppointment(null);
+    setSelectedClientId("");
+    setCart([]);
+    setDiscountType("none");
+    setDiscountValue("");
+    setReceiptType("FISCAL");
+    setPaymentMethod("card");
+    setMessage("Cassa pulita.");
+  }
+
   async function closeSale() {
     if (!selectedClient) {
-      setMessage("⚠️ Seleziona un cliente.");
+      setMessage("⚠️ Seleziona un cliente o carica un appuntamento.");
       return;
     }
 
     if (cart.length === 0) {
-      setMessage("⚠️ Carrello vuoto.");
+      setMessage("⚠️ Aggiungi almeno un servizio o prodotto.");
       return;
     }
 
@@ -532,8 +471,6 @@ export default function VenditePage() {
     setMessage("");
 
     try {
-      const cartSnapshot = [...cart];
-
       await fetchWithAuth("/sales", {
         method: "POST",
         body: JSON.stringify({
@@ -542,7 +479,7 @@ export default function VenditePage() {
           total,
           paymentMethod,
           fiscalStatus: receiptType === "FISCAL" ? "TO_ISSUE" : "NON_FISCAL",
-          items: cartSnapshot.map((item) => ({
+          items: cart.map((item) => ({
             name: item.name,
             type: item.type,
             price: item.price,
@@ -552,30 +489,6 @@ export default function VenditePage() {
           })),
         }),
       });
-
-      const cardPaymentItems = cartSnapshot.filter((item) => item.cardSaleId);
-
-      for (const item of cardPaymentItems) {
-        const gross = item.price * item.quantity;
-        const discount = (gross * item.discount) / 100;
-        const amount = Math.max(0, gross - discount);
-
-        if (!item.cardSaleId || amount <= 0) continue;
-
-        await fetchWithAuth(`/marketing/cards/sales/${item.cardSaleId}/payments`, {
-          method: "POST",
-          body: JSON.stringify({
-            amount,
-            paymentType: item.cardPaymentType || "RATA_SEDUTA",
-            method: paymentMethod.toUpperCase(),
-            note: item.name,
-          }),
-        });
-
-        await fetchWithAuth(`/marketing/cards/sales/${item.cardSaleId}/use`, {
-          method: "PATCH",
-        });
-      }
 
       setMessage(
         receiptType === "FISCAL"
@@ -597,51 +510,66 @@ export default function VenditePage() {
     }
   }
 
-  function appointmentStatus(appointment: AppointmentItem) {
-    const start = new Date(appointment.date).getTime();
-    const end = start + appointment.duration * 60 * 1000;
-
-    if (Date.now() < start) {
-      const diff = Math.ceil((start - Date.now()) / 60000);
-      return `Inizia tra ${diff} min`;
-    }
-
-    const diff = Math.floor((Date.now() - end) / 60000);
-
-    if (diff < 0) return "In corso";
-    if (diff === 0) return "Appena finito";
-    return `Finito da ${diff} min`;
-  }
-
   return (
     <main className="sp-page">
-      <div className="sp-shell" style={{ maxWidth: 1540 }}>
+      <div className="sp-shell" style={{ maxWidth: 1640 }}>
         <header style={header}>
           <div>
             <div style={eyebrow}>Cassa & Checkout</div>
-            <h1 className="sp-title">Cassa PRO</h1>
+            <h1 className="sp-title">Cassa semplice</h1>
             <p className="sp-muted" style={{ marginTop: 8 }}>
-              Carica l’appuntamento, aggiungi extra, scegli sconto e uscita fiscale/non fiscale.
+              Carica l’appuntamento, controlla il carrello e incassa in pochi click.
             </p>
           </div>
 
-          <button className="sp-button-purple" onClick={closeSale} disabled={loading}>
-            {loading ? "Salvataggio..." : "Chiudi vendita"}
-          </button>
+          <div style={topActions}>
+            <button style={lightButton} onClick={clearCheckout}>
+              Pulisci cassa
+            </button>
+            <button style={primaryTopButton} onClick={closeSale} disabled={!canCloseSale}>
+              {loading ? "Salvataggio..." : `Incassa ${money(total)}`}
+            </button>
+          </div>
         </header>
+
+        <section style={stepBar}>
+          <Step active={Boolean(selectedClient)} number="1" title="Cliente" text={selectedClient ? selectedClient.clientGlobal.name : "Seleziona"} />
+          <Step active={cart.length > 0} number="2" title="Carrello" text={`${cart.length} voci`} />
+          <Step active={total > 0} number="3" title="Incasso" text={money(total)} />
+        </section>
 
         {message ? <div style={messageBox}>{message}</div> : null}
 
         <section style={mainGrid}>
           <aside className="sp-card" style={card}>
-            <h2 style={title}>Appuntamenti pronti</h2>
+            <div style={sectionHeader}>
+              <div>
+                <span style={stepBadge}>1</span>
+                <h2 style={title}>Cliente o appuntamento</h2>
+              </div>
+            </div>
 
-            <div style={{ display: "grid", gap: 12 }}>
-              {appointments.length === 0 ? (
-                <div style={emptyBox}>Nessun appuntamento pronto.</div>
+            <div style={hintBox}>
+              Consiglio: clicca un appuntamento pronto. Il cliente e i servizi si caricano da soli.
+            </div>
+
+            <input
+              className="sp-input"
+              placeholder="Cerca appuntamento o cliente..."
+              value={appointmentSearch}
+              onChange={(e) => setAppointmentSearch(e.target.value)}
+              style={searchInput}
+            />
+
+            <div style={listArea}>
+              {dataLoading ? (
+                <EmptyBox text="Caricamento appuntamenti..." />
+              ) : filteredAppointments.length === 0 ? (
+                <EmptyBox text="Nessun appuntamento pronto. Seleziona un cliente sotto." />
               ) : (
-                appointments.map((appointment) => {
+                filteredAppointments.slice(0, 8).map((appointment) => {
                   const active = selectedAppointment?.id === appointment.id;
+                  const date = new Date(appointment.date);
 
                   return (
                     <button
@@ -650,39 +578,64 @@ export default function VenditePage() {
                       style={{
                         ...appointmentCard,
                         borderColor: active
-                          ? "rgba(212,175,55,0.75)"
-                          : "rgba(255,255,255,0.08)",
+                          ? "rgba(212,175,55,0.85)"
+                          : "rgba(255,255,255,0.09)",
                         background: active
-                          ? "linear-gradient(135deg,rgba(139,92,246,0.22),rgba(212,175,55,0.12))"
-                          : "rgba(255,255,255,0.045)",
+                          ? "linear-gradient(135deg,rgba(139,92,246,0.25),rgba(212,175,55,0.14))"
+                          : "rgba(255,255,255,0.055)",
                       }}
                     >
-                      <strong>{appointment.clientTenant.clientGlobal.name}</strong>
+                      <div style={appointmentTop}>
+                        <strong>{appointment.clientTenant.clientGlobal.name}</strong>
+                        <span>{date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
                       <span>{appointment.note || "Appuntamento"}</span>
                       <small>{appointmentStatus(appointment)}</small>
+                      <em>Carica in cassa →</em>
                     </button>
                   );
                 })
               )}
             </div>
 
-            <h2 style={{ ...title, marginTop: 24 }}>Cliente</h2>
+            <h3 style={smallTitle}>Cliente senza appuntamento</h3>
+
+            <input
+              className="sp-input"
+              placeholder="Cerca cliente..."
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              style={searchInput}
+            />
+
             <select
               className="sp-input"
               value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
+              onChange={(e) => loadClientOnly(e.target.value)}
             >
               <option value="">Seleziona cliente...</option>
-              {clients.map((client) => (
+              {filteredClients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.clientGlobal.name} - {client.clientGlobal.phone}
                 </option>
               ))}
             </select>
+
+            {selectedClient ? (
+              <div style={selectedClientBox}>
+                <strong>{selectedClient.clientGlobal.name}</strong>
+                <span>{selectedClient.clientGlobal.phone}</span>
+              </div>
+            ) : null}
           </aside>
 
           <section className="sp-card" style={card}>
-            <h2 style={title}>Vendita collegata</h2>
+            <div style={sectionHeader}>
+              <div>
+                <span style={stepBadge}>2</span>
+                <h2 style={title}>Vendita collegata</h2>
+              </div>
+            </div>
 
             {selectedAppointment ? (
               <div style={selectedBox}>
@@ -690,11 +643,26 @@ export default function VenditePage() {
                 <span>{selectedAppointment.clientTenant.clientGlobal.phone}</span>
                 <span>{selectedAppointment.note || "Appuntamento"}</span>
               </div>
+            ) : selectedClient ? (
+              <div style={selectedBox}>
+                <strong>{selectedClient.clientGlobal.name}</strong>
+                <span>{selectedClient.clientGlobal.phone}</span>
+                <span>Vendita libera senza appuntamento.</span>
+              </div>
             ) : (
-              <div style={emptyBox}>Nessun appuntamento caricato.</div>
+              <EmptyBox text="Carica un appuntamento o seleziona un cliente." />
             )}
 
-            <h2 style={{ ...title, marginTop: 22 }}>Aggiungi extra</h2>
+            <div style={quickPanel}>
+              <h3 style={smallTitleNoMargin}>Aggiunte rapide</h3>
+              <div style={quickGrid}>
+                {["Piega", "Colore Base + Piega", "Taglio Donna + Piega", "Ricostruzione"].map((name) => (
+                  <button key={name} style={quickButton} onClick={() => addService(name)}>
+                    + {name}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div style={extraGrid}>
               <select
@@ -729,12 +697,22 @@ export default function VenditePage() {
               </select>
             </div>
 
-            <h2 style={{ ...title, marginTop: 18 }}>Carrello</h2>
+            <div style={cartHeader}>
+              <h2 style={title}>Carrello</h2>
+              {cart.length > 0 ? (
+                <button style={miniDanger} onClick={() => setCart([])}>
+                  Svuota
+                </button>
+              ) : null}
+            </div>
 
             {cart.length === 0 ? (
-              <div style={emptyBox}>Carrello vuoto.</div>
+              <div style={bigEmptyCart}>
+                <strong>Carrello vuoto</strong>
+                <span>Aggiungi un servizio o carica un appuntamento pronto.</span>
+              </div>
             ) : (
-              <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "grid", gap: 12 }}>
                 {cart.map((item) => {
                   const itemSubtotal = item.price * item.quantity;
                   const itemDiscount = (itemSubtotal * item.discount) / 100;
@@ -773,7 +751,9 @@ export default function VenditePage() {
                           onChange={(e) => updateItem(item.id, "discount", e.target.value)}
                           placeholder="Sconto %"
                         />
+                      </div>
 
+                      <div style={rowBottom}>
                         <div style={qtyBox}>
                           <button type="button" style={qtyBtn} onClick={() => increment(item.id, -1)}>
                             -
@@ -783,16 +763,16 @@ export default function VenditePage() {
                             +
                           </button>
                         </div>
-                      </div>
 
-                      <div style={rowRight}>
-                        <strong style={{ color: "#d4af37" }}>{money(itemTotal)}</strong>
-                        {item.discount > 0 ? (
-                          <small style={{ color: "#fecaca" }}>-{money(itemDiscount)}</small>
-                        ) : null}
-                        <button type="button" style={deleteButton} onClick={() => removeItem(item.id)}>
-                          X
-                        </button>
+                        <div style={rowRight}>
+                          <strong style={{ color: "#d4af37" }}>{money(itemTotal)}</strong>
+                          {item.discount > 0 ? (
+                            <small style={{ color: "#fecaca" }}>-{money(itemDiscount)}</small>
+                          ) : null}
+                          <button type="button" style={deleteButton} onClick={() => removeItem(item.id)}>
+                            X
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -801,46 +781,39 @@ export default function VenditePage() {
             )}
           </section>
 
-          <aside className="sp-card" style={coachCard}>
-            <h2 style={title}>💎 Coach prodotti</h2>
-
-            <div style={coachBox}>
-              {selectedAppointment
-                ? `Proposte basate su: ${selectedAppointment.note || "servizio effettuato"}`
-                : "Carica un appuntamento o aggiungi un servizio."}
+          <aside className="sp-card" style={checkoutCard}>
+            <div style={sectionHeader}>
+              <div>
+                <span style={stepBadge}>3</span>
+                <h2 style={title}>Incasso</h2>
+              </div>
             </div>
 
-            <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-              {suggestions.map((product) => (
-                <div key={product.name} style={suggestionCard}>
-                  <strong>{product.name}</strong>
-                  <p className="sp-muted" style={{ margin: "6px 0 0" }}>
-                    {product.reason}
-                  </p>
-                  <div style={{ color: "#d4af37", fontWeight: 900 }}>
-                    + {money(product.price)} · margine {money(product.price - product.cost)}
-                  </div>
-                  <button type="button" style={addBtn} onClick={() => addProduct(product)}>
-                    + Aggiungi alla cassa
+            <div style={coachBlock}>
+              <h3>💎 Coach prodotti</h3>
+              <p>
+                {cart.length === 0
+                  ? "Aggiungi un servizio: ti suggerirò i prodotti giusti."
+                  : "Proposte consigliate in base al carrello."}
+              </p>
+
+              <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                {suggestions.map((product) => (
+                  <button key={product.name} style={suggestionButton} onClick={() => addProduct(product)}>
+                    <strong>{product.name}</strong>
+                    <span>{product.reason}</span>
+                    <em>+ {money(product.price)} · margine {money(product.price - product.cost)}</em>
                   </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             <div style={summaryBox}>
-              <div style={summaryRow}>
-                <span>Subtotale lordo</span>
-                <strong>{money(rowSubtotal)}</strong>
-              </div>
-
-              <div style={summaryRow}>
-                <span>Sconti riga</span>
-                <strong style={{ color: "#fecaca" }}>-{money(rowDiscountTotal)}</strong>
-              </div>
+              <SummaryRow label="Subtotale" value={money(rowSubtotal)} />
+              <SummaryRow label="Sconti riga" value={`-${money(rowDiscountTotal)}`} danger />
 
               <div style={discountPanel}>
                 <label style={label}>Sconto extra</label>
-
                 <div style={discountGrid}>
                   <select
                     className="sp-input"
@@ -862,29 +835,19 @@ export default function VenditePage() {
                 </div>
               </div>
 
-              <div style={summaryRow}>
-                <span>Sconto extra</span>
-                <strong style={{ color: "#fecaca" }}>-{money(globalDiscountAmount)}</strong>
-              </div>
+              <SummaryRow label="Sconto extra" value={`-${money(globalDiscountAmount)}`} danger />
+              <SummaryRow label="Sconto totale" value={`-${money(discountTotal)}`} danger />
 
-              <div style={summaryRow}>
-                <span>Sconto totale</span>
-                <strong style={{ color: "#fecaca" }}>-{money(discountTotal)}</strong>
-              </div>
-
-              <div style={summaryRowBig}>
-                <span>Totale finale</span>
+              <div style={totalBox}>
+                <span>Totale da pagare</span>
                 <strong>{money(total)}</strong>
               </div>
 
-              <div style={summaryRow}>
-                <span>Margine stimato</span>
-                <strong style={{ color: "#86efac" }}>{money(margin)}</strong>
-              </div>
+              <SummaryRow label="Margine stimato" value={money(margin)} success />
             </div>
 
             <div style={{ marginTop: 16 }}>
-              <label style={label}>Pagamento</label>
+              <label style={label}>Metodo pagamento</label>
               <select
                 className="sp-input"
                 value={paymentMethod}
@@ -898,28 +861,40 @@ export default function VenditePage() {
             </div>
 
             <div style={{ marginTop: 16 }}>
-              <label style={label}>Uscita documento</label>
+              <label style={label}>Documento</label>
               <select
                 className="sp-input"
                 value={receiptType}
                 onChange={(e) => setReceiptType(e.target.value as ReceiptType)}
               >
-                <option value="FISCAL">Scontrino FISCALE</option>
+                <option value="FISCAL">Scontrino fiscale</option>
                 <option value="NON_FISCAL">Non fiscale</option>
               </select>
             </div>
 
+            {!selectedClient ? (
+              <div style={warningBox}>Seleziona un cliente per incassare.</div>
+            ) : cart.length === 0 ? (
+              <div style={warningBox}>Aggiungi almeno una voce al carrello.</div>
+            ) : null}
+
             <button
               className="sp-button-purple"
-              style={{ width: "100%", marginTop: 18, padding: 18 }}
+              style={{
+                width: "100%",
+                marginTop: 18,
+                padding: 20,
+                fontSize: 16,
+                opacity: canCloseSale ? 1 : 0.5,
+              }}
               onClick={closeSale}
-              disabled={loading}
+              disabled={!canCloseSale}
             >
               {loading
                 ? "Salvataggio..."
                 : receiptType === "FISCAL"
-                  ? "REGISTRA + SCONTRINO FISCALE"
-                  : "REGISTRA NON FISCALE"}
+                  ? `Incassa ${money(total)} + scontrino`
+                  : `Incassa ${money(total)} non fiscale`}
             </button>
           </aside>
         </section>
@@ -928,12 +903,61 @@ export default function VenditePage() {
   );
 }
 
+function Step({
+  active,
+  number,
+  title,
+  text,
+}: {
+  active: boolean;
+  number: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div style={{ ...stepItem, opacity: active ? 1 : 0.72 }}>
+      <span style={{ ...stepCircle, background: active ? "linear-gradient(135deg,#8b5cf6,#d4af37)" : "rgba(255,255,255,0.1)" }}>
+        {number}
+      </span>
+      <div>
+        <strong>{title}</strong>
+        <small>{text}</small>
+      </div>
+    </div>
+  );
+}
+
+function EmptyBox({ text }: { text: string }) {
+  return <div style={emptyBox}>{text}</div>;
+}
+
+function SummaryRow({
+  label,
+  value,
+  danger,
+  success,
+}: {
+  label: string;
+  value: string;
+  danger?: boolean;
+  success?: boolean;
+}) {
+  return (
+    <div style={summaryRow}>
+      <span>{label}</span>
+      <strong style={{ color: danger ? "#fecaca" : success ? "#86efac" : "#fff" }}>
+        {value}
+      </strong>
+    </div>
+  );
+}
+
 const header: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: 16,
   alignItems: "center",
-  marginBottom: 24,
+  marginBottom: 18,
   flexWrap: "wrap",
 };
 
@@ -943,6 +967,32 @@ const eyebrow: React.CSSProperties = {
   letterSpacing: 2,
   textTransform: "uppercase",
   fontSize: 13,
+};
+
+const topActions: React.CSSProperties = {
+  display: "flex",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const primaryTopButton: React.CSSProperties = {
+  border: 0,
+  borderRadius: 16,
+  padding: "15px 22px",
+  background: "linear-gradient(135deg,#8b5cf6,#d4af37)",
+  color: "#fff",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const lightButton: React.CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: 16,
+  padding: "15px 18px",
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 const messageBox: React.CSSProperties = {
@@ -955,19 +1005,108 @@ const messageBox: React.CSSProperties = {
   fontWeight: 900,
 };
 
+const stepBar: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 12,
+  marginBottom: 18,
+};
+
+const stepItem: React.CSSProperties = {
+  display: "flex",
+  gap: 12,
+  alignItems: "center",
+  padding: 14,
+  borderRadius: 18,
+  border: "1px solid rgba(212,175,55,0.2)",
+  background: "rgba(255,255,255,0.055)",
+  color: "#fff",
+};
+
+const stepCircle: React.CSSProperties = {
+  width: 38,
+  height: 38,
+  borderRadius: 999,
+  display: "grid",
+  placeItems: "center",
+  fontWeight: 950,
+  color: "#fff",
+};
+
 const mainGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "0.78fr 1.2fr 0.92fr",
-  gap: 20,
+  gridTemplateColumns: "0.82fr 1.25fr 0.9fr",
+  gap: 18,
+  alignItems: "start",
 };
 
 const card: React.CSSProperties = {
   padding: 22,
+  minHeight: 720,
+};
+
+const checkoutCard: React.CSSProperties = {
+  padding: 22,
+  position: "sticky",
+  top: 18,
+};
+
+const sectionHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 14,
+};
+
+const stepBadge: React.CSSProperties = {
+  display: "inline-grid",
+  placeItems: "center",
+  width: 28,
+  height: 28,
+  borderRadius: 999,
+  background: "rgba(139,92,246,0.22)",
+  border: "1px solid rgba(139,92,246,0.45)",
+  color: "#fff",
+  fontWeight: 950,
+  marginRight: 10,
 };
 
 const title: React.CSSProperties = {
   color: "#d4af37",
-  marginTop: 0,
+  margin: 0,
+};
+
+const smallTitle: React.CSSProperties = {
+  color: "#d4af37",
+  margin: "22px 0 10px",
+};
+
+const smallTitleNoMargin: React.CSSProperties = {
+  color: "#d4af37",
+  margin: 0,
+};
+
+const hintBox: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 16,
+  background: "rgba(212,175,55,0.12)",
+  border: "1px solid rgba(212,175,55,0.20)",
+  color: "#f8e9ad",
+  fontWeight: 850,
+  marginBottom: 14,
+};
+
+const searchInput: React.CSSProperties = {
+  marginBottom: 12,
+};
+
+const listArea: React.CSSProperties = {
+  display: "grid",
+  gap: 10,
+  maxHeight: 360,
+  overflowY: "auto",
+  paddingRight: 4,
 };
 
 const appointmentCard: React.CSSProperties = {
@@ -978,138 +1117,213 @@ const appointmentCard: React.CSSProperties = {
   color: "#fff",
   textAlign: "left",
   display: "grid",
-  gap: 6,
+  gap: 7,
   cursor: "pointer",
+};
+
+const appointmentTop: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
+const selectedClientBox: React.CSSProperties = {
+  marginTop: 14,
+  padding: 14,
+  borderRadius: 16,
+  background: "rgba(34,197,94,0.10)",
+  border: "1px solid rgba(34,197,94,0.22)",
+  color: "#fff",
+  display: "grid",
+  gap: 4,
 };
 
 const selectedBox: React.CSSProperties = {
   padding: 16,
   borderRadius: 18,
-  background: "rgba(212,175,55,0.10)",
-  border: "1px solid rgba(212,175,55,0.24)",
+  background: "rgba(255,255,255,0.075)",
+  border: "1px solid rgba(255,255,255,0.1)",
   color: "#fff",
   display: "grid",
   gap: 6,
+  marginBottom: 16,
+};
+
+const emptyBox: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.07)",
+  color: "#d7d7e7",
+  fontWeight: 850,
+};
+
+const quickPanel: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(0,0,0,0.22)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  marginBottom: 16,
+};
+
+const quickGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 10,
+  marginTop: 12,
+};
+
+const quickButton: React.CSSProperties = {
+  border: "1px solid rgba(212,175,55,0.25)",
+  borderRadius: 14,
+  padding: 13,
+  background: "rgba(212,175,55,0.1)",
+  color: "#fff",
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 const extraGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 10,
+  gap: 12,
+  marginBottom: 18,
+};
+
+const cartHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 10,
+};
+
+const bigEmptyCart: React.CSSProperties = {
+  minHeight: 220,
+  borderRadius: 22,
+  border: "1px dashed rgba(255,255,255,0.16)",
+  background: "rgba(255,255,255,0.04)",
+  display: "grid",
+  placeItems: "center",
+  textAlign: "center",
+  color: "#d7d7e7",
+  fontWeight: 900,
+  padding: 24,
 };
 
 const cartRow: React.CSSProperties = {
   padding: 14,
   borderRadius: 18,
-  background: "rgba(255,255,255,0.045)",
-  display: "grid",
-  gridTemplateColumns: "1fr auto",
-  gap: 12,
-  alignItems: "center",
+  background: "rgba(255,255,255,0.065)",
+  border: "1px solid rgba(255,255,255,0.10)",
 };
 
 const cartFields: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "0.8fr 1.4fr 0.65fr 0.65fr 0.7fr",
-  gap: 8,
+  gridTemplateColumns: "0.85fr 1.45fr 0.6fr 0.6fr",
+  gap: 10,
+};
+
+const rowBottom: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  alignItems: "center",
+  marginTop: 10,
 };
 
 const qtyBox: React.CSSProperties = {
-  display: "flex",
+  display: "inline-flex",
   alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-  color: "#fff",
+  gap: 12,
+  padding: 8,
+  borderRadius: 14,
+  background: "rgba(0,0,0,0.28)",
 };
 
 const qtyBtn: React.CSSProperties = {
+  width: 30,
+  height: 30,
   border: 0,
-  width: 34,
-  height: 34,
   borderRadius: 10,
-  background: "#8b5cf6",
+  background: "rgba(139,92,246,0.9)",
   color: "#fff",
-  fontWeight: 900,
+  fontWeight: 950,
+  cursor: "pointer",
 };
 
 const rowRight: React.CSSProperties = {
-  minWidth: 110,
-  display: "grid",
-  gap: 6,
-  justifyItems: "end",
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
 };
 
 const deleteButton: React.CSSProperties = {
   border: 0,
+  borderRadius: 12,
   background: "#ef4444",
   color: "#fff",
-  borderRadius: 10,
-  padding: "8px 10px",
-  fontWeight: 900,
+  fontWeight: 950,
+  cursor: "pointer",
+  padding: "9px 12px",
 };
 
-const coachCard: React.CSSProperties = {
-  padding: 22,
-  background:
-    "radial-gradient(circle at top right, rgba(212,175,55,0.15), transparent 35%), rgba(255,255,255,0.05)",
+const miniDanger: React.CSSProperties = {
+  ...deleteButton,
+  padding: "8px 12px",
 };
 
-const coachBox: React.CSSProperties = {
+const coachBlock: React.CSSProperties = {
   padding: 16,
-  borderRadius: 18,
-  background: "rgba(212,175,55,0.12)",
-  color: "#f5d76e",
-  fontWeight: 900,
-  lineHeight: 1.5,
+  borderRadius: 20,
+  background: "rgba(212,175,55,0.10)",
+  border: "1px solid rgba(212,175,55,0.18)",
+  color: "#fff",
+  marginBottom: 16,
 };
 
-const suggestionCard: React.CSSProperties = {
+const suggestionButton: React.CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: 16,
   padding: 14,
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.045)",
+  background: "rgba(255,255,255,0.07)",
+  color: "#fff",
   display: "grid",
-  gap: 10,
-  color: "#fff",
-};
-
-const addBtn: React.CSSProperties = {
-  padding: 12,
-  borderRadius: 14,
-  border: 0,
-  background: "linear-gradient(135deg,#8b5cf6,#d4af37)",
-  color: "#fff",
-  fontWeight: 900,
+  gap: 5,
+  textAlign: "left",
+  cursor: "pointer",
 };
 
 const summaryBox: React.CSSProperties = {
-  marginTop: 18,
+  borderRadius: 20,
+  background: "rgba(0,0,0,0.38)",
   padding: 16,
-  borderRadius: 18,
-  background: "rgba(0,0,0,0.24)",
-  display: "grid",
-  gap: 10,
+  border: "1px solid rgba(255,255,255,0.08)",
 };
 
 const summaryRow: React.CSSProperties = {
   display: "flex",
+  alignItems: "center",
   justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 10,
   color: "#fff",
-  fontWeight: 900,
-};
-
-const summaryRowBig: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  color: "#fff",
-  fontSize: 24,
-  fontWeight: 900,
+  fontWeight: 850,
 };
 
 const discountPanel: React.CSSProperties = {
   padding: 12,
   borderRadius: 16,
-  background: "rgba(255,255,255,0.045)",
+  background: "rgba(255,255,255,0.06)",
   border: "1px solid rgba(255,255,255,0.08)",
+  margin: "12px 0",
+};
+
+const label: React.CSSProperties = {
+  display: "block",
+  color: "#fff",
+  fontWeight: 900,
+  marginBottom: 8,
 };
 
 const discountGrid: React.CSSProperties = {
@@ -1118,16 +1332,25 @@ const discountGrid: React.CSSProperties = {
   gap: 10,
 };
 
-const label: React.CSSProperties = {
-  display: "block",
-  marginBottom: 8,
+const totalBox: React.CSSProperties = {
+  marginTop: 14,
+  marginBottom: 12,
+  padding: 16,
+  borderRadius: 18,
+  background: "linear-gradient(135deg,rgba(139,92,246,0.28),rgba(212,175,55,0.18))",
+  border: "1px solid rgba(212,175,55,0.25)",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
   color: "#fff",
-  fontWeight: 900,
 };
 
-const emptyBox: React.CSSProperties = {
-  padding: 18,
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.045)",
-  color: "#b8bfd0",
+const warningBox: React.CSSProperties = {
+  marginTop: 14,
+  padding: 14,
+  borderRadius: 16,
+  background: "rgba(239,68,68,0.12)",
+  border: "1px solid rgba(239,68,68,0.22)",
+  color: "#fecaca",
+  fontWeight: 900,
 };
