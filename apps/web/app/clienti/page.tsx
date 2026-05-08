@@ -214,6 +214,48 @@ export default function ClientiPage() {
     }
   }
 
+
+  async function deleteSelectedClient() {
+    if (!selectedClient) return;
+
+    const ok = confirm(`Vuoi rimuovere ${selectedClient.name} dal CRM clienti? Lo storico resterà salvato.`);
+    if (!ok) return;
+
+    try {
+      setNotesMessage("");
+
+      const token = getToken();
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/clients/${selectedClient.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Errore rimozione cliente");
+      }
+
+      setClients((prev) => prev.filter((client) => client.id !== selectedClient.id));
+      setSelectedClientId((prev) => {
+        const remaining = clients.filter((client) => client.id !== selectedClient.id);
+        return remaining[0]?.id || null;
+      });
+
+      setNotesMessage("Cliente rimosso dal CRM.");
+    } catch (error: any) {
+      setNotesMessage(error.message || "Errore rimozione cliente");
+    }
+  }
+
   async function saveRelationshipNotes() {
     if (!selectedClient) return;
 
@@ -455,6 +497,13 @@ export default function ClientiPage() {
                   >
                     {savingNotes ? "Salvataggio..." : "Salva note relazione"}
                   </button>
+
+                  <button
+                    onClick={deleteSelectedClient}
+                    style={dangerFullButtonStyle}
+                  >
+                    Rimuovi cliente dal CRM
+                  </button>
                 </div>
               </>
             )}
@@ -637,6 +686,20 @@ const smallDarkButtonStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.08)",
   color: "#fff",
   fontSize: 13,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+
+const dangerFullButtonStyle: React.CSSProperties = {
+  width: "100%",
+  marginTop: 12,
+  border: 0,
+  borderRadius: 16,
+  padding: "15px 18px",
+  background: "linear-gradient(135deg,#ef4444,#991b1b)",
+  color: "#fff",
+  fontSize: 15,
   fontWeight: 950,
   cursor: "pointer",
 };

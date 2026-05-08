@@ -4,6 +4,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   BadRequestException,
   Req,
@@ -48,6 +49,12 @@ export class ClientsController {
       id,
       body.notes || "",
     );
+  }
+
+
+  @Delete(":id")
+  deleteClient(@Req() req: any, @Param("id") id: string) {
+    return this.clientsService.deleteClient(req.user.tenantId, id);
   }
 
   @Post("quick")

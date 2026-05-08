@@ -9,6 +9,7 @@ export class ClientsService {
     return this.prisma.clientTenant.findMany({
       where: {
         tenantId,
+        archived: false,
       },
       include: {
         clientGlobal: true,
@@ -102,6 +103,24 @@ export class ClientsService {
     });
   }
 
+
+  async deleteClient(tenantId: string, clientGlobalId: string) {
+    return this.prisma.clientTenant.update({
+      where: {
+        tenantId_clientGlobalId: {
+          tenantId,
+          clientGlobalId,
+        },
+      },
+      data: {
+        archived: true,
+      },
+      include: {
+        clientGlobal: true,
+      },
+    });
+  }
+
   async createQuick(
     tenantId: string,
     name: string,
@@ -125,7 +144,9 @@ export class ClientsService {
           clientGlobalId: clientGlobal.id,
         },
       },
-      update: {},
+      update: {
+        archived: false,
+      },
       create: {
         tenantId,
         clientGlobalId: clientGlobal.id,
