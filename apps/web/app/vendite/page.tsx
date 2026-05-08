@@ -38,6 +38,25 @@ type CartItem = {
   discount: number;
 };
 
+type ServicePrice = {
+  id: string;
+  name: string;
+  category?: string;
+  duration: number;
+  price: number;
+  cost: number;
+  active?: boolean;
+};
+
+type StaffMember = {
+  id: string;
+  name: string;
+  role?: string;
+  monthlyCost?: number;
+  productiveHours?: number;
+  active?: boolean;
+};
+
 type ProductSuggestion = {
   name: string;
   tag: string;
@@ -157,6 +176,9 @@ export default function VenditePage() {
 
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [servicePrices, setServicePrices] = useState<ServicePrice[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState("");
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null);
 
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -270,6 +292,64 @@ export default function VenditePage() {
 
   const canCloseSale = Boolean(selectedClient && cart.length > 0 && total > 0 && !loading);
 
+  const serviceCatalog = useMemo(() => {
+    const catalog: Record<string, { price: number; cost: number; duration: number }> = {};
+
+    Object.entries(SERVICE_PRICES).forEach(([name, data]) => {
+      catalog[name] = {
+        price: data.price,
+        cost: data.cost,
+        duration: 30,
+      };
+    });
+
+    servicePrices.forEach((service) => {
+      catalog[service.name] = {
+        price: Number(service.price || 0),
+        cost: Number(service.cost || 0),
+        duration: Number(service.duration || 30),
+      };
+    });
+
+    return catalog;
+  }, [servicePrices]);
+
+  function getServiceData(name: string) {
+    return serviceCatalog[name] || { price: 30, cost: 5, duration: 30 };
+  }
+
+  function getStaffMinuteCost(staffId?: string) {
+    if (!staffId) return 0;
+
+    const member = staff.find((item) => item.id === staffId);
+
+    if (!member) return 0;
+
+    const monthlyCost = Number(member.monthlyCost || 0);
+    const productiveHours = Number(member.productiveHours || 0);
+
+    if (monthlyCost <= 0 || productiveHours <= 0) return 0;
+
+    return monthlyCost / productiveHours / 60;
+  }
+
+  function getServiceLaborCost(serviceName: string, staffId?: string) {
+    const data = getServiceData(serviceName);
+    const minuteCost = getStaffMinuteCost(staffId || selectedStaffId || selectedAppointment?.staff?.id || "");
+
+    return Number((Number(data.duration || 30) * minuteCost).toFixed(2));
+  }
+
+  function getServiceFullCost(serviceName: string, staffId?: string) {
+    const data = getServiceData(serviceName);
+    const technicalCost = Number(data.cost || 0);
+    const laborCost = getServiceLaborCost(serviceName, staffId);
+
+    return Number((technicalCost + laborCost).toFixed(2));
+  }
+
+
+
   async function fetchWithAuth(path: string, options?: RequestInit) {
     const token = localStorage.getItem("salonpro_token") || localStorage.getItem("token");
 
@@ -305,12 +385,16 @@ export default function VenditePage() {
     try {
       setDataLoading(true);
 
-      const [clientsData, appointmentsData] = await Promise.all([
+      const [clientsData, appointmentsData, servicePricesData, staffData] = await Promise.all([
         fetchWithAuth("/clients"),
         fetchWithAuth("/appointments"),
+        fetchWithAuth("/service-prices"),
+        fetchWithAuth("/staff"),
       ]);
 
       setClients(clientsData || []);
+      setServicePrices(Array.isArray(servicePricesData) ? servicePricesData.filter((item: ServicePrice) => item.active !== false) : []);
+      setStaff(Array.isArray(staffData) ? staffData.filter((item: StaffMember) => item.active !== false) : []);
 
       const ready = (appointmentsData || []).sort(
         (a: AppointmentItem, b: AppointmentItem) =>
@@ -343,14 +427,14 @@ export default function VenditePage() {
   }
 
   function addService(name: string) {
-    const data = SERVICE_PRICES[name];
+    const data = getServiceData(name);
     if (!data) return;
 
     addCartItem({
       type: "service",
       name,
-      price: data.price,
-      cost: data.cost,
+      price: Number(data.price || 0),
+      cost: getServiceFullCost(name),
       quantity: 1,
       discount: 0,
     });
@@ -369,6 +453,7 @@ export default function VenditePage() {
 
   function loadAppointment(appointment: AppointmentItem) {
     setSelectedAppointment(appointment);
+    setSelectedStaffId(appointment.staff?.id || "");
 
     const client = clients.find(
       (c) => c.clientGlobal.id === appointment.clientTenant.clientGlobal.id,
@@ -382,14 +467,14 @@ export default function VenditePage() {
         : [];
 
     const items: CartItem[] = services.map((name) => {
-      const data = SERVICE_PRICES[name] || { price: 30, cost: 5 };
+      const data = getServiceData(name);
 
       return {
         id: crypto.randomUUID(),
         type: "service",
         name,
-        price: data.price,
-        cost: data.cost,
+        price: Number(data.price || 0),
+        cost: getServiceFullCost(name, appointment.staff?.id || ""),
         quantity: 1,
         discount: 0,
       };
@@ -403,8 +488,24 @@ export default function VenditePage() {
     setSelectedClientId(clientId);
     setSelectedAppointment(null);
     setCart([]);
+    if (!selectedStaffId && staff[0]) setSelectedStaffId(staff[0].id);
     const client = clients.find((c) => c.id === clientId);
     setMessage(client ? `Cliente ${client.clientGlobal.name} selezionato.` : "");
+  }
+
+  function changeCheckoutStaff(staffId: string) {
+    setSelectedStaffId(staffId);
+
+    setCart((prev) =>
+      prev.map((item) =>
+        item.type === "service"
+          ? {
+              ...item,
+              cost: getServiceFullCost(item.name, staffId),
+            }
+          : item,
+      ),
+    );
   }
 
   function updateItem(id: string, field: keyof CartItem, value: string) {
@@ -664,6 +765,27 @@ export default function VenditePage() {
               <EmptyBox text="Carica un appuntamento o seleziona un cliente." />
             )}
 
+            {staff.length > 0 ? (
+              <div style={staffSelectBox}>
+                <label style={label}>Operatore per costo personale</label>
+                <select
+                  className="sp-input"
+                  value={selectedStaffId}
+                  onChange={(e) => changeCheckoutStaff(e.target.value)}
+                >
+                  <option value="">Nessun operatore</option>
+                  {staff.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  Il costo personale viene calcolato da Team KPI: stipendio mensile / ore produttive / minuti servizio.
+                </small>
+              </div>
+            ) : null}
+
             <div style={quickPanel}>
               <h3 style={smallTitleNoMargin}>Aggiunte rapide</h3>
               <div style={quickGrid}>
@@ -684,9 +806,9 @@ export default function VenditePage() {
                 }}
               >
                 <option value="">+ Servizio extra...</option>
-                {Object.keys(SERVICE_PRICES).map((name) => (
+                {Object.keys(serviceCatalog).map((name) => (
                   <option key={name} value={name}>
-                    {name} — {money(SERVICE_PRICES[name].price)}
+                    {name} — {money(serviceCatalog[name].price)}
                   </option>
                 ))}
               </select>
@@ -777,6 +899,9 @@ export default function VenditePage() {
 
                         <div style={rowRight}>
                           <strong style={{ color: "#d4af37" }}>{money(itemTotal)}</strong>
+                          <small style={{ color: "#cbd5e1" }}>
+                            costo {money(item.cost * item.quantity)}
+                          </small>
                           {item.discount > 0 ? (
                             <small style={{ color: "#fecaca" }}>-{money(itemDiscount)}</small>
                           ) : null}
@@ -854,7 +979,7 @@ export default function VenditePage() {
                 <strong>{money(total)}</strong>
               </div>
 
-              <SummaryRow label="Margine stimato" value={money(margin)} success />
+              <SummaryRow label="Margine lordo stimato" value={money(margin)} success />
             </div>
 
             <div style={{ marginTop: 16 }}>
@@ -1167,6 +1292,17 @@ const emptyBox: React.CSSProperties = {
   background: "rgba(255,255,255,0.07)",
   color: "#d7d7e7",
   fontWeight: 850,
+};
+
+const staffSelectBox: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(34,197,94,0.08)",
+  border: "1px solid rgba(34,197,94,0.18)",
+  color: "#d9f99d",
+  display: "grid",
+  gap: 8,
+  marginBottom: 16,
 };
 
 const quickPanel: React.CSSProperties = {
