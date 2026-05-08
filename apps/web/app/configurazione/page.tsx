@@ -67,7 +67,6 @@ export default function ConfigurazionePage() {
   const [serviceCategory, setServiceCategory] = useState("Piega");
   const [servicePrice, setServicePrice] = useState("");
   const [serviceDuration, setServiceDuration] = useState("");
-  const [serviceCost, setServiceCost] = useState("");
 
   const [fiscalMode, setFiscalMode] = useState("DEMO");
   const [diagnosticResult, setDiagnosticResult] = useState("");
@@ -224,14 +223,12 @@ export default function ConfigurazionePage() {
           category: serviceCategory,
           price: Number(String(servicePrice || 0).replace(",", ".")),
           duration: Number(serviceDuration || 30),
-          cost: Number(String(serviceCost || 0).replace(",", ".")),
         }),
       });
 
       setServiceName("");
       setServicePrice("");
       setServiceDuration("");
-      setServiceCost("");
       setMessage("✅ Servizio salvato nel listino.");
       await loadServices();
     } catch (err: any) {
@@ -251,7 +248,7 @@ export default function ConfigurazionePage() {
       const next = {
         ...service,
         [field]:
-          field === "price" || field === "cost" || field === "duration"
+          field === "price" || field === "duration"
             ? Number(String(value || 0).replace(",", "."))
             : value,
       };
@@ -552,11 +549,14 @@ export default function ConfigurazionePage() {
           <section className="sp-card" style={cardPad}>
             <SectionTitle kicker="Listino reale" title="Listino servizi collegato al database" />
 
+              <div style={serviceCostInfoBox}>
+                Il listino gestisce prezzo, durata e categoria. Il costo tecnico reale viene calcolato automaticamente da Magazzino → Ricette servizi.
+              </div>
+
             <div style={grid5}>
               <input className="sp-input" placeholder="Nome servizio" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
               <input className="sp-input" placeholder="Prezzo €" value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} />
               <input className="sp-input" placeholder="Durata minuti" value={serviceDuration} onChange={(e) => setServiceDuration(e.target.value)} />
-              <input className="sp-input" placeholder="Costo tecnico €" value={serviceCost} onChange={(e) => setServiceCost(e.target.value)} />
               <select className="sp-input" value={serviceCategory} onChange={(e) => setServiceCategory(e.target.value)}>
                 <option>Piega</option>
                 <option>Taglio</option>
@@ -737,6 +737,17 @@ const messageBox: React.CSSProperties = {
   border: "1px solid rgba(139,92,246,0.32)",
   color: "#fff",
   fontWeight: 900,
+};
+
+const serviceCostInfoBox: React.CSSProperties = {
+  margin: "12px 0 18px",
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid rgba(34,197,94,0.22)",
+  background: "rgba(34,197,94,0.08)",
+  color: "#dcfce7",
+  fontWeight: 800,
+  lineHeight: 1.4,
 };
 
 const cardPad: React.CSSProperties = {
