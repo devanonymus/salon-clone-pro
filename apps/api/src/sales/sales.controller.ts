@@ -21,6 +21,10 @@ export class SalesController {
         type?: string;
         price: number | string;
         cost?: number | string;
+        technicalCost?: number | string;
+        laborCost?: number | string;
+        duration?: number | string;
+        staffId?: string | null;
         quantity: number | string;
       }[];
     },
@@ -32,6 +36,10 @@ export class SalesController {
       type: item.type || "service",
       price: Number(String(item.price).replace(",", ".")),
       cost: Number(String(item.cost || 0).replace(",", ".")),
+      technicalCost: Number(String(item.technicalCost ?? item.cost ?? 0).replace(",", ".")),
+      laborCost: Number(String(item.laborCost || 0).replace(",", ".")),
+      duration: Number(item.duration || 0),
+      staffId: item.staffId || null,
       quantity: Number(item.quantity || 1),
     }));
 

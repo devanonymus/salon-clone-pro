@@ -57,6 +57,9 @@ export class StaffService {
         role: body.role ?? "COLLABORATORE",
         color: body.color ?? "#8b5cf6",
         active: body.active ?? true,
+        monthlyCost: Number(String(body.monthlyCost ?? 0).replace(",", ".")),
+        productiveHours: Number(String(body.productiveHours ?? 140).replace(",", ".")),
+        monthlyTarget: Number(String(body.monthlyTarget ?? 0).replace(",", ".")),
       },
     });
   }
@@ -87,6 +90,18 @@ export class StaffService {
         role: body.role,
         color: body.color,
         active: body.active,
+        monthlyCost:
+          body.monthlyCost === undefined
+            ? undefined
+            : Number(String(body.monthlyCost).replace(",", ".")),
+        productiveHours:
+          body.productiveHours === undefined
+            ? undefined
+            : Number(String(body.productiveHours).replace(",", ".")),
+        monthlyTarget:
+          body.monthlyTarget === undefined
+            ? undefined
+            : Number(String(body.monthlyTarget).replace(",", ".")),
       },
     });
   }

@@ -9,6 +9,10 @@ type SaleItemRow = {
   type: string;
   price: number;
   cost?: number;
+  technicalCost?: number;
+  laborCost?: number;
+  duration?: number;
+  staffId?: string | null;
   quantity: number;
 };
 
@@ -165,13 +169,23 @@ export default function DashboardCoachPage() {
             );
 
           const technicalCost = items.reduce(
-            (sum, item) => sum + Number(item.cost || 0) * Number(item.quantity || 1),
+            (sum, item) =>
+              sum +
+              Number(item.technicalCost ?? item.cost ?? 0) *
+                Number(item.quantity || 1),
+            0,
+          );
+
+          const laborCost = items.reduce(
+            (sum, item) =>
+              sum + Number(item.laborCost || 0) * Number(item.quantity || 1),
             0,
           );
 
           acc.services += servicesGross;
           acc.resale += resaleGross;
           acc.technicalCost += technicalCost;
+          acc.laborCost += laborCost;
           acc.total += Number(sale.total || 0);
 
           const method = String(sale.paymentMethod || "").toLowerCase();
@@ -182,7 +196,7 @@ export default function DashboardCoachPage() {
 
           return acc;
         },
-        { services: 0, resale: 0, technicalCost: 0, total: 0, posBase: 0, posSales: 0 },
+        { services: 0, resale: 0, technicalCost: 0, laborCost: 0, total: 0, posBase: 0, posSales: 0 },
       );
     };
 
@@ -214,7 +228,7 @@ export default function DashboardCoachPage() {
     const commissioni =
       current.posBase * (feePosPercentValue / 100) + current.posSales * feePosFixedValue;
 
-    const costoPersonale = 0;
+    const costoPersonale = current.laborCost;
     const costoProdotti = current.technicalCost;
 
     const costiFissi =
@@ -950,7 +964,7 @@ export default function DashboardCoachPage() {
             <Metric label="Riserva tasse" value={euro(report.riserva)} />
             <Metric label="UTILE REALE" value={euro(report.utileReale)} highlight />
             <Metric label="Fish Media" value={euro(report.fishMedio)} />
-            <Metric label="Crescita" value={`${report.crescita}%`} />
+            <Metric label="Crescita" value={report.crescita > 0 ? `+${report.crescita.toFixed(1)}%` : `${report.crescita.toFixed(1)}%`} />
           </div>
         </section>
 

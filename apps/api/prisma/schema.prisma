@@ -102,8 +102,11 @@ model Staff {
   name      String
   role      String   @default("COLLABORATORE")
   color     String   @default("#8b5cf6")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  active          Boolean  @default(true)
+  monthlyCost     Float    @default(0)
+  productiveHours Float    @default(140)
+  monthlyTarget   Float    @default(0)
+  createdAt       DateTime @default(now())
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id])
   appointments Appointment[]
@@ -155,8 +158,12 @@ model SaleItem {
   name     String
   type     String @default("service")
   price    Float
-  cost     Float  @default(0)
-  quantity Int    @default(1)
+  cost          Float   @default(0)
+  technicalCost Float   @default(0)
+  laborCost     Float   @default(0)
+  duration      Int     @default(0)
+  staffId       String?
+  quantity      Int     @default(1)
 
   sale Sale @relation(fields: [saleId], references: [id])
 

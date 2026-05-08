@@ -34,6 +34,10 @@ type CartItem = {
   name: string;
   price: number;
   cost: number;
+  technicalCost?: number;
+  laborCost?: number;
+  duration?: number;
+  staffId?: string | null;
   quantity: number;
   discount: number;
 };
@@ -333,6 +337,16 @@ export default function VenditePage() {
     return monthlyCost / productiveHours / 60;
   }
 
+  function getServiceTechnicalCost(serviceName: string) {
+    const data = getServiceData(serviceName);
+    return Number(data.cost || 0);
+  }
+
+  function getServiceDuration(serviceName: string) {
+    const data = getServiceData(serviceName);
+    return Number(data.duration || 30);
+  }
+
   function getServiceLaborCost(serviceName: string, staffId?: string) {
     const data = getServiceData(serviceName);
     const minuteCost = getStaffMinuteCost(staffId || selectedStaffId || selectedAppointment?.staff?.id || "");
@@ -435,6 +449,10 @@ export default function VenditePage() {
       name,
       price: Number(data.price || 0),
       cost: getServiceFullCost(name),
+      technicalCost: getServiceTechnicalCost(name),
+      laborCost: getServiceLaborCost(name),
+      duration: getServiceDuration(name),
+      staffId: selectedStaffId || selectedAppointment?.staff?.id || null,
       quantity: 1,
       discount: 0,
     });
@@ -446,6 +464,10 @@ export default function VenditePage() {
       name: product.name,
       price: product.price,
       cost: product.cost,
+      technicalCost: product.cost,
+      laborCost: 0,
+      duration: 0,
+      staffId: null,
       quantity: 1,
       discount: 0,
     });
@@ -475,6 +497,10 @@ export default function VenditePage() {
         name,
         price: Number(data.price || 0),
         cost: getServiceFullCost(name, appointment.staff?.id || ""),
+        technicalCost: getServiceTechnicalCost(name),
+        laborCost: getServiceLaborCost(name, appointment.staff?.id || ""),
+        duration: getServiceDuration(name),
+        staffId: appointment.staff?.id || null,
         quantity: 1,
         discount: 0,
       };
@@ -502,6 +528,10 @@ export default function VenditePage() {
           ? {
               ...item,
               cost: getServiceFullCost(item.name, staffId),
+              technicalCost: getServiceTechnicalCost(item.name),
+              laborCost: getServiceLaborCost(item.name, staffId),
+              duration: getServiceDuration(item.name),
+              staffId: staffId || null,
             }
           : item,
       ),
@@ -596,6 +626,10 @@ export default function VenditePage() {
             type: item.type,
             price: item.price,
             cost: item.cost,
+            technicalCost: item.technicalCost ?? item.cost,
+            laborCost: item.laborCost ?? 0,
+            duration: item.duration ?? 0,
+            staffId: item.staffId ?? selectedStaffId ?? null,
             quantity: item.quantity,
             discount: item.discount,
           })),

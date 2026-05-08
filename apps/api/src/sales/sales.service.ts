@@ -18,6 +18,10 @@ export class SalesService {
       type?: string;
       price: number;
       cost?: number;
+      technicalCost?: number;
+      laborCost?: number;
+      duration?: number;
+      staffId?: string | null;
       quantity: number;
     }[],
     paymentMethod?: string,
@@ -36,6 +40,10 @@ export class SalesService {
             type: item.type || "service",
             price: item.price,
             cost: item.cost || 0,
+            technicalCost: item.technicalCost ?? item.cost ?? 0,
+            laborCost: item.laborCost || 0,
+            duration: item.duration || 0,
+            staffId: item.staffId || null,
             quantity: item.quantity,
           })),
         },
@@ -43,7 +51,11 @@ export class SalesService {
       include: {
         clientGlobal: true,
         items: true,
-        appointment: true,
+        appointment: {
+          include: {
+            staff: true,
+          },
+        },
       },
     });
 
@@ -66,7 +78,11 @@ export class SalesService {
       include: {
         clientGlobal: true,
         items: true,
-        appointment: true,
+        appointment: {
+          include: {
+            staff: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
