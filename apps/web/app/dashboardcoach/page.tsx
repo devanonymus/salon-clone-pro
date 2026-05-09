@@ -3,6 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../src/lib/api";
 
+type DashboardStaffCost = {
+  id: string;
+  name: string;
+  monthlyCost?: number;
+  productiveHours?: number;
+  active?: boolean;
+};
+
 type SaleItemRow = {
   id?: string;
   name: string;
@@ -99,6 +107,40 @@ function euro(value: number) {
 }
 
 export default function DashboardCoachPage() {
+  useEffect(() => {
+    async function loadDashboardStaffCosts() {
+      try {
+        const token =
+          localStorage.getItem("salonpro_token") ||
+          localStorage.getItem("token");
+
+        if (!token) return;
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+        const res = await fetch(`${apiUrl}/staff`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || "Errore caricamento costi staff");
+        }
+
+        setDashboardStaffCosts(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    loadDashboardStaffCosts();
+  }, []);
+
+  const [dashboardStaffCosts, setDashboardStaffCosts] = useState<DashboardStaffCost[]>([]);
+
   const now = new Date();
 
   const [month, setMonth] = useState(now.getMonth());
@@ -128,6 +170,12 @@ export default function DashboardCoachPage() {
   const [message, setMessage] = useState("");
   const [coachRange, setCoachRange] = useState<"TODAY" | "LAST_7" | "MONTH">("TODAY");
   const [focusCrm, setFocusCrm] = useState(true);
+
+  const dashboardStaffMonthlyCost = useMemo(() => {
+    return dashboardStaffCosts
+      .filter((member) => member.active !== false)
+      .reduce((sum, member) => sum + Number(member.monthlyCost || 0), 0);
+  }, [dashboardStaffCosts]);
 
   const report = useMemo(() => {
     const selectedSales = sales.filter((sale) => {
@@ -228,7 +276,7 @@ export default function DashboardCoachPage() {
     const commissioni =
       current.posBase * (feePosPercentValue / 100) + current.posSales * feePosFixedValue;
 
-    const costoPersonale = current.laborCost;
+    const costoPersonale = dashboardStaffMonthlyCost;
     const costoProdotti = current.technicalCost;
 
     const costiFissi =
@@ -400,7 +448,7 @@ export default function DashboardCoachPage() {
       repairClients,
       actions,
     };
-  }, [appointments, sales, coachRange, todayKey, month, year, effectiveFishBase, target, baseline]);
+  }, [appointments, sales, coachRange, todayKey, month, year, effectiveFishBase, target, baseline, dashboardStaffMonthlyCost]);
 
   const coachRangeLabel =
     coachRange === "TODAY"
@@ -957,7 +1005,7 @@ export default function DashboardCoachPage() {
             <Metric label="IVA stimata" value={euro(report.iva)} />
             <Metric label="Fatturato Netto IVA" value={euro(report.netto)} />
             <Metric label="Commissioni POS" value={euro(report.commissioni)} />
-            <Metric label="Costo personale mese" value={euro(report.costoPersonale)} />
+            <Metric label="Costo personale fisso mese" value={euro(report.costoPersonale)} />
             <Metric label="Costo tecnico/materiali mese" value={euro(report.costoProdotti)} />
             <Metric label="Costi fissi" value={euro(report.costiFissi)} />
             <Metric label="Utile operativo" value={euro(report.utileOperativo)} />
