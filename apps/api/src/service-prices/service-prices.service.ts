@@ -1,92 +1,177 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
-
-const DEFAULT_SERVICES = [
-  { name: "Piega", duration: 35, price: 18, cost: 1.5, category: "Piega" },
-  { name: "Piega Atelier Extra Styling", duration: 45, price: 25, cost: 2, category: "Piega" },
-  { name: "Taglio Donna", duration: 35, price: 20, cost: 0, category: "Taglio" },
-  { name: "Taglio Donna + Piega", duration: 60, price: 32, cost: 2, category: "Taglio" },
-  { name: "Shampoo + Taglio Uomo", duration: 30, price: 22, cost: 1, category: "Taglio" },
-  { name: "Barba Rifinitura", duration: 10, price: 10, cost: 0.5, category: "Taglio" },
-  { name: "Colore Base", duration: 35, price: 28, cost: 7, category: "Colore" },
-  { name: "Colore Base + Piega", duration: 80, price: 42, cost: 8.5, category: "Colore" },
-  { name: "Colore Base + Taglio + Piega", duration: 105, price: 55, cost: 9.5, category: "Colore" },
-  { name: "Tonalizzante/Gloss", duration: 25, price: 22, cost: 4.5, category: "Colore" },
-  { name: "Tonalizzante + Piega", duration: 70, price: 35, cost: 6, category: "Colore" },
-  { name: "Decapaggio Colore", duration: 45, price: 45, cost: 10, category: "Colore" },
-  { name: "Decapaggio + Piega", duration: 140, price: 70, cost: 12, category: "Colore" },
-  { name: "Schiariture Parziali Meches Light", duration: 90, price: 65, cost: 18, category: "Colore" },
-  { name: "Colpi di Sole/Meches + Piega", duration: 120, price: 85, cost: 24, category: "Colore" },
-];
+import { Prisma } from "@prisma/client";
 
 @Injectable()
 export class ServicePricesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async list(tenantId: string) {
-    const existing = await this.prisma.servicePrice.findMany({
-      where: { tenantId, active: true },
-      orderBy: [{ category: "asc" }, { name: "asc" }],
-    });
-
-    if (existing.length > 0) return existing;
-
-    await this.prisma.servicePrice.createMany({
-      data: DEFAULT_SERVICES.map((item) => ({
-        tenantId,
-        ...item,
-      })),
-      skipDuplicates: true,
-    });
+    if (!tenantId) {
+      throw new BadRequestException("tenantId mancante");
+    }
 
     return this.prisma.servicePrice.findMany({
-      where: { tenantId, active: true },
-      orderBy: [{ category: "asc" }, { name: "asc" }],
+      where: {
+        tenantId,
+        active: true,
+      },
+      orderBy: [
+        { category: "asc" },
+        { name: "asc" },
+      ],
     });
   }
 
-  create(tenantId: string, body: any) {
-    return this.prisma.servicePrice.create({
-      data: {
+  async create(tenantId: string, body: any) {
+    if (!tenantId) {
+      throw new BadRequestException("tenantId mancante");
+    }
+
+    const name = String(body?.name || "").trim();
+
+    if (!name) {
+      throw new BadRequestException("Nome servizio obbligatorio");
+    }
+
+    const category = String(body?.category || "Altro").trim();
+    const duration = Number(body?.duration || 30);
+    const price = Number(body?.price || 0);
+    const cost = Number(body?.cost || 0);
+
+    const existing = await this.prisma.servicePrice.findFirst({
+      where: {
         tenantId,
-        name: String(body.name || "").trim(),
-        category: body.category || "Altro",
-        duration: Number(body.duration || 30),
-        price: Number(body.price || 0),
-        cost: Number(body.cost || 0),
+        name,
       },
     });
+
+    if (existing) {
+      if (existing.active === false) {
+        return this.prisma.servicePrice.update({
+          where: {
+            id: existing.id,
+          },
+          data: {
+            category,
+            duration,
+            price,
+            cost,
+            active: true,
+          },
+        });
+      }
+
+      throw new ConflictException("Esiste già un servizio con questo nome");
+    }
+
+    try {
+      return await this.prisma.servicePrice.create({
+        data: {
+          tenantId,
+          name,
+          category,
+          duration,
+          price,
+          cost,
+          active: true,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new ConflictException("Esiste già un servizio con questo nome");
+      }
+
+      throw error;
+    }
   }
 
   async update(tenantId: string, id: string, body: any) {
+    if (!tenantId) {
+      throw new BadRequestException("tenantId mancante");
+    }
+
     const service = await this.prisma.servicePrice.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+      },
     });
 
-    if (!service) throw new NotFoundException("Servizio non trovato");
+    if (!service) {
+      throw new NotFoundException("Servizio non trovato");
+    }
+
+    const nextName =
+      body?.name !== undefined ? String(body.name).trim() : service.name;
+
+    if (!nextName) {
+      throw new BadRequestException("Nome servizio obbligatorio");
+    }
+
+    const duplicate = await this.prisma.servicePrice.findFirst({
+      where: {
+        tenantId,
+        name: nextName,
+        id: {
+          not: id,
+        },
+      },
+    });
+
+    if (duplicate) {
+      throw new ConflictException("Esiste già un altro servizio con questo nome");
+    }
 
     return this.prisma.servicePrice.update({
-      where: { id },
+      where: {
+        id,
+      },
       data: {
-        name: body.name,
-        category: body.category,
-        duration: body.duration !== undefined ? Number(body.duration) : undefined,
-        price: body.price !== undefined ? Number(body.price) : undefined,
-        cost: body.cost !== undefined ? Number(body.cost) : undefined,
+        name: body?.name !== undefined ? nextName : undefined,
+        category:
+          body?.category !== undefined ? String(body.category).trim() : undefined,
+        duration:
+          body?.duration !== undefined ? Number(body.duration) : undefined,
+        price:
+          body?.price !== undefined ? Number(body.price) : undefined,
+        cost:
+          body?.cost !== undefined ? Number(body.cost) : undefined,
       },
     });
   }
 
   async delete(tenantId: string, id: string) {
+    if (!tenantId) {
+      throw new BadRequestException("tenantId mancante");
+    }
+
     const service = await this.prisma.servicePrice.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+      },
     });
 
-    if (!service) throw new NotFoundException("Servizio non trovato");
+    if (!service) {
+      throw new NotFoundException("Servizio non trovato");
+    }
 
     return this.prisma.servicePrice.update({
-      where: { id },
-      data: { active: false },
+      where: {
+        id,
+      },
+      data: {
+        active: false,
+      },
     });
   }
 }
