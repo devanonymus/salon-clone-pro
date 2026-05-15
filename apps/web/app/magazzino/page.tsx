@@ -36,6 +36,10 @@ const PRODUCT_CATEGORIES = [
   "Decolorante",
   "Ossigeno",
   "Fiala",
+  "Pre/Post Styling",
+  "Pre-shampoo",
+  "Prodotti viso",
+  "Siero/Tonico",
 ];
 
 const RECIPE_CATEGORIES = [
