@@ -436,6 +436,51 @@ export default function MagazzinoPage() {
     }
   }
 
+
+  function updateProductLocal(id: string, field: keyof Product, value: string) {
+    setProducts((prev) =>
+      prev.map((product) => {
+        if (product.id !== id) return product;
+
+        const numericFields = ["stock", "minStock", "cost", "sellPrice"];
+
+        return {
+          ...product,
+          [field]: numericFields.includes(String(field))
+            ? Number(String(value || 0).replace(",", "."))
+            : value,
+        };
+      }),
+    );
+  }
+
+  async function saveProductRow(product: Product) {
+    try {
+      setMessage("");
+
+      await fetchWithAuth(`/inventory/products/${product.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: product.name,
+          category: product.category,
+          productType: product.productType,
+          unit: product.unit,
+          stock: Number(product.stock || 0),
+          minStock: Number(product.minStock || 0),
+          cost: Number(product.cost || 0),
+          sellPrice: Number(product.sellPrice || 0),
+          supplier: product.supplier || "",
+        }),
+      });
+
+      setMessage("✅ Prodotto aggiornato.");
+      setTimeout(() => setMessage(""), 1800);
+      await loadData();
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore aggiornamento prodotto"}`);
+    }
+  }
+
   async function removeProduct(id: string) {
     const ok = confirm("Vuoi eliminare questo prodotto dal magazzino?");
     if (!ok) return;
@@ -749,19 +794,83 @@ export default function MagazzinoPage() {
                           </div>
                         </td>
                         <td style={td}>
-                          <span style={p.productType === "RETAIL" ? retailPill : internalPill}>
-                            {p.productType === "RETAIL" ? "Rivendita" : "Uso interno"}
-                          </span>
+                          <select
+                            className="sp-input"
+                            value={p.productType}
+                            onChange={(e) => updateProductLocal(p.id, "productType", e.target.value)}
+                            style={tableEditInput}
+                          >
+                            <option value="INTERNAL">Uso interno</option>
+                            <option value="RETAIL">Rivendita</option>
+                          </select>
                         </td>
-                        <td style={td}>{p.category}</td>
                         <td style={td}>
-                          <span style={low ? dangerPill : stockPill}>
-                            {p.stock} {p.unit}
-                          </span>
+                          <select
+                            className="sp-input"
+                            value={p.category}
+                            onChange={(e) => updateProductLocal(p.id, "category", e.target.value)}
+                            style={tableEditInput}
+                          >
+                            {PRODUCT_CATEGORIES.map((category) => (
+                              <option key={category} value={category}>
+                                {category}
+                              </option>
+                            ))}
+                          </select>
                         </td>
-                        <td style={td}>€ {p.cost.toFixed(2)}</td>
                         <td style={td}>
-                          {p.productType === "RETAIL" ? `€ ${p.sellPrice.toFixed(2)}` : "-"}
+                          <div style={stockEditGrid}>
+                            <input
+                              className="sp-input"
+                              type="number"
+                              value={p.stock}
+                              onChange={(e) => updateProductLocal(p.id, "stock", e.target.value)}
+                              style={tableSmallInput}
+                            />
+                            <select
+                              className="sp-input"
+                              value={p.unit}
+                              onChange={(e) => updateProductLocal(p.id, "unit", e.target.value)}
+                              style={tableSmallInput}
+                            >
+                              <option value="pz">pz</option>
+                              <option value="ml">ml</option>
+                              <option value="g">g</option>
+                            </select>
+                          </div>
+
+                          <input
+                            className="sp-input"
+                            type="number"
+                            value={p.minStock}
+                            onChange={(e) => updateProductLocal(p.id, "minStock", e.target.value)}
+                            placeholder="Scorta minima"
+                            style={{ ...tableEditInput, marginTop: 8 }}
+                          />
+
+                          {low ? <div style={lowStockText}>Sotto scorta</div> : null}
+                        </td>
+                        <td style={td}>
+                          <input
+                            className="sp-input"
+                            type="number"
+                            value={p.cost}
+                            onChange={(e) => updateProductLocal(p.id, "cost", e.target.value)}
+                            style={tableEditInput}
+                          />
+                        </td>
+                        <td style={td}>
+                          <input
+                            className="sp-input"
+                            type="number"
+                            value={p.sellPrice}
+                            onChange={(e) => updateProductLocal(p.id, "sellPrice", e.target.value)}
+                            disabled={p.productType === "INTERNAL"}
+                            style={{
+                              ...tableEditInput,
+                              opacity: p.productType === "INTERNAL" ? 0.45 : 1,
+                            }}
+                          />
                         </td>
                         <td style={td}>
                           <strong style={{ color: margin > 0 ? "#86efac" : "#f87171" }}>
@@ -1208,3 +1317,34 @@ const alertRow: React.CSSProperties = {
   background: "rgba(239,68,68,0.10)",
   border: "1px solid rgba(239,68,68,0.24)",
 };
+
+const tableEditInput: React.CSSProperties = {
+  minWidth: 120,
+  height: 40,
+  padding: "10px 12px",
+  borderRadius: 12,
+  fontSize: 14,
+};
+
+const tableSmallInput: React.CSSProperties = {
+  minWidth: 72,
+  height: 40,
+  padding: "10px 10px",
+  borderRadius: 12,
+  fontSize: 14,
+};
+
+const stockEditGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 72px",
+  gap: 8,
+  alignItems: "center",
+};
+
+const lowStockText: React.CSSProperties = {
+  marginTop: 6,
+  color: "#f87171",
+  fontSize: 12,
+  fontWeight: 900,
+};
+
