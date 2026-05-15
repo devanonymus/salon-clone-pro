@@ -855,7 +855,6 @@ export default function MagazzinoPage() {
                     <th style={th}>Costo conf./stock</th>
                     <th style={th}>Vendita</th>
                     <th style={th}>Margine</th>
-                    <th style={th}>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -912,18 +911,6 @@ export default function MagazzinoPage() {
                           </strong>
                         </td>
 
-                        <td style={td}>
-                          <button
-                            type="button"
-                            style={rowEditButton}
-                            onClick={() => {
-                              setProductDrafts(products.map((product) => ({ ...product })));
-                              setProductEditOpen(true);
-                            }}
-                          >
-                            Modifica
-                          </button>
-                        </td>
                       </tr>
                     );
                   })}
