@@ -371,6 +371,10 @@ export default function MagazzinoPage() {
 
   const retailProducts = products.filter((p) => p.productType === "RETAIL");
 
+  const [productEditOpen, setProductEditOpen] = useState(false);
+  const [productDrafts, setProductDrafts] = useState<Product[]>([]);
+  const [savingProducts, setSavingProducts] = useState(false);
+
   const totalStockValue = useMemo(() => {
     return products.reduce((sum, p) => sum + getInventoryRemainingValue(p), 0);
   }, [products]);
@@ -478,6 +482,70 @@ export default function MagazzinoPage() {
       await loadData();
     } catch (err: any) {
       setMessage(`⚠️ ${err.message || "Errore aggiornamento prodotto"}`);
+    }
+  }
+
+  function openProductEditPopup() {
+    setProductDrafts(products.map((product) => ({ ...product })));
+    setProductEditOpen(true);
+  }
+
+  function closeProductEditPopup() {
+    if (savingProducts) return;
+    setProductEditOpen(false);
+    setProductDrafts([]);
+  }
+
+  function updateProductDraft(id: string, field: keyof Product, value: string) {
+    setProductDrafts((prev) =>
+      prev.map((product) => {
+        if (product.id !== id) return product;
+
+        const numericFields = ["stock", "minStock", "cost", "sellPrice"];
+
+        return {
+          ...product,
+          [field]: numericFields.includes(String(field))
+            ? Number(String(value || 0).replace(",", "."))
+            : value,
+        };
+      }),
+    );
+  }
+
+  async function saveProductDrafts() {
+    try {
+      setSavingProducts(true);
+      setMessage("");
+
+      await Promise.all(
+        productDrafts.map((product) =>
+          fetchWithAuth(`/inventory/products/${product.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              name: product.name,
+              category: product.category,
+              productType: product.productType,
+              unit: product.unit,
+              stock: Number(product.stock || 0),
+              minStock: Number(product.minStock || 0),
+              cost: Number(product.cost || 0),
+              sellPrice: Number(product.sellPrice || 0),
+              supplier: product.supplier || "",
+            }),
+          }),
+        ),
+      );
+
+      setProductEditOpen(false);
+      setProductDrafts([]);
+      setMessage("✅ Modifiche prodotti salvate nel database.");
+      await loadData();
+      setTimeout(() => setMessage(""), 2200);
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message || "Errore salvataggio modifiche prodotti"}`);
+    } finally {
+      setSavingProducts(false);
     }
   }
 
@@ -757,13 +825,23 @@ export default function MagazzinoPage() {
                 <h2 style={sectionTitle}>Prodotti in magazzino</h2>
               </div>
 
-              <input
-                className="sp-input"
-                placeholder="Cerca prodotto..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ maxWidth: 280 }}
-              />
+              <div style={inventoryActions}>
+                <input
+                  className="sp-input"
+                  placeholder="Cerca prodotto..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ maxWidth: 280 }}
+                />
+
+                <button
+                  type="button"
+                  className="sp-button-purple"
+                  onClick={openProductEditPopup}
+                >
+                  Modifica prodotti
+                </button>
+              </div>
             </div>
 
             <div style={{ overflowX: "auto" }}>
@@ -793,99 +871,57 @@ export default function MagazzinoPage() {
                             {p.supplier || "Non indicato"}
                           </div>
                         </td>
-                        <td style={td}>
-                          <select
-                            className="sp-input"
-                            value={p.productType}
-                            onChange={(e) => updateProductLocal(p.id, "productType", e.target.value)}
-                            style={tableEditInput}
-                          >
-                            <option value="INTERNAL">Uso interno</option>
-                            <option value="RETAIL">Rivendita</option>
-                          </select>
-                        </td>
-                        <td style={td}>
-                          <select
-                            className="sp-input"
-                            value={p.category}
-                            onChange={(e) => updateProductLocal(p.id, "category", e.target.value)}
-                            style={tableEditInput}
-                          >
-                            {PRODUCT_CATEGORIES.map((category) => (
-                              <option key={category} value={category}>
-                                {category}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td style={td}>
-                          <div style={stockEditGrid}>
-                            <input
-                              className="sp-input"
-                              type="number"
-                              value={p.stock}
-                              onChange={(e) => updateProductLocal(p.id, "stock", e.target.value)}
-                              style={tableSmallInput}
-                            />
-                            <select
-                              className="sp-input"
-                              value={p.unit}
-                              onChange={(e) => updateProductLocal(p.id, "unit", e.target.value)}
-                              style={tableSmallInput}
-                            >
-                              <option value="pz">pz</option>
-                              <option value="ml">ml</option>
-                              <option value="g">g</option>
-                            </select>
-                          </div>
 
-                          <input
-                            className="sp-input"
-                            type="number"
-                            value={p.minStock}
-                            onChange={(e) => updateProductLocal(p.id, "minStock", e.target.value)}
-                            placeholder="Scorta minima"
-                            style={{ ...tableEditInput, marginTop: 8 }}
-                          />
+                        <td style={td}>
+                          <span style={p.productType === "RETAIL" ? retailPill : internalPill}>
+                            {p.productType === "RETAIL" ? "Rivendita" : "Uso interno"}
+                          </span>
+                        </td>
+
+                        <td style={td}>
+                          <strong>{p.category}</strong>
+                        </td>
+
+                        <td style={td}>
+                          <span style={low ? dangerPill : stockPill}>
+                            {p.stock} {p.unit}
+                          </span>
+
+                          <div className="sp-muted" style={{ marginTop: 8 }}>
+                            Minimo: {p.minStock} {p.unit}
+                          </div>
 
                           {low ? <div style={lowStockText}>Sotto scorta</div> : null}
                         </td>
+
                         <td style={td}>
-                          <input
-                            className="sp-input"
-                            type="number"
-                            value={p.cost}
-                            onChange={(e) => updateProductLocal(p.id, "cost", e.target.value)}
-                            style={tableEditInput}
-                          />
+                          <strong>€ {Number(p.cost || 0).toFixed(2)}</strong>
                         </td>
+
                         <td style={td}>
-                          <input
-                            className="sp-input"
-                            type="number"
-                            value={p.sellPrice}
-                            onChange={(e) => updateProductLocal(p.id, "sellPrice", e.target.value)}
-                            disabled={p.productType === "INTERNAL"}
-                            style={{
-                              ...tableEditInput,
-                              opacity: p.productType === "INTERNAL" ? 0.45 : 1,
-                            }}
-                          />
+                          <strong>
+                            {p.productType === "RETAIL"
+                              ? `€ ${Number(p.sellPrice || 0).toFixed(2)}`
+                              : "—"}
+                          </strong>
                         </td>
+
                         <td style={td}>
                           <strong style={{ color: margin > 0 ? "#86efac" : "#f87171" }}>
                             € {margin.toFixed(2)}
                           </strong>
                         </td>
+
                         <td style={td}>
-                          <button style={miniBtn} onClick={() => updateStock(p.id, -1)}>
-                            -1
-                          </button>{" "}
-                          <button style={miniPurple} onClick={() => updateStock(p.id, 1)}>
-                            +1
-                          </button>{" "}
-                          <button style={miniDanger} onClick={() => removeProduct(p.id)}>
-                            X
+                          <button
+                            type="button"
+                            style={rowEditButton}
+                            onClick={() => {
+                              setProductDrafts(products.map((product) => ({ ...product })));
+                              setProductEditOpen(true);
+                            }}
+                          >
+                            Modifica
                           </button>
                         </td>
                       </tr>
@@ -927,6 +963,177 @@ export default function MagazzinoPage() {
             </div>
           </aside>
         </section>
+
+        {productEditOpen ? (
+          <div style={modalOverlay}>
+            <div style={modalBox}>
+              <div style={modalHeader}>
+                <div>
+                  <div style={greenKicker}>Modifica magazzino</div>
+                  <h2 style={sectionTitle}>Modifica uno o più prodotti</h2>
+                  <p className="sp-muted" style={{ marginTop: 8 }}>
+                    Aggiorna i prodotti nel popup e poi salva tutto insieme nel database.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  style={modalCloseButton}
+                  onClick={closeProductEditPopup}
+                  disabled={savingProducts}
+                >
+                  Chiudi
+                </button>
+              </div>
+
+              <div style={modalTableWrap}>
+                <table style={modalTable}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Prodotto</th>
+                      <th style={th}>Tipo</th>
+                      <th style={th}>Cat.</th>
+                      <th style={th}>Stock</th>
+                      <th style={th}>Unità</th>
+                      <th style={th}>Scorta min.</th>
+                      <th style={th}>Costo</th>
+                      <th style={th}>Vendita</th>
+                      <th style={th}>Fornitore</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {productDrafts.map((p) => (
+                      <tr key={p.id}>
+                        <td style={td}>
+                          <input
+                            className="sp-input"
+                            value={p.name}
+                            onChange={(e) => updateProductDraft(p.id, "name", e.target.value)}
+                            style={modalInput}
+                          />
+                        </td>
+
+                        <td style={td}>
+                          <select
+                            className="sp-input"
+                            value={p.productType}
+                            onChange={(e) => updateProductDraft(p.id, "productType", e.target.value)}
+                            style={modalInput}
+                          >
+                            <option value="INTERNAL">Uso interno</option>
+                            <option value="RETAIL">Rivendita</option>
+                          </select>
+                        </td>
+
+                        <td style={td}>
+                          <select
+                            className="sp-input"
+                            value={p.category}
+                            onChange={(e) => updateProductDraft(p.id, "category", e.target.value)}
+                            style={modalInput}
+                          >
+                            {PRODUCT_CATEGORIES.map((category) => (
+                              <option key={category} value={category}>
+                                {category}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        <td style={td}>
+                          <input
+                            className="sp-input"
+                            type="number"
+                            value={p.stock}
+                            onChange={(e) => updateProductDraft(p.id, "stock", e.target.value)}
+                            style={modalSmallInput}
+                          />
+                        </td>
+
+                        <td style={td}>
+                          <select
+                            className="sp-input"
+                            value={p.unit}
+                            onChange={(e) => updateProductDraft(p.id, "unit", e.target.value)}
+                            style={modalSmallInput}
+                          >
+                            <option value="pz">pz</option>
+                            <option value="ml">ml</option>
+                            <option value="g">g</option>
+                          </select>
+                        </td>
+
+                        <td style={td}>
+                          <input
+                            className="sp-input"
+                            type="number"
+                            value={p.minStock}
+                            onChange={(e) => updateProductDraft(p.id, "minStock", e.target.value)}
+                            style={modalSmallInput}
+                          />
+                        </td>
+
+                        <td style={td}>
+                          <input
+                            className="sp-input"
+                            type="number"
+                            value={p.cost}
+                            onChange={(e) => updateProductDraft(p.id, "cost", e.target.value)}
+                            style={modalSmallInput}
+                          />
+                        </td>
+
+                        <td style={td}>
+                          <input
+                            className="sp-input"
+                            type="number"
+                            value={p.sellPrice}
+                            onChange={(e) => updateProductDraft(p.id, "sellPrice", e.target.value)}
+                            disabled={p.productType === "INTERNAL"}
+                            style={{
+                              ...modalSmallInput,
+                              opacity: p.productType === "INTERNAL" ? 0.45 : 1,
+                            }}
+                          />
+                        </td>
+
+                        <td style={td}>
+                          <input
+                            className="sp-input"
+                            value={p.supplier || ""}
+                            onChange={(e) => updateProductDraft(p.id, "supplier", e.target.value)}
+                            style={modalInput}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={modalFooter}>
+                <button
+                  type="button"
+                  style={secondaryActionButton}
+                  onClick={closeProductEditPopup}
+                  disabled={savingProducts}
+                >
+                  Annulla
+                </button>
+
+                <button
+                  type="button"
+                  className="sp-button-purple"
+                  onClick={saveProductDrafts}
+                  disabled={savingProducts}
+                >
+                  {savingProducts ? "Salvataggio..." : "Salva modifiche"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );
@@ -1348,3 +1555,112 @@ const lowStockText: React.CSSProperties = {
   fontWeight: 900,
 };
 
+
+
+const inventoryActions: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const rowEditButton: React.CSSProperties = {
+  border: 0,
+  borderRadius: 12,
+  padding: "10px 14px",
+  background: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
+  color: "#fff",
+  fontWeight: 950,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const modalOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 9999,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 18,
+  background: "rgba(0,0,0,0.76)",
+  backdropFilter: "blur(8px)",
+};
+
+const modalBox: React.CSSProperties = {
+  width: "min(1180px, 96vw)",
+  maxHeight: "88vh",
+  overflow: "hidden",
+  borderRadius: 28,
+  border: "1px solid rgba(212,175,55,0.32)",
+  background: "linear-gradient(180deg, rgba(24,24,24,0.98), rgba(8,8,8,0.98))",
+  boxShadow: "0 30px 90px rgba(0,0,0,0.65)",
+  padding: 22,
+};
+
+const modalHeader: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 16,
+  marginBottom: 16,
+};
+
+const modalCloseButton: React.CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: 14,
+  padding: "11px 16px",
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const modalTableWrap: React.CSSProperties = {
+  width: "100%",
+  maxHeight: "58vh",
+  overflow: "auto",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const modalTable: React.CSSProperties = {
+  width: "100%",
+  minWidth: 1180,
+  borderCollapse: "collapse",
+};
+
+const modalInput: React.CSSProperties = {
+  minWidth: 150,
+  height: 42,
+  padding: "10px 12px",
+  borderRadius: 12,
+  fontSize: 14,
+};
+
+const modalSmallInput: React.CSSProperties = {
+  minWidth: 90,
+  height: 42,
+  padding: "10px 12px",
+  borderRadius: 12,
+  fontSize: 14,
+};
+
+const modalFooter: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  alignItems: "center",
+  gap: 12,
+  marginTop: 16,
+};
+
+const secondaryActionButton: React.CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: 14,
+  padding: "13px 18px",
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
+  fontWeight: 950,
+  cursor: "pointer",
+};
