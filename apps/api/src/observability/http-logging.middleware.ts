@@ -16,12 +16,24 @@ export class HttpLoggingMiddleware implements NestMiddleware {
 
     response.once('finish', () => {
       completed = true;
-      this.write('info', observed, response.statusCode, Date.now() - startedAt);
+      this.write(
+        response.statusCode >= 500 ? 'error' : 'info',
+        'http_request',
+        observed,
+        response.statusCode,
+        Date.now() - startedAt,
+      );
     });
 
     response.once('close', () => {
       if (completed) return;
-      this.write('error', observed, 499, Date.now() - startedAt);
+      this.write(
+        'error',
+        'http_request_aborted',
+        observed,
+        499,
+        Date.now() - startedAt,
+      );
     });
 
     next();
@@ -29,12 +41,13 @@ export class HttpLoggingMiddleware implements NestMiddleware {
 
   private write(
     level: 'info' | 'error',
+    eventName: 'http_request' | 'http_request_aborted',
     request: ObservedRequest,
     statusCode: number,
     durationMs: number,
   ) {
     const event = JSON.stringify({
-      event: level === 'error' ? 'http_request_aborted' : 'http_request',
+      event: eventName,
       requestId: request.requestId,
       method: request.method,
       path: request.originalUrl.split('?', 1)[0] || '/',
