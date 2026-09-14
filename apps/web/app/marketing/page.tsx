@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://api-production-6aa5.up.railway.app';
+import AppIcon from '../components/AppIcon';
+import { ModuleHeader, ModuleMetrics } from '../components/ModuleHeader';
+import ops from '../operations.module.css';
+import { API_URL } from '../../src/lib/api';
 
 
 type SessionItem = {
@@ -1656,21 +1657,30 @@ export default function MarketingPage() {
 
 
   return (
-    <main className="sp-page">
+    <main className={`sp-page ${ops.modulePage}`}>
       <div className="sp-shell">
-        <header style={header}>
-          <div>
-            <div style={eyebrow}>Marketing & Card</div>
-            <h1 className="sp-title">Percorsi fedeltà che vendono valore</h1>
-            <p className="sp-muted" style={{ marginTop: 8 }}>
-              Crea card, sedute, omaggi e messaggi WhatsApp pronti per far tornare il cliente.
-            </p>
-          </div>
+        <ModuleHeader
+          eyebrow="Marketing & retention"
+          title="Percorsi fedeltà che generano valore"
+          description="Progetta card, sedute, omaggi e follow-up WhatsApp per aumentare frequenza e valore del cliente."
+          icon="marketing"
+          status={`${activeCards.length} card assegnate`}
+          actions={(
+            <button className={ops.primaryAction} onClick={openCreateCatalogCard} type="button">
+              <AppIcon name="plus" size={16} />
+              Gestisci catalogo
+            </button>
+          )}
+        />
 
-          <button className="sp-button-purple" onClick={openCreateCatalogCard}>
-            + Crea/modifica catalogo card
-          </button>
-        </header>
+        <ModuleMetrics
+          items={[
+            { label: "Card a catalogo", value: catalogCards.length, detail: "percorsi disponibili", tone: "accent" },
+            { label: "Card assegnate", value: activeCards.length, detail: "clienti nel programma" },
+            { label: "Percorsi attivi", value: activeCards.filter((card) => card.used < card.total).length, detail: "sedute ancora disponibili", tone: "success" },
+            { label: "Valore card", value: `€ ${activeCards.reduce((sum, card) => sum + Number(card.price || 0), 0).toFixed(2)}`, detail: "valore complessivo assegnato", tone: "accent" },
+          ]}
+        />
 
         {message ? <div style={successBox}>{message}</div> : null}
 
@@ -2001,7 +2011,7 @@ export default function MarketingPage() {
           </div>
         ) : null}
 
-        <section className="sp-card" style={cardPad}>
+        <section className={`sp-card ${ops.surface}`} style={cardPad}>
           <div style={sectionHeader}>
             <div>
               <div style={greenKicker}>Fissa appuntamenti card</div>
@@ -2129,7 +2139,7 @@ export default function MarketingPage() {
 
 
 
-        <section className="sp-card" style={cardPad}>
+        <section className={`sp-card ${ops.surface}`} style={cardPad}>
           <div style={sectionHeader}>
             <div>
               <div style={greenKicker}>Carrello percorso</div>
@@ -2297,7 +2307,7 @@ export default function MarketingPage() {
           </button>
         </section>
 
-        <section className="sp-card" style={cardPad}>
+        <section className={`sp-card ${ops.surface}`} style={cardPad}>
           <div style={sectionHeader}>
             <div>
               <div style={greenKicker}>Card attive clienti</div>
@@ -2385,7 +2395,7 @@ export default function MarketingPage() {
           </div>
         </section>
 
-        <section className="sp-card" style={cardPad}>
+        <section className={`sp-card ${ops.surface}`} style={cardPad}>
           <div style={sectionHeader}>
             <div>
               <div style={greenKicker}>Catalogo solo lettura</div>
@@ -2422,7 +2432,7 @@ export default function MarketingPage() {
           )}
         </section>
 
-        <section className="sp-card" style={cardPad}>
+        <section className={`sp-card ${ops.surface}`} style={cardPad}>
           <div style={sectionHeader}>
             <div>
               <div style={greenKicker}>Configurazione messaggi WhatsApp</div>

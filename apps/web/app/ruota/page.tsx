@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { ModuleHeader, ModuleMetrics } from '../components/ModuleHeader';
+import ops from '../operations.module.css';
+import { API_URL } from '../../src/lib/api';
 
 type Prize = {
   label: string;
@@ -58,7 +61,6 @@ export default function RuotaFortunaPage() {
   const [appointmentTime, setAppointmentTime] = useState('');
   const [appointmentService, setAppointmentService] = useState('Piega');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   function getToken() {
     return localStorage.getItem('salonpro_token') || localStorage.getItem('token');
@@ -382,19 +384,24 @@ Ti aspettiamo!`;
   }
 
   return (
-    <main className="sp-page">
+    <main className={`sp-page ${ops.modulePage}`}>
       <div className="sp-shell">
-        <header style={header}>
-          <div>
-            <div style={eyebrow}>Ruota della fortuna</div>
-            <h1 className="sp-title">Regala emozione, crea ritorno</h1>
-            <p className="sp-muted" style={{ marginTop: 8 }}>
-              Sorprendi il cliente con un premio e invialo automaticamente via WhatsApp.
-            </p>
-          </div>
+        <ModuleHeader
+          eyebrow="Loyalty experience"
+          title="Regala emozione, crea ritorno"
+          description="Trasforma il premio in una nuova visita: selezione cliente, vincita e follow-up WhatsApp nello stesso flusso."
+          icon="wheel"
+          status={`${prizes.length} premi attivi`}
+        />
 
-          <div style={goldBadge}>Premi attivi: {prizes.length}</div>
-        </header>
+        <ModuleMetrics
+          items={[
+            { label: "Premi configurati", value: prizes.length, detail: "opzioni nella ruota", tone: "accent" },
+            { label: "Vincite sessione", value: wins.length, detail: "premi assegnati oggi", tone: wins.length ? "success" : "neutral" },
+            { label: "Clienti disponibili", value: clients.length, detail: "profili CRM collegati" },
+            { label: "Ultimo premio", value: winner?.label || "—", detail: winner ? clientName : "nessuna estrazione", tone: winner ? "success" : "neutral" },
+          ]}
+        />
 
         {message ? <div style={messageBox}>{message}</div> : null}
 
@@ -473,7 +480,7 @@ Ti aspettiamo!`;
         ) : null}
 
         <section style={mainGrid}>
-          <div className="sp-card" style={wheelCard}>
+          <div className={`sp-card ${ops.surface}`} style={wheelCard}>
             <div style={wheelStage}>
               <div style={pointer}>▼</div>
 
@@ -515,7 +522,7 @@ Ti aspettiamo!`;
             </div>
           </div>
 
-          <aside className="sp-card" style={controlCard}>
+          <aside className={`sp-card ${ops.surface}`} style={controlCard}>
             <h2 style={sectionTitle}>Cliente</h2>
 
             <div style={{ display: 'grid', gap: 12 }}>
@@ -601,7 +608,7 @@ Ti aspettiamo!`;
         </section>
 
         <section style={bottomGrid}>
-          <div className="sp-card" style={panel}>
+          <div className={`sp-card ${ops.surface}`} style={panel}>
             <div style={panelHeader}>
               <div>
                 <div style={greenKicker}>Configurazione premi</div>
@@ -639,7 +646,7 @@ Ti aspettiamo!`;
             </div>
           </div>
 
-          <div className="sp-card" style={panel}>
+          <div className={`sp-card ${ops.surface}`} style={panel}>
             <div style={panelHeader}>
               <div>
                 <div style={greenKicker}>Storico vincite</div>
