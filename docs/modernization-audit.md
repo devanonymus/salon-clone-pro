@@ -1,7 +1,7 @@
 # Salon Pro — audit tecnico e piano di modernizzazione
 
 Aggiornato: 14 settembre 2026  
-Branch di lavoro: `feat/premium-operations-ui` (stack su `feat/backend-hardening`)
+Branch di lavoro: `feat/premium-growth-ui` (stack su `feat/premium-operations-ui`)
 
 ## Sintesi
 
@@ -39,6 +39,18 @@ Implementato nel branch `feat/premium-operations-ui`, basato sull'hardening back
 - Magazzino con valore tecnico, ricavo e margine potenziale, più allerta scorte contestuale;
 - URL API locale rimosso dai quattro moduli e collegamento alla configurazione centralizzata;
 - azione CRM prima inattiva collegata al modulo Marketing.
+
+## Stato fase 4 — crescita e governance premium
+
+Implementato nel branch `feat/premium-growth-ui`, basato sui moduli operativi premium:
+
+- Team con sintesi mensile di servizi, rivendita, vendite e costo del personale;
+- Business Coach con stato immediato del margine e KPI economici condivisi;
+- Marketing con valore complessivo delle card, percorsi attivi e catalogo;
+- Loyalty con stato premi, vincite della sessione e collegamento ai clienti CRM;
+- Configurazione con salute visibile di WhatsApp, token API, listino e modalità fiscale;
+- testata, KPI e superfici allineati al design system ERP delle fasi precedenti;
+- URL API locali rimossi anche da Marketing, Loyalty e Configurazione.
 
 ## Mappa del prodotto
 

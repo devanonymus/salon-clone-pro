@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "../../src/lib/api";
+import { API_URL, apiFetch } from "../../src/lib/api";
+import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
+import ops from "../operations.module.css";
 
 type DashboardStaffCost = {
   id: string;
@@ -116,7 +118,7 @@ export default function DashboardCoachPage() {
 
         if (!token) return;
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+        const apiUrl = API_URL;
 
         const res = await fetch(`${apiUrl}/staff`, {
           headers: {
@@ -955,28 +957,29 @@ export default function DashboardCoachPage() {
   }
 
   return (
-    <main className="sp-page">
+    <main className={`sp-page ${ops.modulePage}`}>
       <div className="sp-shell" style={{ maxWidth: 1580 }}>
-        <header style={pageHeader}>
-          <div>
-            <p style={eyebrow}>Dashboard Coach</p>
-            <h1 className="sp-title">Controllo profitto reale</h1>
-            <p className="sp-muted" style={{ marginTop: 8 }}>
-              Numeri, margine, fiscalità, obiettivi e azioni giornaliere per il salone.
-            </p>
-          </div>
-        </header>
+        <ModuleHeader
+          eyebrow="Business intelligence"
+          title="Controllo profitto reale"
+          description="Margini, fiscalità, obiettivi e priorità operative tradotti in decisioni concrete per il salone."
+          icon="coach"
+          status={report.utileReale >= 0 ? "Margine positivo" : "Margine da recuperare"}
+          statusTone={report.utileReale >= 0 ? "success" : "danger"}
+        />
+
+        <ModuleMetrics
+          items={[
+            { label: "Fatturato lordo", value: euro(report.fatturatoLordo), detail: "periodo selezionato", tone: "accent" },
+            { label: "Netto IVA", value: euro(report.netto), detail: "ricavo al netto imposta" },
+            { label: "Costi fissi", value: euro(report.costiFissi), detail: "struttura mensile", tone: "warning" },
+            { label: "Utile reale", value: euro(report.utileReale), detail: "dopo costi e riserva", tone: report.utileReale >= 0 ? "success" : "danger" },
+          ]}
+        />
 
         {message ? <div style={messageBox}>{message}</div> : null}
 
-        <section style={statsGrid}>
-          <StatCard label="Fatturato lordo" value={euro(report.fatturatoLordo)} />
-          <StatCard label="Netto IVA" value={euro(report.netto)} />
-          <StatCard label="Costi fissi" value={euro(report.costiFissi)} />
-          <StatCard label="Utile reale" value={euro(report.utileReale)} danger={report.utileReale < 0} />
-        </section>
-
-        <section style={card}>
+        <section className={ops.surface} style={card}>
           <SectionTitle title="DASHBOARD STRATEGICA" />
 
           <div style={twoGrid}>
@@ -1084,7 +1087,7 @@ export default function DashboardCoachPage() {
           </div>
         </section>
 
-        <section style={card}>
+        <section className={ops.surface} style={card}>
           <SectionTitle title="REPORT FISCALE / NON FISCALE" />
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <button style={smallButton}>ESPORTA CSV — FISCALE</button>
@@ -1249,7 +1252,7 @@ export default function DashboardCoachPage() {
           </div>
         </section>
 
-        <section style={card}>
+        <section className={ops.surface} style={card}>
           <SectionTitle title="IMPOSTAZIONI PROFITTO REALE" />
 
           <div style={threeGrid}>
@@ -1274,7 +1277,7 @@ export default function DashboardCoachPage() {
           </button>
         </section>
 
-        <section style={card}>
+        <section className={ops.surface} style={card}>
           <SectionTitle title="COSTI FISSI MENSILI" />
 
           <div style={twoGrid}>

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../src/lib/api";
+import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
+import ops from "../operations.module.css";
 
 type StaffMember = {
   id: string;
@@ -364,29 +366,29 @@ export default function TeamPage() {
   }
 
   return (
-    <main className="sp-page">
+    <main className={`sp-page ${ops.modulePage}`}>
       <div className="sp-shell" style={{ maxWidth: 1580 }}>
-        <header style={pageHeader}>
-          <div>
-            <p style={eyebrow}>Team KPI</p>
-            <h1 className="sp-title">Performance collaboratori</h1>
-            <p className="sp-muted" style={{ marginTop: 8 }}>
-              Controlla produzione, peso sul fatturato, turni e obiettivi del team.
-            </p>
-          </div>
-        </header>
+        <ModuleHeader
+          eyebrow="People & performance"
+          title="Performance collaboratori"
+          description="Produzione, incidenza sul fatturato, costi e obiettivi del team in un’unica vista operativa."
+          icon="team"
+          status={`${staff.length} profili attivi`}
+        />
+
+        <ModuleMetrics
+          items={[
+            { label: "Servizi", value: euro(totals.services), detail: "produzione del mese", tone: "accent" },
+            { label: "Rivendita", value: euro(totals.resale), detail: "prodotti venduti", tone: "success" },
+            { label: "Totale mese", value: euro(totals.total), detail: `${kpiRows.reduce((sum, row) => sum + row.salesCount, 0)} vendite` },
+            { label: "Costo staff", value: euro(totals.costs), detail: "costo mensile configurato", tone: totals.total >= totals.costs ? "neutral" : "warning" },
+          ]}
+        />
 
         {saveAlert ? <div style={saveAlertBox}>{saveAlert}</div> : null}
         {message ? <div style={messageBox}>{message}</div> : null}
 
-        <section style={statsGrid}>
-          <StatCard label="Totale servizi" value={euro(totals.services)} />
-          <StatCard label="Totale rivendita" value={euro(totals.resale)} />
-          <StatCard label="Totale mese" value={euro(totals.total)} />
-          <StatCard label="Costo staff" value={euro(totals.costs)} />
-        </section>
-
-        <section style={card}>
+        <section className={ops.surface} style={card}>
           <SectionTitle title="KPI TEAM" />
 
           <div style={tableWrap}>
@@ -448,7 +450,7 @@ export default function TeamPage() {
           </div>
         </section>
 
-        <section style={card}>
+        <section className={ops.surface} style={card}>
           <SectionTitle title="GESTIONE STAFF" />
 
           <div style={formGrid}>
@@ -597,7 +599,7 @@ export default function TeamPage() {
           </div>
         </section>
 
-        <section style={card}>
+        <section className={ops.surface} style={card}>
           <SectionTitle title="TURNI COLLABORATORI" />
 
           <div style={turnHeader}>

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
+import ops from "../operations.module.css";
+import { API_URL } from "../../src/lib/api";
 
 type Tab =
   | "pdfcard"
@@ -334,19 +335,28 @@ export default function ConfigurazionePage() {
   }, []);
 
   return (
-    <main className="sp-page">
+    <main className={`sp-page ${ops.modulePage}`}>
       <div className="sp-shell">
-        <header style={{ marginBottom: 24 }}>
-          <div style={eyebrow}>Configurazione</div>
-          <h1 className="sp-title">Centro controllo Salon Pro</h1>
-          <p className="sp-muted" style={{ marginTop: 8 }}>
-            Imposta WhatsApp, accessi, VIP, listino, diagnostica e cassa fiscale.
-          </p>
-        </header>
+        <ModuleHeader
+          eyebrow="Governance & integrazioni"
+          title="Centro controllo Salon Pro"
+          description="Gestisci accessi, automazioni, listino, fiscalità e identità del workspace da un unico centro operativo."
+          icon="settings"
+          status="Impostazioni protette"
+        />
+
+        <ModuleMetrics
+          items={[
+            { label: "Servizi configurati", value: services.length, detail: "voci nel listino", tone: "accent" },
+            { label: "WhatsApp", value: waEnabled ? "Attivo" : "Disattivo", detail: waPhoneNumberId || "numero non configurato", tone: waEnabled ? "success" : "warning" },
+            { label: "Token API", value: waHasToken ? "Protetto" : "Mancante", detail: "credenziale WhatsApp", tone: waHasToken ? "success" : "danger" },
+            { label: "Modalità fiscale", value: fiscalMode, detail: "provider corrente" },
+          ]}
+        />
 
         {message ? <div style={messageBox}>{message}</div> : null}
 
-        <nav style={tabsWrap}>
+        <nav className={ops.toolbar} style={tabsWrap}>
           <TabButton label="PDF Card" active={tab === "pdfcard"} onClick={() => setTab("pdfcard")} />
           <TabButton label="Accessi" active={tab === "accessi"} onClick={() => setTab("accessi")} />
           <TabButton label="WhatsApp" active={tab === "whatsapp"} onClick={() => setTab("whatsapp")} />
@@ -358,7 +368,7 @@ export default function ConfigurazionePage() {
 
 
         {tab === "pdfcard" ? (
-          <section className="sp-card" style={cardPad}>
+          <section className={`sp-card ${ops.surface}`} style={cardPad}>
             <SectionTitle kicker="Template vendita" title="PDF Card personalizzato per il salone" />
 
             <div style={infoBox}>
@@ -430,7 +440,7 @@ export default function ConfigurazionePage() {
 
 
         {tab === "whatsapp" ? (
-          <section className="sp-card" style={cardPad}>
+          <section className={`sp-card ${ops.surface}`} style={cardPad}>
             <SectionTitle kicker="WhatsApp SaaS" title="Configurazione WhatsApp per questo salone" />
 
             <div style={infoBox}>
@@ -478,7 +488,7 @@ export default function ConfigurazionePage() {
         ) : null}
 
         {tab === "accessi" ? (
-          <section className="sp-card" style={cardPad}>
+          <section className={`sp-card ${ops.surface}`} style={cardPad}>
             <SectionTitle kicker="Accessi dipendenti" title="PIN personali staff" />
             <div style={grid3}>
               <input className="sp-input" placeholder="Nome dipendente es. NATALIA" />
@@ -520,7 +530,7 @@ export default function ConfigurazionePage() {
         ) : null}
 
         {tab === "vip" ? (
-          <section className="sp-card" style={cardPad}>
+          <section className={`sp-card ${ops.surface}`} style={cardPad}>
             <SectionTitle kicker="Area VIP Cliente" title="App cliente VIP link + codice" />
 
             <div style={linkBox}>
@@ -546,7 +556,7 @@ export default function ConfigurazionePage() {
         ) : null}
 
         {tab === "servizi" ? (
-          <section className="sp-card" style={cardPad}>
+          <section className={`sp-card ${ops.surface}`} style={cardPad}>
             <SectionTitle kicker="Listino reale" title="Listino servizi collegato al database" />
 
               <div style={serviceCostInfoBox}>
@@ -624,7 +634,7 @@ export default function ConfigurazionePage() {
         ) : null}
 
         {tab === "diagnostica" ? (
-          <section className="sp-card" style={cardPad}>
+          <section className={`sp-card ${ops.surface}`} style={cardPad}>
             <SectionTitle kicker="Controllo tecnico" title="Diagnostica 1 click" />
             <button className="sp-button-purple" style={{ width: "100%" }} onClick={runDiagnostic}>
               ✅ Esegui diagnostica
@@ -635,7 +645,7 @@ export default function ConfigurazionePage() {
         ) : null}
 
         {tab === "fiscale" ? (
-          <section className="sp-card" style={cardPad}>
+          <section className={`sp-card ${ops.surface}`} style={cardPad}>
             <SectionTitle kicker="Cassa fiscale" title="Scontrini e provider fiscali" />
 
             <div style={grid2}>
