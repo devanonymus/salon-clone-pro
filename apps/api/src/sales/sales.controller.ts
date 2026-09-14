@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtGuard } from '../auth/jwt.guard';
 import { SalesService } from './sales.service';
 import type { AuthRequest } from '../auth/auth-request';
@@ -10,7 +18,11 @@ export class SalesController {
 
   @UseGuards(JwtGuard)
   @Post()
-  create(@Req() req: AuthRequest, @Body() body: CreateSaleDto) {
+  create(
+    @Req() req: AuthRequest,
+    @Body() body: CreateSaleDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
     return this.service.create(
       req.user.tenantId,
       body.clientGlobalId,
@@ -18,6 +30,7 @@ export class SalesController {
       body.items,
       body.paymentMethod,
       body.appointmentId,
+      idempotencyKey,
     );
   }
 
