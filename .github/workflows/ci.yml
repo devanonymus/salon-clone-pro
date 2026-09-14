@@ -1,0 +1,94 @@
+name: Quality gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - principale
+  workflow_dispatch:
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI: "true"
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/salon_ci?schema=app
+  JWT_SECRET: ci-only-secret-ci-only-secret-ci-only-secret-ci-only-secret
+  JWT_ISSUER: salon-pro-api
+  JWT_AUDIENCE: salon-pro-web
+  WHATSAPP_ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+  ALLOW_DEMO_SEED: "false"
+
+jobs:
+  backend:
+    name: Backend · schema, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Reject unsafe migrations
+        run: pnpm check:migrations
+      - name: Validate Prisma schema
+        run: pnpm prisma:validate
+      - name: Generate Prisma client
+        run: pnpm prisma:generate
+      - name: Run backend unit tests
+        run: pnpm test
+      - name: Run backend e2e tests
+        run: pnpm test:e2e
+      - name: Build Nest API
+        run: pnpm build:api
+      - name: API lint audit
+        continue-on-error: true
+        run: pnpm --filter api lint
+
+  frontend:
+    name: Frontend · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8080
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build Next.js application
+        run: pnpm build:web
+      - name: Frontend lint audit
+        continue-on-error: true
+        run: pnpm --filter web lint

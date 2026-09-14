@@ -79,6 +79,20 @@ Implementato nel branch `feat/backend-observability`, basato sull'affidabilità 
 - shutdown hooks Nest abilitati per chiudere Prisma ordinatamente;
 - root controller nuovamente registrato nell'`AppModule` e test e2e aggiornati con database mock.
 
+## Stato fase 7 — quality gate CI
+
+Implementato nel branch `ci/quality-gates`, basato sull'osservabilità backend:
+
+- workflow GitHub Actions su pull request, push a `principale` e avvio manuale;
+- installazione riproducibile con Node 22, pnpm 10.33 e lockfile congelato;
+- validazione e generazione Prisma obbligatorie;
+- test unitari, test e2e e build Nest bloccanti;
+- build Next.js bloccante con configurazione API esplicita;
+- analisi automatica delle migration contro `DROP TABLE`, `DROP COLUMN`, `TRUNCATE` e `DELETE FROM`;
+- lint backend/frontend visibile come audit non bloccante durante il rientro del debito legacy;
+- script root uniformi e lint API separato dalla modalità automatica `--fix`;
+- template PR con checklist tenant, privacy, migrazioni, UI e rollback.
+
 ## Mappa del prodotto
 
 | Area | Frontend | Backend | Stato rilevato |
