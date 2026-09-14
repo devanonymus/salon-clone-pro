@@ -143,7 +143,7 @@ model Sale {
   tenantId       String
   clientGlobalId String
   appointmentId  String?  @unique
-  idempotencyKey String?
+  idempotencyKey String?  @unique(map: "Sale_idempotency_key")
   requestHash    String?
   total          Float
   paymentMethod  String?
@@ -157,7 +157,6 @@ model Sale {
   fiscalReceipts     FiscalReceipt[]
   inventoryMovements InventoryMovement[]
 
-  @@unique([tenantId, idempotencyKey], map: "Sale_tenant_idempotency_key")
   @@index([tenantId, createdAt], map: "Sale_tenant_created_idx")
   @@schema("app")
 }

@@ -5,8 +5,8 @@ ALTER TABLE IF EXISTS "app"."Sale"
   ADD COLUMN IF NOT EXISTS "idempotencyKey" TEXT,
   ADD COLUMN IF NOT EXISTS "requestHash" TEXT;
 
-CREATE UNIQUE INDEX IF NOT EXISTS "Sale_tenant_idempotency_key"
-  ON "app"."Sale" ("tenantId", "idempotencyKey");
+CREATE UNIQUE INDEX IF NOT EXISTS "Sale_idempotency_key"
+  ON "app"."Sale" ("idempotencyKey");
 
 CREATE INDEX IF NOT EXISTS "User_tenant_active_idx"
   ON "app"."User" ("tenantId", "active");
