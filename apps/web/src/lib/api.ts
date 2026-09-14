@@ -1,6 +1,19 @@
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api-production-6aa5.up.railway.app";
 
+export type SalonSession = {
+  user?: {
+    id?: string;
+    username?: string;
+    role?: string;
+  };
+  tenant?: {
+    id?: string;
+    name?: string;
+    code?: string;
+  };
+};
+
 export function getToken() {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("salonpro_token") || localStorage.getItem("token");
@@ -14,13 +27,25 @@ export function setToken(token: string) {
 export function clearToken() {
   localStorage.removeItem("salonpro_token");
   localStorage.removeItem("token");
+  localStorage.removeItem("salonpro_session");
 }
 
-export async function apiFetch(path: string, options: RequestInit = {}) {
+function parseResponse(text: string) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+// Backward-compatible default while legacy pages are migrated to typed responses.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function apiFetch<T = any>(path: string, options: RequestInit = {}) {
   const token = getToken();
 
   if (!token) {
-    window.location.href = "/login";
+    if (typeof window !== "undefined") window.location.href = "/login";
     throw new Error("Token mancante");
   }
 
@@ -34,18 +59,25 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   });
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  const data = parseResponse(text);
+
+  if (res.status === 401 && typeof window !== "undefined") {
+    clearToken();
+    window.location.href = "/login";
+  }
 
   if (!res.ok) {
     const msg =
-      typeof data?.message === "object"
-        ? JSON.stringify(data.message)
-        : data?.message;
+      typeof data === "object" && data && "message" in data
+        ? typeof data.message === "object"
+          ? JSON.stringify(data.message)
+          : String(data.message)
+        : "";
 
     throw new Error(msg || text || "Errore API");
   }
 
-  return data;
+  return data as T;
 }
 
 export async function loginApi(input: {
@@ -62,7 +94,7 @@ export async function loginApi(input: {
   });
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  const data = parseResponse(text) as (SalonSession & { token?: string; message?: string }) | null;
 
   if (!res.ok) {
     throw new Error(data?.message || "Login non valido");
@@ -73,6 +105,11 @@ export async function loginApi(input: {
   }
 
   setToken(data.token);
+  localStorage.setItem(
+    "salonpro_session",
+    JSON.stringify({ user: data.user, tenant: data.tenant }),
+  );
+  window.dispatchEvent(new Event("salonpro-session"));
 
   return data;
 }
