@@ -11,7 +11,7 @@
     "build:web": "pnpm --filter web build",
     "lint": "pnpm -r --if-present lint",
     "test": "pnpm --filter api test:ci",
-    "test:e2e": "pnpm --filter api test:e2e -- --runInBand",
+    "test:e2e": "pnpm --filter api test:e2e:ci",
     "prisma:validate": "pnpm --filter api exec prisma validate --config ../../prisma.config.ts",
     "prisma:generate": "pnpm --filter api exec prisma generate --config ../../prisma.config.ts",
     "check:migrations": "node scripts/check-migrations.mjs"
