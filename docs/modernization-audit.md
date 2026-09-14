@@ -52,6 +52,20 @@ Implementato nel branch `feat/premium-growth-ui`, basato sui moduli operativi pr
 - testata, KPI e superfici allineati al design system ERP delle fasi precedenti;
 - URL API locali rimossi anche da Marketing, Loyalty e Configurazione.
 
+## Stato fase 5 — affidabilità dati e checkout
+
+Implementato nel branch `feat/backend-data-reliability`, basato sulla fase 4:
+
+- checkout normalizzato a centesimi prima del calcolo e della persistenza;
+- header `Idempotency-Key` supportato end-to-end dalla cassa all'API;
+- fingerprint della richiesta per impedire il riuso della stessa chiave con contenuti differenti;
+- gestione della collisione concorrente senza duplicare vendita o scarico magazzino;
+- indici Prisma sui filtri tenant, data, stato e relazioni più utilizzati;
+- prima migration SQL additiva, senza cancellazioni o conversioni dei dati esistenti;
+- test unitari per arrotondamento, somme, chiavi idempotenti e fingerprint.
+
+La conversione fisica di tutte le colonne monetarie da `Float` a `Decimal` è intenzionalmente rinviata alla fase del contratto API tipizzato: Prisma serializza i decimal diversamente e una conversione immediata romperebbe i moduli frontend che oggi consumano numeri. Questa fase elimina già gli errori di calcolo del checkout normalizzando a centesimi, senza cambiare il contratto pubblico.
+
 ## Mappa del prodotto
 
 | Area | Frontend | Backend | Stato rilevato |
@@ -200,7 +214,7 @@ apps/web/
 | --- | --- | --- |
 | 1 | Fondazione UI e audit | Nuova shell, login, dashboard, build pulita dei file nuovi |
 | 2 | Sicurezza P0 | Seed rimosso, WhatsApp protetto, FiscalModule attivo, RBAC minimo |
-| 3 | Checkout atomico | Vendita/stock/fiscale transazionali e idempotenti |
+| 3 | Checkout atomico | Vendita/stock/fiscale transazionali e idempotenti — completato |
 | 4 | API tipizzata | DTO, OpenAPI, client generato, zero URL hardcoded |
 | 5 | Migrazione moduli | Agenda, cassa, CRM, magazzino e marketing su componenti condivisi |
 | 6 | Qualità | Test e2e, osservabilità, lint senza errori e budget prestazioni |

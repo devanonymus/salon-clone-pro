@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppIcon from "../components/AppIcon";
 import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
@@ -224,8 +224,21 @@ export default function VenditePage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const checkoutKeyRef = useRef<string | null>(null);
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
+
+  useEffect(() => {
+    checkoutKeyRef.current = null;
+  }, [
+    cart,
+    selectedClientId,
+    selectedAppointment?.id,
+    paymentMethod,
+    receiptType,
+    discountType,
+    discountValue,
+  ]);
 
   const rowSubtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -719,9 +732,13 @@ export default function VenditePage() {
     setLoading(true);
     setMessage("");
 
+    const idempotencyKey = checkoutKeyRef.current ?? crypto.randomUUID();
+    checkoutKeyRef.current = idempotencyKey;
+
     try {
       await fetchWithAuth("/sales", {
         method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
         body: JSON.stringify({
           clientGlobalId: selectedClient.clientGlobal.id,
           appointmentId: selectedAppointment?.id || undefined,
@@ -743,6 +760,7 @@ export default function VenditePage() {
         }),
       });
 
+      checkoutKeyRef.current = null;
       setMessage(
         receiptType === "FISCAL"
           ? "✅ Vendita registrata. Scontrino fiscale da emettere."
