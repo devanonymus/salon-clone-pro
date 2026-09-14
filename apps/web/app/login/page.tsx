@@ -1,165 +1,144 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://api-production-6aa5.up.railway.app";
+import AppIcon from "../components/AppIcon";
+import { loginApi } from "@/src/lib/api";
+import styles from "./login.module.css";
 
 export default function LoginPage() {
   const router = useRouter();
-
-  const [tenantCode, setTenantCode] = useState("SALON1");
-  const [username, setUsername] = useState("admin");
-  const [pin, setPin] = useState("1234");
+  const [tenantCode, setTenantCode] = useState("");
+  const [username, setUsername] = useState("");
+  const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function login() {
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tenantCode.trim() || !username.trim() || !pin.trim()) {
+      setError("Inserisci codice salone, utente e PIN.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
-
-      const res = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tenantCode,
-          username,
-          pin,
-        }),
+      await loginApi({
+        tenantCode: tenantCode.trim().toUpperCase(),
+        username: username.trim(),
+        pin,
       });
-
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : null;
-
-      if (!res.ok) {
-        throw new Error(data?.message || "Errore login");
-      }
-
-      const token = data?.token || data?.access_token || data?.accessToken;
-
-      if (!token) {
-        throw new Error("Token non ricevuto");
-      }
-
-      localStorage.setItem("salonpro_token", token);
-      localStorage.setItem("token", token);
-
-      router.push("/agenda");
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch");
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Accesso non riuscito. Riprova.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main style={mainStyle}>
-      <section style={cardStyle}>
-        <p style={kickerStyle}>SALON PRO</p>
+    <main className={styles.page}>
+      <section className={styles.brandPanel}>
+        <div className={styles.brandTop}>
+          <span className={styles.brandMark}>
+            <Image alt="" height={72} src="/acquaviva-strategic-logo.png" width={144} />
+          </span>
+          <span className={styles.brandName}>
+            <strong>Salon Pro</strong>
+            <small>Business Operating System</small>
+          </span>
+        </div>
 
-        <h1 style={titleStyle}>Accesso salone</h1>
+        <div className={styles.brandMessage}>
+          <span className={styles.kicker}><AppIcon name="sparkle" size={16} /> Gestione evoluta</span>
+          <h1>Più controllo.<br />Più margine.<br /><em>Più salone.</em></h1>
+          <p>
+            Agenda, clienti, vendite, team e crescita in un unico spazio di lavoro pensato per decidere meglio, ogni giorno.
+          </p>
+        </div>
 
-        <div style={{ display: "grid", gap: 14, marginTop: 26 }}>
-          <input
-            value={tenantCode}
-            onChange={(e) => setTenantCode(e.target.value)}
-            placeholder="Codice salone"
-            style={inputStyle}
-          />
+        <div className={styles.featureRow}>
+          <div><AppIcon name="dashboard" /><span><strong>Controllo</strong><small>KPI sempre leggibili</small></span></div>
+          <div><AppIcon name="trend" /><span><strong>Crescita</strong><small>Azioni guidate dai dati</small></span></div>
+          <div><AppIcon name="check" /><span><strong>Semplicità</strong><small>Tutto in un solo sistema</small></span></div>
+        </div>
 
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Username"
-            style={inputStyle}
-          />
+        <p className={styles.brandFooter}>Salon Pro · Powered by Acquaviva Strategic</p>
+      </section>
 
-          <input
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="PIN"
-            type="password"
-            style={inputStyle}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") login();
-            }}
-          />
+      <section className={styles.formPanel}>
+        <div className={styles.formWrap}>
+          <div className={styles.formHeading}>
+            <span className={styles.secureBadge}><span /> Accesso protetto</span>
+            <h2>Bentornato</h2>
+            <p>Accedi al workspace del tuo salone.</p>
+          </div>
 
-          {error ? <div style={errorStyle}>{error}</div> : null}
+          <form className={styles.form} onSubmit={login}>
+            <label>
+              <span>Codice salone</span>
+              <div className={styles.field}>
+                <AppIcon name="dashboard" size={18} />
+                <input
+                  autoCapitalize="characters"
+                  autoComplete="organization"
+                  autoFocus
+                  onChange={(event) => setTenantCode(event.target.value)}
+                  placeholder="Es. TENDENZE"
+                  value={tenantCode}
+                />
+              </div>
+            </label>
 
-          <button onClick={login} disabled={loading} style={buttonStyle}>
-            {loading ? "Accesso..." : "Entra"}
-          </button>
+            <label>
+              <span>Nome utente</span>
+              <div className={styles.field}>
+                <AppIcon name="clients" size={18} />
+                <input
+                  autoComplete="username"
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="Il tuo nome utente"
+                  value={username}
+                />
+              </div>
+            </label>
+
+            <label>
+              <span>PIN</span>
+              <div className={styles.field}>
+                <AppIcon name="settings" size={18} />
+                <input
+                  autoComplete="current-password"
+                  inputMode="numeric"
+                  onChange={(event) => setPin(event.target.value)}
+                  placeholder="Inserisci il PIN"
+                  type={showPin ? "text" : "password"}
+                  value={pin}
+                />
+                <button onClick={() => setShowPin((value) => !value)} type="button">
+                  {showPin ? "Nascondi" : "Mostra"}
+                </button>
+              </div>
+            </label>
+
+            {error ? <div className={styles.error} role="alert">{error}</div> : null}
+
+            <button className={styles.submit} disabled={loading} type="submit">
+              <span>{loading ? "Accesso in corso…" : "Accedi al workspace"}</span>
+              {!loading ? <AppIcon name="arrow" size={18} /> : <span className={styles.spinner} />}
+            </button>
+          </form>
+
+          <div className={styles.help}>
+            <span><AppIcon name="chat" size={17} /></span>
+            <p><strong>Hai bisogno di assistenza?</strong><small>Contatta l’amministratore del tuo salone.</small></p>
+          </div>
         </div>
       </section>
     </main>
   );
 }
-
-const mainStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  display: "grid",
-  placeItems: "center",
-  background:
-    "radial-gradient(circle at top left, rgba(139,92,246,0.30), transparent 35%), linear-gradient(180deg,#050505,#0b0710)",
-  color: "#fff",
-  padding: 24,
-};
-
-const cardStyle: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 460,
-  borderRadius: 28,
-  padding: 30,
-  background: "rgba(255,255,255,0.07)",
-  border: "1px solid rgba(212,175,55,0.25)",
-  boxShadow: "0 28px 80px rgba(0,0,0,0.35)",
-};
-
-const kickerStyle: React.CSSProperties = {
-  color: "#d4af37",
-  fontWeight: 950,
-  letterSpacing: "0.32em",
-  fontSize: 13,
-};
-
-const titleStyle: React.CSSProperties = {
-  marginTop: 10,
-  fontSize: 38,
-  lineHeight: 1,
-  fontWeight: 950,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  borderRadius: 16,
-  border: "1px solid rgba(212,175,55,0.20)",
-  background: "rgba(0,0,0,0.38)",
-  color: "#fff",
-  padding: "15px 16px",
-  outline: "none",
-  fontWeight: 800,
-};
-
-const errorStyle: React.CSSProperties = {
-  borderRadius: 16,
-  padding: 14,
-  background: "rgba(239,68,68,0.14)",
-  border: "1px solid rgba(239,68,68,0.35)",
-  color: "#fecaca",
-  fontWeight: 800,
-};
-
-const buttonStyle: React.CSSProperties = {
-  border: 0,
-  borderRadius: 16,
-  padding: "16px 18px",
-  background: "linear-gradient(135deg,#8b5cf6,#d4af37)",
-  color: "#fff",
-  fontWeight: 950,
-  cursor: "pointer",
-};

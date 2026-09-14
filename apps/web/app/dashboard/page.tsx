@@ -1,15 +1,14 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import AppIcon, { type AppIconName } from "../components/AppIcon";
+import { apiFetch } from "@/src/lib/api";
+import styles from "./dashboard.module.css";
 
 type ClientItem = {
   id: string;
-  clientGlobal: {
-    id: string;
-    name: string;
-    phone: string;
-  };
+  clientGlobal: { id: string; name: string; phone: string };
 };
 
 type AppointmentItem = {
@@ -18,12 +17,8 @@ type AppointmentItem = {
   duration: number;
   note: string | null;
   sale?: { id: string } | null;
-  clientTenant: {
-    clientGlobal: {
-      name: string;
-      phone: string;
-    };
-  };
+  staff?: { name: string; color?: string } | null;
+  clientTenant: { clientGlobal: { name: string; phone: string } };
 };
 
 type SaleItem = {
@@ -32,479 +27,333 @@ type SaleItem = {
   paymentMethod: string | null;
   fiscalStatus?: string;
   createdAt: string;
-  clientGlobal: {
-    name: string;
-    phone: string;
-  };
+  clientGlobal: { name: string; phone: string };
   items?: {
     id: string;
     name: string;
     price: number;
+    cost?: number;
+    technicalCost?: number;
+    laborCost?: number;
     quantity: number;
   }[];
 };
 
-export default function DashboardPage() {
-  const router = useRouter();
+type TrendDay = { key: string; label: string; value: number };
 
+const euro = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
+const compactEuro = new Intl.NumberFormat("it-IT", {
+  style: "currency",
+  currency: "EUR",
+  maximumFractionDigits: 0,
+});
+
+function sameDay(value: string, date: Date) {
+  const item = new Date(value);
+  return item.getDate() === date.getDate()
+    && item.getMonth() === date.getMonth()
+    && item.getFullYear() === date.getFullYear();
+}
+
+function sameMonth(value: string, date: Date) {
+  const item = new Date(value);
+  return item.getMonth() === date.getMonth() && item.getFullYear() === date.getFullYear();
+}
+
+export default function DashboardPage() {
+  const [now] = useState(() => new Date());
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [sales, setSales] = useState<SaleItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  async function fetchWithAuth(url: string) {
-    const token = localStorage.getItem('salonpro_token');
-
-    if (!token) {
-      router.push('/login');
-      throw new Error('Token mancante');
-    }
-
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.message || 'Errore richiesta');
-
-    return data;
-  }
-
-  async function loadDashboard() {
-    try {
-      setLoading(true);
-      setError('');
-
-      const [clientsData, appointmentsData, salesData] = await Promise.all([
-        fetchWithAuth('http://localhost:3001/clients'),
-        fetchWithAuth('http://localhost:3001/appointments'),
-        fetchWithAuth('http://localhost:3001/sales'),
-      ]);
-
-      setClients(clientsData);
-      setAppointments(appointmentsData);
-      setSales(salesData);
-    } catch (err: any) {
-      setError(err.message || 'Errore caricamento dashboard');
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    loadDashboard();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    Promise.all([
+      apiFetch<ClientItem[]>("/clients"),
+      apiFetch<AppointmentItem[]>("/appointments"),
+      apiFetch<SaleItem[]>("/sales"),
+    ])
+      .then(([clientsData, appointmentsData, salesData]) => {
+        if (!active) return;
+        setClients(clientsData);
+        setAppointments(appointmentsData);
+        setSales(salesData);
+      })
+      .catch((reason: unknown) => {
+        if (active) setError(reason instanceof Error ? reason.message : "Errore nel caricamento dei dati");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
-  const today = new Date();
+  const metrics = useMemo(() => {
+    const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const salesToday = sales.filter((sale) => sameDay(sale.createdAt, now));
+    const salesMonth = sales.filter((sale) => sameMonth(sale.createdAt, now));
+    const salesPreviousMonth = sales.filter((sale) => sameMonth(sale.createdAt, previousMonth));
+    const appointmentsMonth = appointments.filter((item) => sameMonth(item.date, now));
+    const convertedMonth = appointmentsMonth.filter((item) => item.sale).length;
+    const revenueToday = salesToday.reduce((sum, sale) => sum + sale.total, 0);
+    const revenueMonth = salesMonth.reduce((sum, sale) => sum + sale.total, 0);
+    const previousRevenue = salesPreviousMonth.reduce((sum, sale) => sum + sale.total, 0);
+    const trend = previousRevenue > 0 ? ((revenueMonth - previousRevenue) / previousRevenue) * 100 : null;
+    const averageTicket = salesMonth.length > 0 ? revenueMonth / salesMonth.length : 0;
+    const estimatedCosts = salesMonth.reduce((sum, sale) => sum + (sale.items || []).reduce(
+      (itemSum, item) => itemSum + ((item.technicalCost ?? item.cost ?? 0) + (item.laborCost ?? 0)) * item.quantity,
+      0,
+    ), 0);
 
-  function isSameDay(value: string) {
-    const d = new Date(value);
-    return (
-      d.getDate() === today.getDate() &&
-      d.getMonth() === today.getMonth() &&
-      d.getFullYear() === today.getFullYear()
-    );
-  }
+    return {
+      revenueToday,
+      revenueMonth,
+      averageTicket,
+      appointmentsToday: appointments.filter((item) => sameDay(item.date, now)).length,
+      conversion: appointmentsMonth.length > 0 ? (convertedMonth / appointmentsMonth.length) * 100 : 0,
+      pendingReceipts: sales.filter((sale) => sale.fiscalStatus !== "ISSUED").length,
+      estimatedMargin: revenueMonth - estimatedCosts,
+      trend,
+      salesMonthCount: salesMonth.length,
+    };
+  }, [appointments, now, sales]);
 
-  function isSameMonth(value: string) {
-    const d = new Date(value);
-    return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
-  }
+  const trendDays = useMemo<TrendDay[]>(() => {
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(now);
+      date.setDate(now.getDate() - (6 - index));
+      return {
+        key: date.toISOString().slice(0, 10),
+        label: date.toLocaleDateString("it-IT", { weekday: "short" }).replace(".", ""),
+        value: sales.filter((sale) => sameDay(sale.createdAt, date)).reduce((sum, sale) => sum + sale.total, 0),
+      };
+    });
+  }, [now, sales]);
 
-  const fatturatoOggi = useMemo(() => {
-    return sales
-      .filter((sale) => isSameDay(sale.createdAt))
-      .reduce((sum, sale) => sum + sale.total, 0);
-  }, [sales]);
+  const nextAppointments = useMemo(() => appointments
+    .filter((item) => new Date(item.date).getTime() >= now.getTime())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5), [appointments, now]);
 
-  const fatturatoMese = useMemo(() => {
-    return sales
-      .filter((sale) => isSameMonth(sale.createdAt))
-      .reduce((sum, sale) => sum + sale.total, 0);
-  }, [sales]);
+  const latestSales = useMemo(() => [...sales]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5), [sales]);
 
-  const appuntamentiOggi = useMemo(() => {
-    return appointments.filter((appointment) => isSameDay(appointment.date)).length;
-  }, [appointments]);
+  const maxTrend = Math.max(...trendDays.map((item) => item.value), 1);
+  const todayLabel = now.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
 
-  const appuntamentiConvertiti = useMemo(() => {
-    return appointments.filter((appointment) => appointment.sale).length;
-  }, [appointments]);
-
-  const conversionRate = useMemo(() => {
-    if (appointments.length === 0) return 0;
-    return (appuntamentiConvertiti / appointments.length) * 100;
-  }, [appointments.length, appuntamentiConvertiti]);
-
-  const scontriniDaEmettere = useMemo(() => {
-    return sales.filter((sale) => sale.fiscalStatus !== 'ISSUED').length;
-  }, [sales]);
-
-  const scontrinoMedio = useMemo(() => {
-    if (sales.length === 0) return 0;
-    return sales.reduce((sum, sale) => sum + sale.total, 0) / sales.length;
-  }, [sales]);
-
-  const prossimiAppuntamenti = useMemo(() => {
-    return [...appointments]
-      .filter((appointment) => new Date(appointment.date).getTime() >= Date.now())
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(0, 6);
-  }, [appointments]);
-
-  const ultimeVendite = useMemo(() => {
-    return [...sales]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 6);
-  }, [sales]);
-
-  const coachMessage = useMemo(() => {
-    if (fatturatoOggi === 0 && appuntamentiOggi > 0) {
-      return 'Hai appuntamenti oggi: trasforma ogni servizio in una vendita completa.';
-    }
-
-    if (conversionRate < 50 && appointments.length > 0) {
-      return 'La conversione appuntamenti → vendite può salire: collega sempre la vendita all’appuntamento.';
-    }
-
-    if (scontriniDaEmettere > 0) {
-      return 'Ci sono vendite senza scontrino: completa la parte fiscale prima della chiusura.';
-    }
-
-    return 'Il salone è sotto controllo. Mantieni ritmo, esperienza e qualità.';
-  }, [fatturatoOggi, appuntamentiOggi, conversionRate, appointments.length, scontriniDaEmettere]);
-
-  if (loading) {
-    return <main className="sp-page">Caricamento Dashboard Coach...</main>;
-  }
+  if (loading) return <DashboardSkeleton />;
 
   return (
     <main className="sp-page">
-      <div className="sp-shell">
-        <header style={{ marginBottom: 24 }}>
-          <div style={eyebrow}>Dashboard Coach</div>
-          <h1 className="sp-title">La regia del tuo salone</h1>
-          <p className="sp-muted" style={{ marginTop: 8 }}>
-            Numeri, alert e azioni per guidare incassi, appuntamenti e clienti.
-          </p>
+      <div className={`sp-shell ${styles.shell}`}>
+        <header className={styles.heading}>
+          <div>
+            <span className={styles.eyebrow}>Executive overview</span>
+            <h1>Buongiorno, ecco il tuo salone.</h1>
+            <p>{todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)} · dati aggiornati in tempo reale</p>
+          </div>
+          <div className={styles.headingActions}>
+            <span className={styles.period}><span /> Mese corrente</span>
+            <Link className={styles.secondaryButton} href="/dashboardcoach">Analisi completa <AppIcon name="arrow" size={16} /></Link>
+          </div>
         </header>
 
         {error ? (
-          <div style={errorBox}>⚠️ {error}</div>
+          <div className={styles.error} role="alert">
+            <div><strong>Dati non disponibili</strong><span>{error}</span></div>
+            <button onClick={() => window.location.reload()} type="button">Riprova</button>
+          </div>
         ) : null}
 
-        <section style={heroGrid}>
-          <div className="sp-card" style={heroCard}>
-            <div style={{ color: '#8b5cf6', fontWeight: 900, letterSpacing: 2, fontSize: 12 }}>
-              COACH DEL GIORNO
-            </div>
-
-            <h2 style={{ margin: '10px 0', fontSize: 32, color: '#d4af37' }}>
-              {coachMessage}
-            </h2>
-
-            <p className="sp-muted" style={{ lineHeight: 1.6 }}>
-              Salon Pro ti aiuta a guardare non solo cosa è successo, ma cosa fare adesso.
-            </p>
-
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 18 }}>
-              <a href="/agenda" style={goldAction}>Apri agenda</a>
-              <a href="/vendite" style={purpleAction}>Vai alla cassa</a>
-            </div>
-          </div>
-
-          <div className="sp-card" style={sideCoachCard}>
-            <div className="sp-muted">Scontrino medio</div>
-            <div style={{ fontSize: 42, fontWeight: 900, color: '#d4af37', marginTop: 8 }}>
-              € {scontrinoMedio.toFixed(2)}
-            </div>
-            <div className="sp-muted" style={{ marginTop: 10 }}>
-              Aumentarlo anche di pochi euro cambia il mese.
-            </div>
-          </div>
+        <section aria-label="Indicatori principali" className={styles.kpiGrid}>
+          <KpiCard
+            detail={`${metrics.salesMonthCount} transazioni nel mese`}
+            icon="cash"
+            label="Fatturato del mese"
+            trend={metrics.trend}
+            value={euro.format(metrics.revenueMonth)}
+          />
+          <KpiCard
+            detail={`${metrics.appointmentsToday} appuntamenti in agenda`}
+            icon="trend"
+            label="Incasso di oggi"
+            value={euro.format(metrics.revenueToday)}
+          />
+          <KpiCard
+            detail="Valore medio per cliente"
+            icon="clients"
+            label="Scontrino medio"
+            value={euro.format(metrics.averageTicket)}
+          />
+          <KpiCard
+            detail={`${clients.length} clienti attivi nel CRM`}
+            icon="agenda"
+            label="Conversione appuntamenti"
+            value={`${metrics.conversion.toFixed(0)}%`}
+          />
         </section>
 
-        <section style={kpiGrid}>
-          <Kpi title="Fatturato oggi" value={`€ ${fatturatoOggi.toFixed(2)}`} sub="Incasso giornaliero" />
-          <Kpi title="Fatturato mese" value={`€ ${fatturatoMese.toFixed(2)}`} sub="Visione mensile" />
-          <Kpi title="Appuntamenti oggi" value={String(appuntamentiOggi)} sub="Movimento salone" />
-          <Kpi title="Clienti totali" value={String(clients.length)} sub="Base clienti" />
-          <Kpi title="Conversione" value={`${conversionRate.toFixed(0)}%`} sub="Appuntamenti → vendite" />
-          <Kpi title="Scontrini da emettere" value={String(scontriniDaEmettere)} sub="Controllo fiscale" danger={scontriniDaEmettere > 0} />
+        <section className={styles.mainGrid}>
+          <article className={`${styles.panel} ${styles.revenuePanel}`}>
+            <div className={styles.panelHeading}>
+              <div>
+                <span>Performance</span>
+                <h2>Andamento ultimi 7 giorni</h2>
+              </div>
+              <strong>{compactEuro.format(trendDays.reduce((sum, item) => sum + item.value, 0))}</strong>
+            </div>
+            <div className={styles.chart}>
+              {trendDays.map((item, index) => (
+                <div className={styles.chartColumn} key={item.key}>
+                  <div className={styles.barTrack}>
+                    <span
+                      aria-label={`${item.label}: ${euro.format(item.value)}`}
+                      className={index === trendDays.length - 1 ? styles.todayBar : ""}
+                      style={{ height: `${Math.max((item.value / maxTrend) * 100, item.value > 0 ? 8 : 2)}%` }}
+                      title={`${item.label}: ${euro.format(item.value)}`}
+                    />
+                  </div>
+                  <small>{item.label}</small>
+                </div>
+              ))}
+            </div>
+            <div className={styles.revenueFooter}>
+              <div><span>Margine stimato</span><strong>{euro.format(metrics.estimatedMargin)}</strong></div>
+              <div><span>Obiettivo operativo</span><strong>{metrics.conversion >= 70 ? "In linea" : "Da recuperare"}</strong></div>
+              <Link href="/dashboardcoach">Apri controllo di gestione <AppIcon name="arrow" size={15} /></Link>
+            </div>
+          </article>
+
+          <article className={`${styles.panel} ${styles.actionPanel}`}>
+            <div className={styles.panelHeading}>
+              <div><span>Action center</span><h2>Priorità di oggi</h2></div>
+              <span className={styles.counter}>3 azioni</span>
+            </div>
+            <ActionItem
+              href="/fiscale"
+              icon="cash"
+              status={metrics.pendingReceipts > 0 ? "warning" : "success"}
+              text={metrics.pendingReceipts > 0 ? `${metrics.pendingReceipts} vendite richiedono verifica fiscale` : "Situazione fiscale aggiornata"}
+              title="Controllo chiusure"
+            />
+            <ActionItem
+              href="/agenda"
+              icon="agenda"
+              status={metrics.appointmentsToday > 0 ? "active" : "neutral"}
+              text={`${metrics.appointmentsToday} appuntamenti previsti nella giornata`}
+              title="Agenda operativa"
+            />
+            <ActionItem
+              href="/marketing"
+              icon="marketing"
+              status={metrics.conversion < 60 ? "warning" : "success"}
+              text={metrics.conversion < 60 ? "La conversione può crescere con un follow-up" : "Conversione mensile in buona salute"}
+              title="Opportunità clienti"
+            />
+          </article>
         </section>
 
-        <section style={mainGrid}>
-          <div className="sp-card" style={panel}>
-            <div style={panelHeader}>
-              <div>
-                <h2 style={sectionTitle}>Prossimi appuntamenti</h2>
-                <p className="sp-muted" style={{ margin: 0 }}>Il ritmo operativo delle prossime ore</p>
-              </div>
-              <a href="/agenda" style={miniLink}>Agenda</a>
+        <section className={styles.lowerGrid}>
+          <article className={styles.panel}>
+            <div className={styles.panelHeading}>
+              <div><span>Operatività</span><h2>Prossimi appuntamenti</h2></div>
+              <Link className={styles.textLink} href="/agenda">Vedi agenda <AppIcon name="arrow" size={14} /></Link>
             </div>
-
-            <div style={{ display: 'grid', gap: 12 }}>
-              {prossimiAppuntamenti.length === 0 ? (
-                <Empty text="Nessun appuntamento imminente." />
-              ) : (
-                prossimiAppuntamenti.map((appointment) => (
-                  <div key={appointment.id} style={appointmentRow}>
-                    <div>
-                      <strong>{appointment.clientTenant.clientGlobal.name}</strong>
-                      <div className="sp-muted" style={{ marginTop: 4 }}>
-                        {appointment.note || 'Appuntamento'}
-                      </div>
-                      <div style={{ color: '#d4af37', marginTop: 6, fontWeight: 900 }}>
-                        {new Date(appointment.date).toLocaleString('it-IT', {
-                          weekday: 'short',
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </div>
-                    </div>
-
-                    <div style={statusPill}>
-                      {appointment.sale ? 'Venduto' : `${appointment.duration} min`}
-                    </div>
+            <div className={styles.appointmentList}>
+              {nextAppointments.length === 0 ? <EmptyState text="Nessun appuntamento imminente." /> : nextAppointments.map((appointment) => {
+                const date = new Date(appointment.date);
+                return (
+                  <div className={styles.appointmentRow} key={appointment.id}>
+                    <div className={styles.timeBox}><strong>{date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</strong><small>{date.toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}</small></div>
+                    <span className={styles.staffDot} style={{ background: appointment.staff?.color || "#d2a94d" }} />
+                    <div className={styles.rowCopy}><strong>{appointment.clientTenant.clientGlobal.name}</strong><small>{appointment.note || "Servizio da definire"} · {appointment.duration} min</small></div>
+                    <span className={appointment.sale ? styles.doneBadge : styles.scheduledBadge}>{appointment.sale ? "Chiuso" : appointment.staff?.name || "Da assegnare"}</span>
                   </div>
-                ))
-              )}
+                );
+              })}
             </div>
-          </div>
+          </article>
 
-          <div className="sp-card" style={panel}>
-            <div style={panelHeader}>
-              <div>
-                <h2 style={sectionTitle}>Ultime vendite</h2>
-                <p className="sp-muted" style={{ margin: 0 }}>Movimenti recenti in cassa</p>
-              </div>
-              <a href="/vendite" style={miniLink}>Cassa</a>
+          <article className={styles.panel}>
+            <div className={styles.panelHeading}>
+              <div><span>Cassa</span><h2>Ultime vendite</h2></div>
+              <Link className={styles.textLink} href="/vendite">Apri vendite <AppIcon name="arrow" size={14} /></Link>
             </div>
-
-            <div style={{ display: 'grid', gap: 12 }}>
-              {ultimeVendite.length === 0 ? (
-                <Empty text="Nessuna vendita registrata." />
-              ) : (
-                ultimeVendite.map((sale) => (
-                  <div key={sale.id} style={saleRow}>
-                    <div>
-                      <strong>{sale.clientGlobal.name}</strong>
-                      <div className="sp-muted" style={{ marginTop: 4 }}>
-                        {new Date(sale.createdAt).toLocaleString('it-IT')}
-                      </div>
-                      <div
-                        style={{
-                          marginTop: 8,
-                          color: sale.fiscalStatus === 'ISSUED' ? '#65e696' : '#fbbf24',
-                          fontWeight: 900,
-                        }}
-                      >
-                        {sale.fiscalStatus === 'ISSUED' ? 'Scontrino emesso' : 'Da emettere'}
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 24, color: '#d4af37', fontWeight: 900 }}>
-                        € {sale.total.toFixed(2)}
-                      </div>
-                      <div className="sp-muted">{paymentLabel(sale.paymentMethod)}</div>
-                    </div>
-                  </div>
-                ))
-              )}
+            <div className={styles.salesTable}>
+              {latestSales.length === 0 ? <EmptyState text="Nessuna vendita registrata." /> : latestSales.map((sale) => (
+                <div className={styles.saleRow} key={sale.id}>
+                  <span className={styles.clientAvatar}>{sale.clientGlobal.name.slice(0, 2).toUpperCase()}</span>
+                  <div className={styles.rowCopy}><strong>{sale.clientGlobal.name}</strong><small>{new Date(sale.createdAt).toLocaleDateString("it-IT", { day: "2-digit", month: "short" })} · {paymentLabel(sale.paymentMethod)}</small></div>
+                  <span className={sale.fiscalStatus === "ISSUED" ? styles.fiscalOk : styles.fiscalPending}>{sale.fiscalStatus === "ISSUED" ? "Emesso" : "Da verificare"}</span>
+                  <strong className={styles.saleValue}>{euro.format(sale.total)}</strong>
+                </div>
+              ))}
             </div>
-          </div>
+          </article>
+        </section>
+
+        <section className={styles.quickActions}>
+          <div><span>Azioni rapide</span><small>Le operazioni più frequenti</small></div>
+          <QuickAction href="/agenda" icon="plus" label="Nuovo appuntamento" />
+          <QuickAction href="/vendite" icon="cash" label="Apri cassa" />
+          <QuickAction href="/clienti" icon="clients" label="Aggiungi cliente" />
+          <QuickAction href="/magazzino" icon="package" label="Carico merce" />
         </section>
       </div>
     </main>
   );
 }
 
-function Kpi({
-  title,
-  value,
-  sub,
-  danger,
-}: {
-  title: string;
-  value: string;
-  sub: string;
-  danger?: boolean;
-}) {
+function KpiCard({ label, value, detail, icon, trend }: { label: string; value: string; detail: string; icon: AppIconName; trend?: number | null }) {
   return (
-    <div
-      className="sp-card"
-      style={{
-        padding: 20,
-        borderColor: danger ? 'rgba(239,68,68,0.45)' : 'rgba(212,175,55,0.22)',
-      }}
-    >
-      <div className="sp-muted">{title}</div>
-      <div
-        style={{
-          marginTop: 10,
-          fontSize: 32,
-          fontWeight: 900,
-          color: danger ? '#f87171' : '#d4af37',
-        }}
-      >
-        {value}
+    <article className={styles.kpiCard}>
+      <div className={styles.kpiTop}><span>{label}</span><i><AppIcon name={icon} size={18} /></i></div>
+      <strong>{value}</strong>
+      <div className={styles.kpiDetail}>
+        {trend !== undefined && trend !== null ? <span className={trend >= 0 ? styles.positive : styles.negative}>{trend >= 0 ? "+" : ""}{trend.toFixed(1)}%</span> : null}
+        <small>{detail}</small>
       </div>
-      <div className="sp-muted" style={{ marginTop: 8, fontSize: 13 }}>
-        {sub}
-      </div>
-    </div>
+    </article>
   );
 }
 
-function Empty({ text }: { text: string }) {
+function ActionItem({ title, text, icon, status, href }: { title: string; text: string; icon: AppIconName; status: "warning" | "success" | "active" | "neutral"; href: string }) {
   return (
-    <div
-      style={{
-        padding: 18,
-        borderRadius: 18,
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        color: '#b8bfd0',
-      }}
-    >
-      {text}
-    </div>
+    <Link className={styles.actionItem} href={href === "/fiscale" ? "/vendite" : href}>
+      <span className={`${styles.actionIcon} ${styles[status]}`}><AppIcon name={icon} size={18} /></span>
+      <span><strong>{title}</strong><small>{text}</small></span>
+      <AppIcon name="arrow" size={16} />
+    </Link>
+  );
+}
+
+function QuickAction({ href, icon, label }: { href: string; icon: AppIconName; label: string }) {
+  return <Link href={href}><span><AppIcon name={icon} size={17} /></span>{label}<AppIcon name="arrow" size={14} /></Link>;
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className={styles.emptyState}>{text}</div>;
+}
+
+function DashboardSkeleton() {
+  return (
+    <main className="sp-page">
+      <div className={`sp-shell ${styles.shell}`}>
+        <div className={`${styles.skeleton} ${styles.skeletonTitle}`} />
+        <div className={styles.kpiGrid}>{Array.from({ length: 4 }, (_, index) => <div className={`${styles.kpiCard} ${styles.skeleton}`} key={index} />)}</div>
+        <div className={styles.mainGrid}><div className={`${styles.panel} ${styles.skeleton}`} /><div className={`${styles.panel} ${styles.skeleton}`} /></div>
+      </div>
+    </main>
   );
 }
 
 function paymentLabel(value?: string | null) {
-  if (value === 'card') return 'Carta';
-  if (value === 'cash') return 'Contanti';
-  if (value === 'mixed') return 'Misto';
-  if (value === 'bank') return 'Bonifico';
-  return 'Pagamento';
+  if (value === "card") return "Carta";
+  if (value === "cash") return "Contanti";
+  if (value === "mixed") return "Misto";
+  if (value === "bank") return "Bonifico";
+  return "Pagamento";
 }
-
-const eyebrow: React.CSSProperties = {
-  color: '#d4af37',
-  fontWeight: 900,
-  letterSpacing: 2,
-  fontSize: 13,
-  textTransform: 'uppercase',
-};
-
-const errorBox: React.CSSProperties = {
-  marginBottom: 18,
-  padding: 16,
-  borderRadius: 18,
-  background: 'rgba(239,68,68,0.14)',
-  border: '1px solid rgba(239,68,68,0.35)',
-  color: '#fecaca',
-  fontWeight: 900,
-};
-
-const heroGrid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1.5fr 0.8fr',
-  gap: 20,
-  marginBottom: 20,
-};
-
-const heroCard: React.CSSProperties = {
-  padding: 28,
-  background:
-    'radial-gradient(circle at top left, rgba(139,92,246,0.22), transparent 40%), rgba(255,255,255,0.055)',
-};
-
-const sideCoachCard: React.CSSProperties = {
-  padding: 28,
-  background:
-    'radial-gradient(circle at top right, rgba(212,175,55,0.18), transparent 36%), rgba(255,255,255,0.055)',
-};
-
-const goldAction: React.CSSProperties = {
-  padding: '14px 18px',
-  borderRadius: 16,
-  background: 'linear-gradient(135deg,#d4af37,#f5d76e)',
-  color: '#050505',
-  fontWeight: 900,
-};
-
-const purpleAction: React.CSSProperties = {
-  padding: '14px 18px',
-  borderRadius: 16,
-  background: 'linear-gradient(135deg,#8b5cf6,#a78bfa)',
-  color: '#fff',
-  fontWeight: 900,
-};
-
-const kpiGrid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
-  gap: 16,
-  marginBottom: 20,
-};
-
-const mainGrid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 20,
-};
-
-const panel: React.CSSProperties = {
-  padding: 22,
-};
-
-const panelHeader: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 12,
-  alignItems: 'center',
-  marginBottom: 16,
-};
-
-const sectionTitle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 22,
-  color: '#d4af37',
-};
-
-const miniLink: React.CSSProperties = {
-  padding: '10px 14px',
-  borderRadius: 999,
-  background: 'rgba(139,92,246,0.16)',
-  border: '1px solid rgba(139,92,246,0.28)',
-  color: '#d8c8ff',
-  fontWeight: 900,
-};
-
-const appointmentRow: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 12,
-  padding: 16,
-  borderRadius: 18,
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.08)',
-};
-
-const saleRow: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 12,
-  padding: 16,
-  borderRadius: 18,
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.08)',
-};
-
-const statusPill: React.CSSProperties = {
-  alignSelf: 'start',
-  padding: '8px 12px',
-  borderRadius: 999,
-  background: 'rgba(212,175,55,0.14)',
-  border: '1px solid rgba(212,175,55,0.24)',
-  color: '#d4af37',
-  fontWeight: 900,
-  whiteSpace: 'nowrap',
-};

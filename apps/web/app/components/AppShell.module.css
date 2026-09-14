@@ -1,0 +1,601 @@
+.shell {
+  --sidebar-width: 278px;
+  min-height: 100vh;
+  background: #0e1015;
+}
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 80;
+  display: flex;
+  width: var(--sidebar-width);
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.075);
+  background: #090b0f;
+  transition: width 180ms ease, transform 180ms ease;
+}
+
+.brandRow {
+  display: flex;
+  min-height: 82px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  color: #fff;
+  text-decoration: none;
+}
+
+.logoMark {
+  position: relative;
+  display: grid;
+  width: 43px;
+  height: 43px;
+  flex: 0 0 43px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(210, 169, 77, 0.32);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(210, 169, 77, 0.14), rgba(210, 169, 77, 0.035));
+}
+
+.logoImage {
+  width: 84px;
+  height: auto;
+  max-width: none;
+  object-fit: contain;
+  object-position: left center;
+  transform: translateX(20px) scale(1.35);
+}
+
+.brandCopy,
+.tenantCopy,
+.navCopy,
+.profileCopy {
+  display: grid;
+  min-width: 0;
+}
+
+.brandCopy strong {
+  font-size: 15px;
+  font-weight: 720;
+  letter-spacing: -0.01em;
+}
+
+.brandCopy small {
+  margin-top: 3px;
+  color: #777e8d;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tenantCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 17px 14px 8px;
+  padding: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tenantMonogram,
+.avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: #d2a94d;
+  color: #15120a;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.tenantCopy {
+  flex: 1;
+}
+
+.tenantCopy small {
+  color: #777e8d;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tenantCopy strong {
+  overflow: hidden;
+  margin-top: 2px;
+  color: #e9ebef;
+  font-size: 12px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.liveDot,
+.notificationDot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #38c783;
+  box-shadow: 0 0 0 4px rgba(56, 199, 131, 0.1);
+}
+
+.navigation {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 12px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: #262a34 transparent;
+}
+
+.navSection {
+  margin-top: 20px;
+}
+
+.navSectionLabel {
+  margin: 0 10px 7px;
+  color: #5d6370;
+  font-size: 9px;
+  font-weight: 780;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.navItem {
+  position: relative;
+  display: flex;
+  min-height: 49px;
+  align-items: center;
+  gap: 12px;
+  margin: 3px 0;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: #9da3b0;
+  text-decoration: none;
+  transition: 150ms ease;
+}
+
+.navItem:hover {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.045);
+  color: #fff;
+}
+
+.navItemActive {
+  border-color: rgba(210, 169, 77, 0.16);
+  background: linear-gradient(90deg, rgba(210, 169, 77, 0.14), rgba(210, 169, 77, 0.035));
+  color: #f3e5c2;
+}
+
+.navIcon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+}
+
+.navCopy {
+  gap: 2px;
+}
+
+.navCopy strong {
+  font-size: 12.5px;
+  font-weight: 670;
+}
+
+.navCopy small {
+  color: #686f7c;
+  font-size: 10px;
+}
+
+.navItemActive .navCopy small {
+  color: #998968;
+}
+
+.activeIndicator {
+  position: absolute;
+  top: 13px;
+  right: 0;
+  bottom: 13px;
+  width: 2px;
+  border-radius: 2px;
+  background: #d2a94d;
+}
+
+.sidebarFooter {
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px;
+}
+
+.avatar {
+  border-radius: 50%;
+  background: #22262f;
+  color: #dce0e7;
+}
+
+.profileCopy {
+  flex: 1;
+}
+
+.profileCopy strong {
+  color: #e9ebef;
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.profileCopy small {
+  margin-top: 2px;
+  color: #777e8d;
+  font-size: 10px;
+}
+
+.collapseButton {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  margin-top: 9px;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #666d79;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.collapseButton svg {
+  transform: rotate(180deg);
+  transition: transform 180ms ease;
+}
+
+.collapseButton .rotated {
+  transform: rotate(0);
+}
+
+.collapseButton:hover {
+  background: rgba(255, 255, 255, 0.035);
+  color: #c8ccd3;
+}
+
+.workspace {
+  min-height: 100vh;
+  margin-left: var(--sidebar-width);
+  transition: margin-left 180ms ease;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: grid;
+  min-height: 72px;
+  grid-template-columns: minmax(170px, 1fr) minmax(260px, 430px) minmax(170px, 1fr);
+  align-items: center;
+  gap: 20px;
+  padding: 12px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+  background: rgba(14, 16, 21, 0.88);
+  backdrop-filter: blur(18px);
+}
+
+.topbarStart,
+.topbarActions {
+  display: flex;
+  align-items: center;
+}
+
+.topbarActions {
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.pageIdentity {
+  display: grid;
+  gap: 2px;
+}
+
+.pageIdentity span {
+  color: #f0f1f3;
+  font-size: 13px;
+  font-weight: 710;
+}
+
+.pageIdentity small {
+  color: #686f7c;
+  font-size: 9px;
+  font-weight: 680;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.searchWrap {
+  position: relative;
+  display: flex;
+  height: 42px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.searchWrap:focus-within {
+  border-color: rgba(210, 169, 77, 0.38);
+  box-shadow: 0 0 0 3px rgba(210, 169, 77, 0.07);
+}
+
+.searchIcon {
+  color: #656c78;
+}
+
+.searchWrap input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #e8e9ec;
+  font-size: 12px;
+}
+
+.searchWrap input::placeholder {
+  color: #5f6672;
+}
+
+.searchWrap kbd {
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: #181b22;
+  color: #737a87;
+  font-family: inherit;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.searchResults {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: #15181e;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.searchResults a {
+  display: grid;
+  grid-template-columns: 30px 1fr 20px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border-radius: 9px;
+  color: #ccd0d7;
+  text-decoration: none;
+}
+
+.searchResults a:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.searchResults a > span:nth-child(2) {
+  display: grid;
+}
+
+.searchResults strong {
+  font-size: 11px;
+}
+
+.searchResults small {
+  margin-top: 2px;
+  color: #6f7682;
+  font-size: 9px;
+}
+
+.menuButton,
+.iconButton,
+.mobileClose {
+  display: none;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #9ca2ae;
+}
+
+.iconButton {
+  position: relative;
+  display: grid;
+}
+
+.notificationDot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid #14171c;
+  box-shadow: none;
+}
+
+.primaryAction {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 11px;
+  background: #d2a94d;
+  color: #17140c;
+  font-size: 11px;
+  font-weight: 760;
+  text-decoration: none;
+  transition: 150ms ease;
+}
+
+.primaryAction:hover {
+  background: #dfbb68;
+  transform: translateY(-1px);
+}
+
+.content {
+  min-height: calc(100vh - 72px);
+}
+
+.isCollapsed {
+  --sidebar-width: 82px;
+}
+
+.isCollapsed .brandCopy,
+.isCollapsed .tenantCopy,
+.isCollapsed .liveDot,
+.isCollapsed .navSectionLabel,
+.isCollapsed .navCopy,
+.isCollapsed .activeIndicator,
+.isCollapsed .profileCopy,
+.isCollapsed .collapseButton span {
+  display: none;
+}
+
+.isCollapsed .brandRow,
+.isCollapsed .tenantCard,
+.isCollapsed .navItem,
+.isCollapsed .profile,
+.isCollapsed .collapseButton {
+  justify-content: center;
+}
+
+.isCollapsed .tenantCard {
+  margin-inline: 12px;
+  padding-inline: 8px;
+}
+
+.isCollapsed .navigation {
+  padding-inline: 11px;
+}
+
+.isCollapsed .navSection {
+  margin-top: 13px;
+}
+
+.isCollapsed .sidebarFooter {
+  padding-inline: 11px;
+}
+
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .topbar {
+    grid-template-columns: 1fr minmax(240px, 370px) 1fr;
+    padding-inline: 20px;
+  }
+
+  .primaryAction span {
+    display: none;
+  }
+}
+
+@media (max-width: 920px) {
+  .sidebar {
+    width: min(300px, 88vw);
+    transform: translateX(-102%);
+    box-shadow: 26px 0 70px rgba(0, 0, 0, 0.55);
+  }
+
+  .mobileOpen {
+    transform: translateX(0);
+  }
+
+  .mobileClose,
+  .menuButton {
+    display: grid;
+  }
+
+  .workspace {
+    margin-left: 0;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .topbarStart {
+    gap: 12px;
+  }
+
+  .searchWrap {
+    display: none;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: block;
+    border: 0;
+    background: rgba(0, 0, 0, 0.58);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+  }
+
+  .backdropVisible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    min-height: 64px;
+    padding: 10px 13px;
+  }
+
+  .pageIdentity small,
+  .iconButton {
+    display: none;
+  }
+
+  .primaryAction {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .content {
+    min-height: calc(100vh - 64px);
+  }
+}
