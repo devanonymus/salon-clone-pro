@@ -3,7 +3,7 @@ import {
   Module,
   type NestModule,
 } from '@nestjs/common';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -17,7 +17,7 @@ import { HealthController } from './health/health.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { MarketingCardsModule } from './marketing-cards/marketing-cards.module';
 import { RequestIdMiddleware } from './observability/request-id.middleware';
-import { HttpLoggingInterceptor } from './observability/http-logging.interceptor';
+import { HttpLoggingMiddleware } from './observability/http-logging.middleware';
 import { SalesModule } from './sales/sales.module';
 import { ServicePricesModule } from './service-prices/service-prices.module';
 import { StaffModule } from './staff/staff.module';
@@ -43,11 +43,12 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
   providers: [
     AppService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    { provide: APP_INTERCEPTOR, useClass: HttpLoggingInterceptor },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestIdMiddleware).forRoutes('*');
+    consumer
+      .apply(RequestIdMiddleware, HttpLoggingMiddleware)
+      .forRoutes('*');
   }
 }
