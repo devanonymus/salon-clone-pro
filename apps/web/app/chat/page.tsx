@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/src/lib/api';
 
 type WhatsappMessage = {
   id: string;
@@ -20,6 +21,10 @@ type WhatsappConversation = {
   lastAt: string;
   messages: WhatsappMessage[];
 };
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export default function ChatPage() {
   const router = useRouter();
@@ -82,15 +87,15 @@ export default function ChatPage() {
     try {
       setMessage('');
 
-      const data = await fetchWithAuth('http://localhost:3001/whatsapp/conversations');
+      const data = await fetchWithAuth(`${API_URL}/whatsapp/conversations`);
 
       setConversations(data);
 
       if (!selectedId && data.length > 0) {
         setSelectedId(data[0].id);
       }
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || 'Errore caricamento chat'}`);
+    } catch (error: unknown) {
+      setMessage(`⚠️ ${errorMessage(error, 'Errore caricamento chat')}`);
     } finally {
       setLoading(false);
     }
@@ -105,7 +110,7 @@ export default function ChatPage() {
 
     try {
       await fetchWithAuth(
-        `http://localhost:3001/whatsapp/conversations/${selectedConversation.id}/send`,
+        `${API_URL}/whatsapp/conversations/${selectedConversation.id}/send`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -117,21 +122,26 @@ export default function ChatPage() {
 
       setText('');
       await loadConversations();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || 'Errore invio messaggio'}`);
+    } catch (error: unknown) {
+      setMessage(`⚠️ ${errorMessage(error, 'Errore invio messaggio')}`);
     } finally {
       setSending(false);
     }
   }
 
   useEffect(() => {
-    loadConversations();
+    const initialLoad = window.setTimeout(() => {
+      void loadConversations();
+    }, 0);
 
     const interval = setInterval(() => {
-      loadConversations();
+      void loadConversations();
     }, 6000);
 
-    return () => clearInterval(interval);
+    return () => {
+      window.clearTimeout(initialLoad);
+      clearInterval(interval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

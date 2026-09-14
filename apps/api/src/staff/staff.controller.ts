@@ -1,22 +1,33 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
-import { JwtGuard } from "../auth/jwt.guard";
-import { StaffService } from "./staff.service";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtGuard } from '../auth/jwt.guard';
+import type { AuthRequest } from '../auth/auth-request';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { StaffService } from './staff.service';
 
-@Controller("staff")
-@UseGuards(JwtGuard)
+@Controller('staff')
+@UseGuards(JwtGuard, RolesGuard)
 export class StaffController {
   constructor(private service: StaffService) {}
 
   @Get()
-  list(@Req() req: any) {
+  list(@Req() req: AuthRequest) {
     return this.service.list(req.user.tenantId);
   }
 
-
-
   @Post()
+  @Roles('OWNER', 'MANAGER')
   create(
-    @Req() req: any,
+    @Req() req: AuthRequest,
     @Body()
     body: {
       name: string;
@@ -31,10 +42,11 @@ export class StaffController {
     return this.service.create(req.user.tenantId, body);
   }
 
-  @Patch(":id")
+  @Patch(':id')
+  @Roles('OWNER', 'MANAGER')
   update(
-    @Req() req: any,
-    @Param("id") id: string,
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
     @Body()
     body: {
       name?: string;

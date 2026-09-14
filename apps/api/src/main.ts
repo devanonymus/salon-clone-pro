@@ -1,29 +1,40 @@
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
+import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import helmet from 'helmet';
+import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(helmet());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      transformOptions: { enableImplicitConversion: false },
+    }),
+  );
 
-  const allowedOrigins = [
-    "https://web-production-7d41a3.up.railway.app",
-    "https://app.acquavivastrategic.it",
-    "http://localhost:3000",
+  const defaultOrigins = [
+    'https://web-production-7d41a3.up.railway.app',
+    'https://app.acquavivastrategic.it',
+    'http://localhost:3000',
   ];
-
-  console.log("CORS allowedOrigins:", allowedOrigins);
+  const allowedOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim())
+    : defaultOrigins;
 
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   const port = Number(process.env.PORT) || 8080;
 
-  await app.listen(port, "0.0.0.0");
+  await app.listen(port, '0.0.0.0');
 
   console.log(`Backend Nest attivo sulla porta ${port}`);
 }
 
-bootstrap();
+void bootstrap();

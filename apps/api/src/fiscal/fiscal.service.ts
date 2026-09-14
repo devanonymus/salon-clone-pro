@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -50,30 +54,38 @@ export class FiscalService {
       message: 'Scontrino demo emesso correttamente',
     };
 
-    await this.prisma.sale.update({
-      where: { id: sale.id },
-      data: {
-        fiscalStatus: 'ISSUED',
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.sale.updateMany({
+        where: {
+          id: sale.id,
+          tenantId,
+          fiscalStatus: { not: 'ISSUED' },
+        },
+        data: { fiscalStatus: 'ISSUED' },
+      });
 
-    return this.prisma.fiscalReceipt.create({
-      data: {
-        tenantId,
-        saleId,
-        provider: 'DEMO',
-        status: 'DEMO_PRINTED',
-        payload,
-        response: simulatedResponse,
-      },
-      include: {
-        sale: {
-          include: {
-            clientGlobal: true,
-            items: true,
+      if (updated.count !== 1) {
+        throw new BadRequestException('Scontrino già emesso');
+      }
+
+      return tx.fiscalReceipt.create({
+        data: {
+          tenantId,
+          saleId,
+          provider: 'DEMO',
+          status: 'DEMO_PRINTED',
+          payload,
+          response: simulatedResponse,
+        },
+        include: {
+          sale: {
+            include: {
+              clientGlobal: true,
+              items: true,
+            },
           },
         },
-      },
+      });
     });
   }
 
