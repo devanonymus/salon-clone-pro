@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import AppIcon from "../components/AppIcon";
+import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
+import ops from "../operations.module.css";
+import { API_URL, getErrorMessage } from "../../src/lib/api";
 
 type ClientItem = {
   id: string;
@@ -451,8 +455,6 @@ export default function VenditePage() {
       throw new Error("Token mancante");
     }
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
     const res = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
@@ -497,15 +499,15 @@ export default function VenditePage() {
       );
 
       setAppointments(ready);
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore caricamento cassa"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore caricamento cassa")}`);
     } finally {
       setDataLoading(false);
     }
   }
 
   useEffect(() => {
-    loadData();
+    void Promise.resolve().then(loadData);
     const timer = setInterval(loadData, 30000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -754,45 +756,54 @@ export default function VenditePage() {
       setDiscountValue("");
       setReceiptType("FISCAL");
       await loadData();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore registrazione vendita"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore registrazione vendita")}`);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="sp-page">
+    <main className={`sp-page ${ops.modulePage}`}>
       <div className="sp-shell" style={{ maxWidth: 1640 }}>
-        <header style={header}>
-          <div>
-            <div style={eyebrow}>Cassa & Checkout</div>
-            <h1 className="sp-title">Cassa semplice</h1>
-            <p className="sp-muted" style={{ marginTop: 8 }}>
-              Carica l’appuntamento, controlla il carrello e incassa in pochi click.
-            </p>
-          </div>
-
-          <div style={topActions}>
-            <button style={lightButton} onClick={clearCheckout}>
+        <ModuleHeader
+          eyebrow="Cassa & checkout"
+          title="Cassa operativa"
+          description="Un flusso guidato dall’appuntamento all’incasso, con controllo di costi, sconti e marginalità reale."
+          icon="cash"
+          status="Pronta all’incasso"
+          actions={(
+            <>
+            <button className={ops.secondaryAction} onClick={clearCheckout} type="button">
               Pulisci cassa
             </button>
-            <button style={primaryTopButton} onClick={closeSale} disabled={!canCloseSale}>
+            <button className={ops.primaryAction} onClick={closeSale} disabled={!canCloseSale} type="button">
+              <AppIcon name="check" size={16} />
               {loading ? "Salvataggio..." : `Incassa ${money(total)}`}
             </button>
-          </div>
-        </header>
+            </>
+          )}
+        />
 
-        <section style={stepBar}>
+        <ModuleMetrics
+          items={[
+            { label: "Pronti da incassare", value: filteredAppointments.length, detail: "appuntamenti conclusi", tone: filteredAppointments.length ? "warning" : "neutral" },
+            { label: "Voci carrello", value: cart.length, detail: selectedClient ? selectedClient.clientGlobal.name : "nessun cliente selezionato" },
+            { label: "Totale incasso", value: money(total), detail: discountTotal ? `${money(discountTotal)} di sconti` : "nessuno sconto", tone: "accent" },
+            { label: "Margine stimato", value: money(margin), detail: missingStaffForServices ? "seleziona l’operatore" : "costi tecnici e personale inclusi", tone: margin >= 0 ? "success" : "danger" },
+          ]}
+        />
+
+        <section className={ops.stepBar} style={stepBar}>
           <Step active={Boolean(selectedClient)} number="1" title="Cliente" text={selectedClient ? selectedClient.clientGlobal.name : "Seleziona"} />
           <Step active={cart.length > 0} number="2" title="Carrello cliente" text={`${cart.length} voci`} />
-          <Step active={total > 0} number="3" title="3. Incasso" text={money(total)} />
+          <Step active={total > 0} number="3" title="Incasso" text={money(total)} />
         </section>
 
         {message ? <div style={messageBox}>{message}</div> : null}
 
-        <section style={mainGrid}>
-          <aside className="sp-card" style={card}>
+        <section className={ops.contentGrid} style={mainGrid}>
+          <aside className={`sp-card ${ops.surface}`} style={card}>
             <div style={sectionHeader}>
               <div>
                 <span style={stepBadge}>1</span>
@@ -880,7 +891,7 @@ export default function VenditePage() {
             ) : null}
           </aside>
 
-          <section className="sp-card" style={card}>
+          <section className={`sp-card ${ops.surface}`} style={card}>
             <div style={sectionHeader}>
               <div>
                 <span style={stepBadge}>2</span>
@@ -1091,7 +1102,7 @@ export default function VenditePage() {
             )}
           </section>
 
-          <aside className="sp-card" style={checkoutCard}>
+          <aside className={`sp-card ${ops.surface}`} style={checkoutCard}>
             <div style={sectionHeader}>
               <div>
                 <span style={stepBadge}>3</span>
@@ -1263,49 +1274,6 @@ function SummaryRow({
     </div>
   );
 }
-
-const header: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16,
-  alignItems: "center",
-  marginBottom: 18,
-  flexWrap: "wrap",
-};
-
-const eyebrow: React.CSSProperties = {
-  color: "#d4af37",
-  fontWeight: 900,
-  letterSpacing: 2,
-  textTransform: "uppercase",
-  fontSize: 13,
-};
-
-const topActions: React.CSSProperties = {
-  display: "flex",
-  gap: 12,
-  flexWrap: "wrap",
-};
-
-const primaryTopButton: React.CSSProperties = {
-  border: 0,
-  borderRadius: 16,
-  padding: "15px 22px",
-  background: "linear-gradient(135deg,#8b5cf6,#d4af37)",
-  color: "#fff",
-  fontWeight: 950,
-  cursor: "pointer",
-};
-
-const lightButton: React.CSSProperties = {
-  border: "1px solid rgba(255,255,255,0.14)",
-  borderRadius: 16,
-  padding: "15px 18px",
-  background: "rgba(255,255,255,0.08)",
-  color: "#fff",
-  fontWeight: 900,
-  cursor: "pointer",
-};
 
 const messageBox: React.CSSProperties = {
   padding: 16,

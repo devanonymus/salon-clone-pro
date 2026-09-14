@@ -30,6 +30,10 @@ export function clearToken() {
   localStorage.removeItem("salonpro_session");
 }
 
+export function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 function parseResponse(text: string) {
   if (!text) return null;
   try {

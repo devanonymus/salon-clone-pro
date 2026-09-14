@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import AppIcon from "../components/AppIcon";
+import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
+import ops from "../operations.module.css";
+import { apiFetch } from "../../src/lib/api";
 
 type ClientItem = {
   id: string;
@@ -11,22 +15,55 @@ type ClientItem = {
   createdAt: string;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+type AppointmentItem = {
+  id: string;
+  date: string;
+  clientTenant?: {
+    clientGlobal?: { id: string };
+  };
+};
 
-function normalizeClient(client: any): ClientItem {
+type SaleItem = {
+  id: string;
+  clientGlobalId: string;
+  total: number;
+  createdAt: string;
+};
+
+type RawClient = {
+  id?: unknown;
+  name?: unknown;
+  phone?: unknown;
+  notes?: unknown;
+  createdAt?: unknown;
+  clientGlobal?: {
+    id?: unknown;
+    name?: unknown;
+    phone?: unknown;
+    createdAt?: unknown;
+  };
+};
+
+function normalizeClient(client: unknown): ClientItem {
+  const value = (client && typeof client === "object" ? client : {}) as RawClient;
+  const global = value.clientGlobal;
+
   return {
-    id: String(client.clientGlobal?.id ?? client.id),
-    name: client.clientGlobal?.name ?? client.name ?? "Senza nome",
-    phone: client.clientGlobal?.phone ?? client.phone ?? "Senza telefono",
-    notes: client.notes ?? "",
-    createdAt: client.clientGlobal?.createdAt ?? client.createdAt,
+    id: String(global?.id ?? value.id ?? ""),
+    name: String(global?.name ?? value.name ?? "Senza nome"),
+    phone: String(global?.phone ?? value.phone ?? "Senza telefono"),
+    notes: String(value.notes ?? ""),
+    createdAt: String(global?.createdAt ?? value.createdAt ?? ""),
   };
 }
 
 export default function ClientiPage() {
   const router = useRouter();
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const [clients, setClients] = useState<ClientItem[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [sales, setSales] = useState<SaleItem[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -40,51 +77,39 @@ export default function ClientiPage() {
   const [notesMessage, setNotesMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  function getToken() {
-    return localStorage.getItem("salonpro_token");
-  }
-
-  async function loadClients() {
-    try {
-      setLoading(true);
-
-      const token = getToken();
-
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/clients`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Errore caricamento clienti");
-      }
-
-      const list = Array.isArray(data)
-        ? data.map(normalizeClient)
-        : Array.isArray(data.clients)
-          ? data.clients.map(normalizeClient)
-          : [];
-
-      setClients(list);
-      if (list[0]) setSelectedClientId(list[0].id);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [loadError, setLoadError] = useState("");
+  const [analysisTime] = useState(() => Date.now());
 
   useEffect(() => {
-    loadClients();
+    let active = true;
+
+    async function hydrateCrm() {
+      try {
+        const [data, appointmentData, salesData] = await Promise.all([
+          apiFetch<unknown[]>("/clients"),
+          apiFetch<AppointmentItem[]>("/appointments"),
+          apiFetch<SaleItem[]>("/sales"),
+        ]);
+
+        if (!active) return;
+        const list = Array.isArray(data) ? data.map(normalizeClient) : [];
+        setClients(list);
+        setAppointments(Array.isArray(appointmentData) ? appointmentData : []);
+        setSales(Array.isArray(salesData) ? salesData : []);
+        if (list[0]) setSelectedClientId(list[0].id);
+      } catch (error) {
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : "Errore caricamento CRM");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void hydrateCrm();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const filteredClients = useMemo(() => {
@@ -105,12 +130,14 @@ export default function ClientiPage() {
   }, [clients, selectedClientId]);
 
   useEffect(() => {
+    // These fields are editable drafts and must reset when the active CRM record changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRelationshipNotes(selectedClient?.notes || "");
     setEditClientName(selectedClient?.name || "");
     setEditClientPhone(selectedClient?.phone || "");
     setEditingClient(false);
     setNotesMessage("");
-  }, [selectedClient?.id]);
+  }, [selectedClient?.id, selectedClient?.name, selectedClient?.notes, selectedClient?.phone]);
 
   async function createQuickClient() {
     if (!name.trim() || !phone.trim()) return;
@@ -118,30 +145,13 @@ export default function ClientiPage() {
     try {
       setSaving(true);
 
-      const token = getToken();
-
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/clients/quick`, {
+      const data = await apiFetch("/clients/quick", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim(),
         }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Errore creazione cliente");
-      }
 
       const created = normalizeClient(data);
 
@@ -172,31 +182,14 @@ export default function ClientiPage() {
       setSavingClient(true);
       setNotesMessage("");
 
-      const token = getToken();
-
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/clients/${selectedClient.id}`, {
+      const data = await apiFetch(`/clients/${selectedClient.id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           name: editClientName.trim(),
           phone: editClientPhone.trim(),
           notes: relationshipNotes,
         }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Errore modifica cliente");
-      }
 
       const updated = normalizeClient(data);
 
@@ -207,8 +200,8 @@ export default function ClientiPage() {
       setSelectedClientId(updated.id);
       setEditingClient(false);
       setNotesMessage("Cliente aggiornato correttamente.");
-    } catch (error: any) {
-      setNotesMessage(error.message || "Errore modifica cliente");
+    } catch (error) {
+      setNotesMessage(error instanceof Error ? error.message : "Errore modifica cliente");
     } finally {
       setSavingClient(false);
     }
@@ -224,35 +217,17 @@ export default function ClientiPage() {
     try {
       setNotesMessage("");
 
-      const token = getToken();
-
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/clients/${selectedClient.id}`, {
+      await apiFetch(`/clients/${selectedClient.id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        throw new Error(data?.message || "Errore rimozione cliente");
-      }
 
       setClients((prev) => prev.filter((client) => client.id !== selectedClient.id));
-      setSelectedClientId((prev) => {
-        const remaining = clients.filter((client) => client.id !== selectedClient.id);
-        return remaining[0]?.id || null;
-      });
+      const remaining = clients.filter((client) => client.id !== selectedClient.id);
+      setSelectedClientId(remaining[0]?.id || null);
 
       setNotesMessage("Cliente rimosso dal CRM.");
-    } catch (error: any) {
-      setNotesMessage(error.message || "Errore rimozione cliente");
+    } catch (error) {
+      setNotesMessage(error instanceof Error ? error.message : "Errore rimozione cliente");
     }
   }
 
@@ -263,29 +238,12 @@ export default function ClientiPage() {
       setSavingNotes(true);
       setNotesMessage("");
 
-      const token = getToken();
-
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/clients/${selectedClient.id}/notes`, {
+      const data = await apiFetch(`/clients/${selectedClient.id}/notes`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           notes: relationshipNotes,
         }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Errore salvataggio note");
-      }
 
       const updated = normalizeClient(data);
 
@@ -294,36 +252,74 @@ export default function ClientiPage() {
       );
 
       setNotesMessage("Note salvate correttamente.");
-    } catch (error: any) {
-      setNotesMessage(error.message || "Errore salvataggio note");
+    } catch (error) {
+      setNotesMessage(error instanceof Error ? error.message : "Errore salvataggio note");
     } finally {
       setSavingNotes(false);
     }
   }
 
+  const portfolioValue = sales.reduce((total, sale) => total + Number(sale.total || 0), 0);
+  const newClients = clients.filter((client) => {
+    const createdAt = new Date(client.createdAt).getTime();
+    return Number.isFinite(createdAt) && createdAt >= analysisTime - 30 * 24 * 60 * 60 * 1000;
+  }).length;
+  const selectedAppointments = selectedClient
+    ? appointments.filter(
+        (appointment) => appointment.clientTenant?.clientGlobal?.id === selectedClient.id,
+      )
+    : [];
+  const selectedSales = selectedClient
+    ? sales.filter((sale) => sale.clientGlobalId === selectedClient.id)
+    : [];
+  const selectedValue = selectedSales.reduce(
+    (total, sale) => total + Number(sale.total || 0),
+    0,
+  );
+  const averageTicket = selectedSales.length ? selectedValue / selectedSales.length : 0;
+  const lastVisitDate = selectedAppointments
+    .map((appointment) => new Date(appointment.date))
+    .filter((date) => Number.isFinite(date.getTime()))
+    .sort((a, b) => b.getTime() - a.getTime())[0];
+  const lastVisit = lastVisitDate
+    ? lastVisitDate.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" })
+    : "Nessuna";
+
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
-        <section style={heroStyle}>
-          <div>
-            <p style={eyebrowStyle}>CRM STORICO CLIENTI</p>
-            <h1 style={titleStyle}>Clienti, storico e valore</h1>
-            <p style={subtitleStyle}>
-              Una scheda cliente completa per capire frequenza, spesa e relazione.
-            </p>
-          </div>
+    <main className={`sp-page ${ops.modulePage} ${ops.clientPage}`}>
+      <div className="sp-shell">
+        <ModuleHeader
+          eyebrow="CRM & customer intelligence"
+          title="Clienti, storico e valore"
+          description="Una vista commerciale unica per conoscere frequenza, spesa e qualità della relazione con ogni cliente."
+          icon="clients"
+          status={`${clients.length} clienti attivi`}
+          actions={(
+            <button className={ops.primaryAction} onClick={() => nameInputRef.current?.focus()} type="button">
+              <AppIcon name="plus" size={16} />
+              Nuovo cliente
+            </button>
+          )}
+        />
 
-          <button style={primaryTopButton} onClick={createQuickClient}>
-            Crea cliente
-          </button>
-        </section>
+        <ModuleMetrics
+          items={[
+            { label: "Clienti attivi", value: clients.length, detail: "nel CRM", tone: "accent" },
+            { label: "Nuovi clienti", value: newClients, detail: "ultimi 30 giorni", tone: "success" },
+            { label: "Profili arricchiti", value: clients.filter((client) => client.notes.trim()).length, detail: "con note relazione" },
+            { label: "Valore portfolio", value: `€ ${portfolioValue.toFixed(2)}`, detail: `${sales.length} vendite registrate`, tone: "accent" },
+          ]}
+        />
 
-        <section style={gridStyle}>
-          <aside style={cardStyle}>
+        {loadError ? <div style={notesMessageStyle}>{loadError}</div> : null}
+
+        <section className={ops.clientGrid}>
+          <aside className={ops.clientCard}>
             <h2 style={sectionTitleStyle}>Nuovo cliente</h2>
 
             <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
               <input
+                ref={nameInputRef}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Nome cliente"
@@ -362,7 +358,7 @@ export default function ClientiPage() {
                 }}
               />
 
-              <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+              <div className={ops.clientList} style={{ display: "grid", gap: 10, marginTop: 14 }}>
                 {loading && <EmptyBox text="Caricamento clienti..." />}
 
                 {!loading && filteredClients.length === 0 && (
@@ -393,7 +389,7 @@ export default function ClientiPage() {
             </div>
           </aside>
 
-          <section style={cardStyle}>
+          <section className={ops.clientCard}>
             <h2 style={sectionTitleStyle}>Scheda cliente</h2>
 
             {!selectedClient ? (
@@ -464,9 +460,10 @@ export default function ClientiPage() {
                 </div>
 
                 <div style={metricGridStyle}>
-                  <Metric label="Telefono" value={selectedClient.phone} />
-                  <Metric label="Appuntamenti" value="0" />
-                  <Metric label="Valore cliente" value="€ 0.00" />
+                  <Metric label="Appuntamenti" value={String(selectedAppointments.length)} />
+                  <Metric label="Valore cliente" value={`€ ${selectedValue.toFixed(2)}`} />
+                  <Metric label="Ticket medio" value={`€ ${averageTicket.toFixed(2)}`} />
+                  <Metric label="Ultima visita" value={lastVisit} />
                 </div>
 
                 <div style={darkPanelStyle}>
@@ -509,8 +506,11 @@ export default function ClientiPage() {
             )}
           </section>
 
-          <aside style={cardStyle}>
-            <h2 style={sectionTitleStyle}>💎 Coach cliente</h2>
+          <aside className={ops.clientCard}>
+            <h2 className={ops.coachTitle} style={sectionTitleStyle}>
+              <span className={ops.coachIcon}><AppIcon name="sparkle" size={16} /></span>
+              Coach cliente
+            </h2>
 
             <div style={coachNoticeStyle}>
               Usa storico e frequenza per aumentare ritorno, retention e valore medio.
@@ -531,7 +531,9 @@ export default function ClientiPage() {
               text="Mostra punti, premi e offerte dedicate."
             />
 
-            <button style={purpleButtonStyle}>Apri strategia cliente</button>
+            <button style={purpleButtonStyle} onClick={() => router.push("/marketing")}>
+              Crea strategia cliente
+            </button>
           </aside>
         </section>
       </div>
@@ -558,72 +560,14 @@ function CoachAction({ title, text }: { title: string; text: string }) {
 }
 
 function EmptyBox({ text }: { text: string }) {
-  return <div style={emptyBoxStyle}>{text}</div>;
+  return <div className={ops.emptyState} style={emptyBoxStyle}>{text}</div>;
 }
-
-const pageStyle: React.CSSProperties = {
-  minHeight: "calc(100vh - 140px)",
-  background:
-    "radial-gradient(circle at top left, rgba(139,92,246,0.32), transparent 34%), linear-gradient(180deg,#07050b,#08050d 45%,#050505)",
-  color: "#f8fafc",
-  padding: "24px 28px",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1500,
-  margin: "0 auto",
-};
-
-const heroStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 22,
-  marginBottom: 28,
-};
-
-const eyebrowStyle: React.CSSProperties = {
-  color: "#d4af37",
-  fontSize: 13,
-  fontWeight: 950,
-  letterSpacing: "0.34em",
-};
 
 const eyebrowSmallStyle: React.CSSProperties = {
   color: "#d4af37",
   fontSize: 11,
   fontWeight: 950,
   letterSpacing: "0.28em",
-};
-
-const titleStyle: React.CSSProperties = {
-  marginTop: 8,
-  fontSize: 36,
-  lineHeight: 1.05,
-  fontWeight: 950,
-  letterSpacing: "-0.04em",
-};
-
-const subtitleStyle: React.CSSProperties = {
-  marginTop: 10,
-  color: "rgba(255,255,255,0.68)",
-  fontSize: 16,
-  fontWeight: 650,
-};
-
-const gridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "390px 1fr 360px",
-  gap: 18,
-};
-
-const cardStyle: React.CSSProperties = {
-  borderRadius: 24,
-  padding: 24,
-  minHeight: 520,
-  background: "rgba(255,255,255,0.07)",
-  border: "1px solid rgba(212,175,55,0.22)",
-  boxShadow: "0 28px 80px rgba(0,0,0,0.30)",
 };
 
 const sectionTitleStyle: React.CSSProperties = {
@@ -655,18 +599,6 @@ const goldButtonStyle: React.CSSProperties = {
   fontWeight: 950,
   cursor: "pointer",
 };
-
-const primaryTopButton: React.CSSProperties = {
-  border: 0,
-  borderRadius: 16,
-  padding: "15px 24px",
-  background: "linear-gradient(135deg,#8b5cf6,#d4af37)",
-  color: "#fff",
-  fontSize: 15,
-  fontWeight: 950,
-  cursor: "pointer",
-};
-
 
 const smallGoldButtonStyle: React.CSSProperties = {
   border: 0,

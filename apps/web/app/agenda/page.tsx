@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CSSProperties, DragEvent, FormEvent, MouseEvent } from "react";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import AppIcon from "../components/AppIcon";
+import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
+import ops from "../operations.module.css";
+import { API_URL, getErrorMessage } from "../../src/lib/api";
 
 const START_HOUR = 9;
 const END_HOUR = 20;
@@ -36,7 +38,7 @@ type AppointmentItem = {
   note: string | null;
   clientTenant: ClientItem;
   staff?: StaffItem | null;
-  sale?: any | null;
+  sale?: { id: string } | null;
 };
 
 const services = [
@@ -189,13 +191,13 @@ export default function AgendaPage() {
         if (!selectedStaffId) setSelectedStaffId(staffData[0].id);
         if (!appointmentStaffId) setAppointmentStaffId(staffData[0].id);
       }
-    } catch (err: any) {
-      setError(err.message || "Errore caricamento agenda");
+    } catch (error) {
+      setError(getErrorMessage(error, "Errore caricamento agenda"));
     }
   }
 
   useEffect(() => {
-    loadData();
+    void Promise.resolve().then(loadData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -279,8 +281,8 @@ export default function AgendaPage() {
       setModalOpen(false);
       setSelectedServices([]);
       await loadData();
-    } catch (err: any) {
-      setError(err.message || "Errore creazione appuntamento");
+    } catch (error) {
+      setError(getErrorMessage(error, "Errore creazione appuntamento"));
     } finally {
       setLoading(false);
     }
@@ -312,8 +314,8 @@ export default function AgendaPage() {
       setSelectedAppointment(null);
       setSelectedServices([]);
       await loadData();
-    } catch (err: any) {
-      setError(err.message || "Errore modifica appuntamento");
+    } catch (error) {
+      setError(getErrorMessage(error, "Errore modifica appuntamento"));
     } finally {
       setLoading(false);
     }
@@ -337,8 +339,8 @@ export default function AgendaPage() {
       setSelectedAppointment(null);
       setSelectedServices([]);
       await loadData();
-    } catch (err: any) {
-      setError(err.message || "Errore eliminazione appuntamento");
+    } catch (error) {
+      setError(getErrorMessage(error, "Errore eliminazione appuntamento"));
     } finally {
       setLoading(false);
     }
@@ -375,8 +377,8 @@ export default function AgendaPage() {
       });
 
       await loadData();
-    } catch (err: any) {
-      setError(err.message || "Errore spostamento appuntamento");
+    } catch (error) {
+      setError(getErrorMessage(error, "Errore spostamento appuntamento"));
       await loadData();
     } finally {
       setDraggingId(null);
@@ -393,8 +395,8 @@ export default function AgendaPage() {
       });
 
       await loadData();
-    } catch (err: any) {
-      setError(err.message || "Errore salvataggio colore dipendente");
+    } catch (error) {
+      setError(getErrorMessage(error, "Errore salvataggio colore dipendente"));
     }
   }
 
@@ -511,19 +513,55 @@ export default function AgendaPage() {
       ? "Vista settimanale con tutti i dipendenti oppure filtrata per collaboratore."
       : "Vista giornaliera generale oppure per singolo collaboratore.";
 
-  return (
-    <main className="sp-page">
-      <div className="sp-shell" style={{ maxWidth: 1540 }}>
-        <header style={pageHeader}>
-          <div>
-            <div style={eyebrow}>Agenda Appuntamenti</div>
-            <h1 className="sp-title">{title}</h1>
-            <p className="sp-muted" style={{ marginTop: 8 }}>
-              {subtitle}
-            </p>
-          </div>
+  const todayAppointments = appointments.filter((appointment) =>
+    isToday(new Date(appointment.date)),
+  );
+  const visibleAppointments = appointments.filter((appointment) => {
+    const appointmentDate = new Date(appointment.date);
+    if (viewMode === "day") {
+      return toInputDate(appointmentDate) === toInputDate(selectedDay);
+    }
 
-          <div style={topActions}>
+    const periodEnd = new Date(days[6]);
+    periodEnd.setHours(23, 59, 59, 999);
+    return appointmentDate >= days[0] && appointmentDate <= periodEnd;
+  });
+  const visibleMinutes = visibleAppointments.reduce(
+    (total, appointment) => total + Number(appointment.duration || 0),
+    0,
+  );
+
+  return (
+    <main className={`sp-page ${ops.modulePage}`}>
+      <div className="sp-shell" style={{ maxWidth: 1540 }}>
+        <ModuleHeader
+          eyebrow="Agenda appuntamenti"
+          title={title}
+          description={subtitle}
+          icon="agenda"
+          status={`${staff.length} operatori attivi`}
+          actions={(
+            <button
+              className={ops.primaryAction}
+              onClick={() => openSlot(selectedDay, START_HOUR, 0, selectedStaffId)}
+              type="button"
+            >
+              <AppIcon name="plus" size={16} />
+              Nuovo appuntamento
+            </button>
+          )}
+        />
+
+        <ModuleMetrics
+          items={[
+            { label: "Oggi", value: todayAppointments.length, detail: "appuntamenti in agenda", tone: "accent" },
+            { label: viewMode === "week" ? "Periodo visibile" : "Giornata", value: visibleAppointments.length, detail: "prenotazioni pianificate" },
+            { label: "Tempo prenotato", value: `${Math.floor(visibleMinutes / 60)}h ${visibleMinutes % 60}m`, detail: "nel periodo selezionato", tone: "success" },
+            { label: "Team operativo", value: staff.length, detail: "agende disponibili", tone: staff.length ? "neutral" : "warning" },
+          ]}
+        />
+
+        <section className={ops.toolbar} style={topActions} aria-label="Filtri agenda">
             <button style={agendaMode === "all" ? activeButton : ghostButton} onClick={() => setAgendaMode("all")}>
               Agenda principale
             </button>
@@ -561,12 +599,11 @@ export default function AgendaPage() {
             <button style={purpleButton} onClick={() => movePeriod(1)}>
               →
             </button>
-          </div>
-        </header>
+        </section>
 
         {error ? <div style={errorBox}>⚠️ {error}</div> : null}
 
-        <section style={staffColorBar}>
+        <section className={ops.surface} style={staffColorBar}>
           {staff.map((member) => (
             <div key={member.id} style={staffColorItem}>
               <span style={{ ...staffDot, background: member.color || "#8b5cf6" }} />
@@ -582,7 +619,7 @@ export default function AgendaPage() {
         </section>
 
         {viewMode === "week" ? (
-          <section style={calendarWrap}>
+          <section className={ops.calendar} style={calendarWrap}>
             <div style={calendarHeader}>
               <div style={headerCell}>ORA</div>
               {days.map((day) => (
@@ -643,7 +680,7 @@ export default function AgendaPage() {
             </div>
           </section>
         ) : (
-          <section style={calendarWrap}>
+          <section className={ops.calendar} style={calendarWrap}>
             <div
               style={{
                 ...dayHeader,
@@ -785,7 +822,7 @@ function AppointmentModal(props: {
   staff: StaffItem[];
   clientTenantId: string;
   setClientTenantId: (v: string) => void;
-  onCreateClient: (name: string, phone: string) => Promise<any>;
+  onCreateClient: (name: string, phone: string) => Promise<ClientItem>;
   appointmentStaffId: string;
   setAppointmentStaffId: (v: string) => void;
   appointmentDate: string;
@@ -828,8 +865,8 @@ function AppointmentModal(props: {
       setNewClientName("");
       setNewClientPhone("");
       setNewClientOpen(false);
-    } catch (error: any) {
-      setNewClientError(error.message || "Errore creazione cliente");
+    } catch (error) {
+      setNewClientError(getErrorMessage(error, "Errore creazione cliente"));
     } finally {
       setNewClientLoading(false);
     }
@@ -957,23 +994,6 @@ function AppointmentModal(props: {
     </div>
   );
 }
-
-const pageHeader: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16,
-  alignItems: "center",
-  marginBottom: 22,
-  flexWrap: "wrap",
-};
-
-const eyebrow: CSSProperties = {
-  color: "#d4af37",
-  fontWeight: 900,
-  fontSize: 13,
-  letterSpacing: 2,
-  textTransform: "uppercase",
-};
 
 const topActions: CSSProperties = {
   display: "flex",
