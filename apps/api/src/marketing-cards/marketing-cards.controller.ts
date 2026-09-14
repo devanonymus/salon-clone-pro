@@ -1,26 +1,38 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
-import { JwtGuard } from "../auth/jwt.guard";
-import { MarketingCardsService } from "./marketing-cards.service";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtGuard } from '../auth/jwt.guard';
+import type { AuthRequest } from '../auth/auth-request';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { MarketingCardsService } from './marketing-cards.service';
 
-@Controller("marketing/cards")
-@UseGuards(JwtGuard)
+@Controller('marketing/cards')
+@UseGuards(JwtGuard, RolesGuard)
 export class MarketingCardsController {
   constructor(private readonly service: MarketingCardsService) {}
 
   @Get()
-  list(@Req() req: any) {
+  list(@Req() req: AuthRequest) {
     return this.service.list(req.user.tenantId);
   }
 
-
-  @Get("sales")
-  listSales(@Req() req: any) {
+  @Get('sales')
+  listSales(@Req() req: AuthRequest) {
     return this.service.listSales(req.user.tenantId);
   }
 
-  @Post("sales")
+  @Post('sales')
   createSale(
-    @Req() req: any,
+    @Req() req: AuthRequest,
     @Body()
     body: {
       clientTenantId?: string;
@@ -36,11 +48,10 @@ export class MarketingCardsController {
     return this.service.createSale(req.user.tenantId, body);
   }
 
-
-  @Post("sales/:id/payments")
+  @Post('sales/:id/payments')
   addSalePayment(
-    @Req() req: any,
-    @Param("id") id: string,
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
     @Body()
     body: {
       amount?: number;
@@ -52,24 +63,26 @@ export class MarketingCardsController {
     return this.service.addSalePayment(req.user.tenantId, id, body);
   }
 
-  @Patch("sales/:id/use")
-  useSale(@Req() req: any, @Param("id") id: string) {
+  @Patch('sales/:id/use')
+  useSale(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.service.useSale(req.user.tenantId, id);
   }
 
-  @Delete("sales/:id")
-  removeSale(@Req() req: any, @Param("id") id: string) {
+  @Delete('sales/:id')
+  @Roles('OWNER', 'MANAGER')
+  removeSale(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.service.removeSale(req.user.tenantId, id);
   }
 
-  @Get("template")
-  getTemplate(@Req() req: any) {
+  @Get('template')
+  getTemplate(@Req() req: AuthRequest) {
     return this.service.getTemplate(req.user.tenantId);
   }
 
-  @Post("template")
+  @Post('template')
+  @Roles('OWNER', 'MANAGER')
   saveTemplate(
-    @Req() req: any,
+    @Req() req: AuthRequest,
     @Body()
     body: {
       logoUrl?: string;
@@ -95,8 +108,9 @@ export class MarketingCardsController {
   }
 
   @Post()
+  @Roles('OWNER', 'MANAGER')
   create(
-    @Req() req: any,
+    @Req() req: AuthRequest,
     @Body()
     body: {
       name: string;
@@ -109,10 +123,11 @@ export class MarketingCardsController {
     return this.service.create(req.user.tenantId, body);
   }
 
-  @Patch(":id")
+  @Patch(':id')
+  @Roles('OWNER', 'MANAGER')
   update(
-    @Req() req: any,
-    @Param("id") id: string,
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
     @Body()
     body: {
       name?: string;
@@ -126,8 +141,9 @@ export class MarketingCardsController {
     return this.service.update(req.user.tenantId, id, body);
   }
 
-  @Delete(":id")
-  remove(@Req() req: any, @Param("id") id: string) {
+  @Delete(':id')
+  @Roles('OWNER', 'MANAGER')
+  remove(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.service.remove(req.user.tenantId, id);
   }
 }

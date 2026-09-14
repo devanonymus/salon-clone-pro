@@ -1,51 +1,76 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
-import { JwtGuard } from "../auth/jwt.guard";
-import { CoachService } from "./coach.service";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtGuard } from '../auth/jwt.guard';
+import type { AuthRequest } from '../auth/auth-request';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { CoachService } from './coach.service';
 
-@Controller("coach")
-@UseGuards(JwtGuard)
+@Controller('coach')
+@UseGuards(JwtGuard, RolesGuard)
 export class CoachController {
   constructor(private readonly service: CoachService) {}
 
-  @Get("settings")
-  getSettings(@Req() req: any) {
+  @Get('settings')
+  getSettings(@Req() req: AuthRequest) {
     return this.service.getSettings(req.user.tenantId);
   }
 
-  @Patch("settings")
-  updateSettings(@Req() req: any, @Body() body: any) {
+  @Patch('settings')
+  @Roles('OWNER', 'MANAGER')
+  updateSettings(@Req() req: AuthRequest, @Body() body: any) {
     return this.service.updateSettings(req.user.tenantId, body);
   }
 
-  @Get("fixed-costs")
-  listFixedCosts(@Req() req: any) {
+  @Get('fixed-costs')
+  listFixedCosts(@Req() req: AuthRequest) {
     return this.service.listFixedCosts(req.user.tenantId);
   }
 
-  @Post("fixed-costs")
-  createFixedCost(@Req() req: any, @Body() body: { name?: string; amount?: number | string }) {
+  @Post('fixed-costs')
+  @Roles('OWNER', 'MANAGER')
+  createFixedCost(
+    @Req() req: AuthRequest,
+    @Body() body: { name?: string; amount?: number | string },
+  ) {
     return this.service.createFixedCost(req.user.tenantId, body);
   }
 
-  @Patch("fixed-costs/:id")
-  updateFixedCost(@Req() req: any, @Param("id") id: string, @Body() body: { name?: string; amount?: number | string }) {
+  @Patch('fixed-costs/:id')
+  @Roles('OWNER', 'MANAGER')
+  updateFixedCost(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: { name?: string; amount?: number | string },
+  ) {
     return this.service.updateFixedCost(req.user.tenantId, id, body);
   }
 
-  @Delete("fixed-costs/:id")
-  deleteFixedCost(@Req() req: any, @Param("id") id: string) {
+  @Delete('fixed-costs/:id')
+  @Roles('OWNER', 'MANAGER')
+  deleteFixedCost(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.service.deleteFixedCost(req.user.tenantId, id);
   }
 
-  @Get("prebooking")
-  listPrebooking(@Req() req: any, @Query("dateKey") dateKey?: string) {
+  @Get('prebooking')
+  listPrebooking(@Req() req: AuthRequest, @Query('dateKey') dateKey?: string) {
     return this.service.listPrebooking(req.user.tenantId, dateKey);
   }
 
-  @Patch("prebooking/:appointmentId")
+  @Patch('prebooking/:appointmentId')
   savePrebooking(
-    @Req() req: any,
-    @Param("appointmentId") appointmentId: string,
+    @Req() req: AuthRequest,
+    @Param('appointmentId') appointmentId: string,
     @Body()
     body: {
       dateKey?: string;

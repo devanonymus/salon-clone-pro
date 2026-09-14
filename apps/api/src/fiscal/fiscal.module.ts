@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
 import { FiscalService } from './fiscal.service';
 import { FiscalController } from './fiscal.controller';
-import { PrismaService } from '../prisma.service';
 
 @Module({
-  providers: [FiscalService, PrismaService],
+  providers: [FiscalService],
   controllers: [FiscalController],
 })
 export class FiscalModule {}

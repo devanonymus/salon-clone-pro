@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { API_URL } from '@/src/lib/api';
 
 type Message = {
   id: string;
@@ -16,6 +17,10 @@ type Conversation = {
   lastMessage?: string | null;
   messages: Message[];
 };
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export default function WhatsappChatWidget() {
   const [open, setOpen] = useState(false);
@@ -57,7 +62,7 @@ export default function WhatsappChatWidget() {
     try {
       setError('');
 
-      const data = await fetchWithAuth('http://localhost:3001/whatsapp/conversations');
+      const data = await fetchWithAuth(`${API_URL}/whatsapp/conversations`);
       if (!data) return;
 
       setConversations(data);
@@ -65,8 +70,8 @@ export default function WhatsappChatWidget() {
       if (!selectedId && data.length > 0) {
         setSelectedId(data[0].id);
       }
-    } catch (err: any) {
-      setError(err.message || 'Errore caricamento chat');
+    } catch (error: unknown) {
+      setError(errorMessage(error, 'Errore caricamento chat'));
     }
   }
 
@@ -78,7 +83,7 @@ export default function WhatsappChatWidget() {
 
     try {
       await fetchWithAuth(
-        `http://localhost:3001/whatsapp/conversations/${selected.id}/send`,
+        `${API_URL}/whatsapp/conversations/${selected.id}/send`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -88,8 +93,8 @@ export default function WhatsappChatWidget() {
 
       setText('');
       await load();
-    } catch (err: any) {
-      setError(err.message || 'Errore invio messaggio');
+    } catch (error: unknown) {
+      setError(errorMessage(error, 'Errore invio messaggio'));
     } finally {
       setSending(false);
     }
@@ -98,10 +103,15 @@ export default function WhatsappChatWidget() {
   useEffect(() => {
     if (!open) return;
 
-    load();
+    const initialLoad = window.setTimeout(() => {
+      void load();
+    }, 0);
 
-    const interval = setInterval(load, 7000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => void load(), 7000);
+    return () => {
+      window.clearTimeout(initialLoad);
+      clearInterval(interval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 

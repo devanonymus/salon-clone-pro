@@ -9,6 +9,24 @@ Salon Pro è un ERP verticale multi-tenant per saloni. Il perimetro funzionale �
 
 La priorità non è aggiungere altri moduli. Prima occorre consolidare sicurezza multi-tenant, contratti API, transazioni economiche e componentizzazione frontend. Il restyling introdotto nel branch crea la nuova fondazione visiva e operativa senza alterare i flussi legacy.
 
+## Stato fase 2 — backend hardening
+
+Implementato nel branch `feat/backend-hardening`, basato sulla fondazione ERP:
+
+- `PrismaService` centralizzato in un modulo globale con lifecycle controllato.
+- `ValidationPipe` globale e DTO tipizzati per autenticazione, vendita, inventario, fiscalità e WhatsApp.
+- Helmet, CORS configurabile e rate limiting globale/login.
+- JWT ridotto a 8 ore per default, algoritmo/issuer/audience vincolati e payload verificato.
+- Seed demo e provisioning di nuovi tenant disabilitati per default tramite variabili d'ambiente.
+- RBAC minimo `OWNER`, `MANAGER`, `OPERATOR` sulle configurazioni e operazioni amministrative.
+- Checkout e scarico magazzino nella stessa transazione Prisma, con blocco delle scorte negative.
+- Verifica tenant esplicita su cliente, appuntamento e collaboratori durante la vendita.
+- Emissione fiscale atomica e protetta dalla doppia emissione concorrente.
+- WhatsApp protetto dal JWT, configurato per tenant, token cifrato AES-256-GCM e messaggi persistiti.
+- Suite Nest ripristinata e nuovi test per JWT, validazione annidata e totale vendita.
+
+Per il deploy diventano obbligatorie `JWT_SECRET` e `WHATSAPP_ENCRYPTION_KEY`; valori e flag sicuri sono documentati in `.env.example`.
+
 ## Mappa del prodotto
 
 | Area | Frontend | Backend | Stato rilevato |
