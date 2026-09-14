@@ -66,6 +66,19 @@ Implementato nel branch `feat/backend-data-reliability`, basato sulla fase 4:
 
 La conversione fisica di tutte le colonne monetarie da `Float` a `Decimal` è intenzionalmente rinviata alla fase del contratto API tipizzato: Prisma serializza i decimal diversamente e una conversione immediata romperebbe i moduli frontend che oggi consumano numeri. Questa fase elimina già gli errori di calcolo del checkout normalizzando a centesimi, senza cambiare il contratto pubblico.
 
+## Stato fase 6 — osservabilità operativa
+
+Implementato nel branch `feat/backend-observability`, basato sull'affidabilità dati:
+
+- `X-Request-Id` validato o generato per ogni richiesta e restituito al client;
+- logging HTTP strutturato con metodo, percorso senza query, stato, durata e contesto tenant/utente;
+- esclusione intenzionale di token, payload, query string e dati cliente dai log;
+- endpoint `GET /health/live` per il processo e `GET /health/ready` per la disponibilità PostgreSQL;
+- risposta readiness `503` sanitizzata quando il database non è disponibile;
+- health check esclusi dal throttling e protetti da cache;
+- shutdown hooks Nest abilitati per chiudere Prisma ordinatamente;
+- root controller nuovamente registrato nell'`AppModule` e test e2e aggiornati con database mock.
+
 ## Mappa del prodotto
 
 | Area | Frontend | Backend | Stato rilevato |

@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(helmet());
+  app.enableShutdownHooks();
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -27,7 +28,13 @@ async function bootstrap() {
     origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Idempotency-Key',
+      'X-Request-Id',
+    ],
+    exposedHeaders: ['X-Request-Id'],
   });
 
   const port = Number(process.env.PORT) || 8080;
