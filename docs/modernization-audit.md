@@ -1,7 +1,7 @@
 # Salon Pro — audit tecnico e piano di modernizzazione
 
 Aggiornato: 14 settembre 2026  
-Branch di lavoro: `feat/premium-erp-ui`
+Branch di lavoro: `feat/premium-operations-ui` (stack su `feat/backend-hardening`)
 
 ## Sintesi
 
@@ -26,6 +26,19 @@ Implementato nel branch `feat/backend-hardening`, basato sulla fondazione ERP:
 - Suite Nest ripristinata e nuovi test per JWT, validazione annidata e totale vendita.
 
 Per il deploy diventano obbligatorie `JWT_SECRET` e `WHATSAPP_ENCRYPTION_KEY`; valori e flag sicuri sono documentati in `.env.example`.
+
+## Stato fase 3 — moduli operativi premium
+
+Implementato nel branch `feat/premium-operations-ui`, basato sull'hardening backend:
+
+- testata e indicatori condivisi per Agenda, Cassa, Clienti e Magazzino;
+- gerarchia visiva coerente con la nuova shell ERP, superfici più compatte e responsive;
+- indicatori Agenda calcolati su appuntamenti, minuti prenotati e team reali;
+- Cassa con stato operativo immediato su appuntamenti pronti, totale, sconti e margine;
+- CRM alimentato da clienti, appuntamenti e vendite reali, senza metriche segnaposto;
+- Magazzino con valore tecnico, ricavo e margine potenziale, più allerta scorte contestuale;
+- URL API locale rimosso dai quattro moduli e collegamento alla configurazione centralizzata;
+- azione CRM prima inattiva collegata al modulo Marketing.
 
 ## Mappa del prodotto
 

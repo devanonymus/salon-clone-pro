@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import AppIcon from "../components/AppIcon";
+import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
+import ops from "../operations.module.css";
+import { API_URL, getErrorMessage } from "../../src/lib/api";
 
 type ProductType = "INTERNAL" | "RETAIL";
 
@@ -69,8 +73,6 @@ const SERVICES = [
   "Schiariture Parziali Meches Light",
   "Colpi di Sole/Meches + Piega",
 ];
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 function getInventoryUnitCost(product: Product) {
   const directUnitCost = Number(product.unitCost || 0);
@@ -240,8 +242,8 @@ export default function MagazzinoPage() {
 
       setMessage("✅ Ricetta servizio aggiornata.");
       await loadData();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore salvataggio ricetta"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore salvataggio ricetta")}`);
     }
   }
 
@@ -286,9 +288,8 @@ export default function MagazzinoPage() {
       setOpenRecipeService(null);
 
       setMessage(`✅ Ricetta "${serviceName}" salvata correttamente.`);
-    } catch (err: any) {
-      console.error(err);
-      setMessage(`⚠️ Errore salvataggio ricetta: ${err.message || "controlla backend/database"}`);
+    } catch (error) {
+      setMessage(`⚠️ Errore salvataggio ricetta: ${getErrorMessage(error, "controlla backend/database")}`);
     }
   }
 
@@ -317,8 +318,8 @@ export default function MagazzinoPage() {
 
       setMessage("✅ Prodotto rimosso dalla ricetta.");
       await loadData();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore rimozione ricetta"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore rimozione ricetta")}`);
     }
   }
 
@@ -341,8 +342,8 @@ export default function MagazzinoPage() {
         const firstInternal = productsData.find((p: Product) => p.productType === "INTERNAL");
         if (firstInternal) setRecipeProductId(firstInternal.id);
       }
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore caricamento magazzino"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore caricamento magazzino")}`);
     }
   }
 
@@ -426,8 +427,8 @@ export default function MagazzinoPage() {
       setSupplier("");
       setMessage("✅ Prodotto aggiunto al magazzino.");
       await loadData();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore salvataggio prodotto"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore salvataggio prodotto")}`);
     }
   }
 
@@ -439,8 +440,8 @@ export default function MagazzinoPage() {
       });
 
       await loadData();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore aggiornamento stock"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore aggiornamento stock")}`);
     }
   }
 
@@ -484,8 +485,8 @@ export default function MagazzinoPage() {
       setMessage("✅ Prodotto aggiornato.");
       setTimeout(() => setMessage(""), 1800);
       await loadData();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore aggiornamento prodotto"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore aggiornamento prodotto")}`);
     }
   }
 
@@ -546,8 +547,8 @@ export default function MagazzinoPage() {
       setMessage("✅ Modifiche prodotti salvate nel database.");
       await loadData();
       setTimeout(() => setMessage(""), 2200);
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore salvataggio modifiche prodotti"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore salvataggio modifiche prodotti")}`);
     } finally {
       setSavingProducts(false);
     }
@@ -564,8 +565,8 @@ export default function MagazzinoPage() {
 
       setMessage("✅ Prodotto eliminato.");
       await loadData();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore eliminazione prodotto"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore eliminazione prodotto")}`);
     }
   }
 
@@ -601,8 +602,8 @@ export default function MagazzinoPage() {
       setRecipeQuantity("");
       setMessage("✅ Ricetta servizio salvata.");
       await loadData();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore salvataggio ricetta"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore salvataggio ricetta")}`);
     }
   }
 
@@ -613,38 +614,41 @@ export default function MagazzinoPage() {
       });
 
       await loadData();
-    } catch (err: any) {
-      setMessage(`⚠️ ${err.message || "Errore eliminazione ricetta"}`);
+    } catch (error) {
+      setMessage(`⚠️ ${getErrorMessage(error, "Errore eliminazione ricetta")}`);
     }
   }
 
   return (
-    <main className="sp-page">
+    <main className={`sp-page ${ops.modulePage}`}>
       <div className="sp-shell">
-        <header style={header}>
-          <div>
-            <div style={eyebrow}>Magazzino Profitto</div>
-            <h1 className="sp-title">Prodotti, scorte e margini</h1>
-            <p className="sp-muted" style={{ marginTop: 8 }}>
-              Uso interno per servizi e rivendita cliente con scarico automatico dalla cassa.
-            </p>
-          </div>
-
-          <button className="sp-button-purple" onClick={loadData}>
-            Aggiorna magazzino
-          </button>
-        </header>
+        <ModuleHeader
+          eyebrow="Inventario & marginalità"
+          title="Prodotti, scorte e margini"
+          description="Controlla consumi tecnici, rivendita e scorte minime con scarico automatico collegato alla cassa."
+          icon="package"
+          status={lowStock.length ? `${lowStock.length} scorte da controllare` : "Scorte sotto controllo"}
+          statusTone={lowStock.length ? "warning" : "success"}
+          actions={(
+            <button className={ops.secondaryAction} onClick={loadData} type="button">
+              <AppIcon name="package" size={16} />
+              Aggiorna dati
+            </button>
+          )}
+        />
 
         {message ? <div style={messageBox}>{message}</div> : null}
 
-        <section style={kpiGrid}>
-          <Kpi title="Valore tecnico magazzino" value={`€ ${totalStockValue.toFixed(2)}`} sub="Valore residuo prodotti" />
-          <Kpi title="Ricavo potenziale" value={`€ ${potentialRevenue.toFixed(2)}`} sub="Solo prodotti da rivendita" />
-          <Kpi title="Margine potenziale" value={`€ ${potentialProfit.toFixed(2)}`} sub="Margine teorico rivendita" />
-          <Kpi title="Scorte basse" value={String(lowStock.length)} sub="Da riordinare" danger={lowStock.length > 0} />
-        </section>
+        <ModuleMetrics
+          items={[
+            { label: "Valore tecnico", value: `€ ${totalStockValue.toFixed(2)}`, detail: "valore residuo prodotti" },
+            { label: "Ricavo potenziale", value: `€ ${potentialRevenue.toFixed(2)}`, detail: "prodotti da rivendita", tone: "accent" },
+            { label: "Margine potenziale", value: `€ ${potentialProfit.toFixed(2)}`, detail: "margine teorico rivendita", tone: "success" },
+            { label: "Scorte basse", value: lowStock.length, detail: "prodotti da riordinare", tone: lowStock.length ? "danger" : "neutral" },
+          ]}
+        />
 
-        <section className="sp-card" style={cardPad}>
+        <section className={`sp-card ${ops.surface}`} style={cardPad}>
           <div style={sectionHeader}>
             <div>
               <div style={greenKicker}>Nuovo prodotto</div>
@@ -700,7 +704,7 @@ export default function MagazzinoPage() {
           />
         </section>
 
-        <section className="sp-card" style={cardPad}>
+        <section className={`sp-card ${ops.surface}`} style={cardPad}>
           <div style={sectionHeader}>
             <div>
               <div style={greenKicker}>Ricette servizi</div>
@@ -821,8 +825,8 @@ export default function MagazzinoPage() {
           </div>
         </section>
 
-        <section style={mainGrid}>
-          <div className="sp-card" style={cardPad}>
+        <section className={ops.contentGrid} style={mainGrid}>
+          <div className={`sp-card ${ops.surface}`} style={cardPad}>
             <div style={sectionHeader}>
               <div>
                 <div style={greenKicker}>Inventario</div>
@@ -923,7 +927,7 @@ export default function MagazzinoPage() {
             </div>
           </div>
 
-          <aside className="sp-card" style={cardPad}>
+          <aside className={`sp-card ${ops.surface}`} style={cardPad}>
             <div style={greenKicker}>Coach riordino</div>
             <h2 style={sectionTitle}>Prodotti da controllare</h2>
 
@@ -1130,60 +1134,6 @@ export default function MagazzinoPage() {
   );
 }
 
-function Kpi({
-  title,
-  value,
-  sub,
-  danger,
-}: {
-  title: string;
-  value: string;
-  sub: string;
-  danger?: boolean;
-}) {
-  return (
-    <div
-      className="sp-card"
-      style={{
-        padding: 20,
-        borderColor: danger ? "rgba(239,68,68,0.45)" : "rgba(212,175,55,0.22)",
-      }}
-    >
-      <div className="sp-muted">{title}</div>
-      <div
-        style={{
-          marginTop: 10,
-          fontSize: 30,
-          fontWeight: 900,
-          color: danger ? "#f87171" : "#d4af37",
-        }}
-      >
-        {value}
-      </div>
-      <div className="sp-muted" style={{ marginTop: 8, fontSize: 13 }}>
-        {sub}
-      </div>
-    </div>
-  );
-}
-
-const header: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 16,
-  marginBottom: 24,
-  flexWrap: "wrap",
-};
-
-const eyebrow: React.CSSProperties = {
-  color: "#d4af37",
-  fontWeight: 900,
-  letterSpacing: 2,
-  fontSize: 13,
-  textTransform: "uppercase",
-};
-
 const messageBox: React.CSSProperties = {
   marginBottom: 18,
   padding: 16,
@@ -1192,13 +1142,6 @@ const messageBox: React.CSSProperties = {
   border: "1px solid rgba(139,92,246,0.32)",
   color: "#fff",
   fontWeight: 900,
-};
-
-const kpiGrid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 16,
-  marginBottom: 20,
 };
 
 const cardPad: React.CSSProperties = {
