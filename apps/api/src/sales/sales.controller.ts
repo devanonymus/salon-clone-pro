@@ -30,6 +30,7 @@ export class SalesController {
       body.items,
       body.paymentMethod,
       body.appointmentId,
+      body.fiscalStatus,
       idempotencyKey,
     );
   }

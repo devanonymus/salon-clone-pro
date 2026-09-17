@@ -29,6 +29,7 @@ export class SalesService {
     items: CreateSaleItemDto[],
     paymentMethod?: string,
     appointmentId?: string,
+    fiscalStatus: 'TO_ISSUE' | 'NON_FISCAL' = 'TO_ISSUE',
     idempotencyKey?: string,
   ) {
     let requestKey: string | undefined;
@@ -60,6 +61,7 @@ export class SalesService {
       appointmentId: appointmentId || null,
       total: normalizedTotal,
       paymentMethod: paymentMethod || null,
+      fiscalStatus,
       items: normalizedItems.map((item) => ({
         name: item.name.trim(),
         type: item.type || 'service',
@@ -110,7 +112,9 @@ export class SalesService {
         }
 
         const staffIds = [
-          ...new Set(normalizedItems.map((item) => item.staffId).filter(Boolean)),
+          ...new Set(
+            normalizedItems.map((item) => item.staffId).filter(Boolean),
+          ),
         ] as string[];
         if (staffIds.length) {
           const validStaff = await tx.staff.count({
@@ -131,6 +135,7 @@ export class SalesService {
             requestHash: requestKey ? fingerprint : null,
             total: normalizedTotal,
             paymentMethod,
+            fiscalStatus,
             appointmentId: appointmentId || null,
             items: {
               create: normalizedItems.map((item) => ({
