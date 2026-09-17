@@ -95,9 +95,8 @@ export class CreateSaleDto {
   appointmentId?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  fiscalStatus?: string;
+  @IsIn(['TO_ISSUE', 'NON_FISCAL'])
+  fiscalStatus?: 'TO_ISSUE' | 'NON_FISCAL';
 
   @IsArray()
   @ArrayMinSize(1)

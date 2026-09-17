@@ -6,6 +6,7 @@ import AppIcon from "../components/AppIcon";
 import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
 import ops from "../operations.module.css";
 import { API_URL, getErrorMessage } from "../../src/lib/api";
+import styles from "./vendite.module.css";
 
 type ClientItem = {
   id: string;
@@ -93,8 +94,41 @@ type ProductSuggestion = {
   reason: string;
 };
 
+type SaleRecord = {
+  id: string;
+  total: number;
+  paymentMethod: string | null;
+  fiscalStatus?: string | null;
+  createdAt: string;
+  clientGlobal: {
+    id: string;
+    name: string;
+    phone: string;
+  };
+  items?: Array<{
+    id: string;
+    name: string;
+    type?: string;
+    price: number;
+    quantity: number;
+  }>;
+  appointment?: {
+    id: string;
+    staff?: { id: string; name: string } | null;
+  } | null;
+};
+
+type CompletedSale = {
+  id: string;
+  total: number;
+  clientName: string;
+  paymentMethod: string;
+  receiptType: ReceiptType;
+};
+
 type DiscountType = "none" | "percent" | "fixed";
 type ReceiptType = "FISCAL" | "NON_FISCAL";
+type SalesPeriod = "today" | "week" | "month" | "all";
 
 const SERVICE_PRICES: Record<string, { price: number; cost: number }> = {
   Piega: { price: 18, cost: 0 },
@@ -169,6 +203,31 @@ function numberFromInput(value: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function inventoryUnitCost(product?: InventoryProduct) {
+  if (!product) return 0;
+
+  const directUnitCost = Number(product.unitCost || 0);
+  if (directUnitCost > 0) return directUnitCost;
+
+  const stock = Number(product.stock || 0);
+  const cost = Number(product.cost || 0);
+  return stock > 0 && cost > 0 ? cost / stock : cost;
+}
+
+function isSameDay(value: string, reference: Date) {
+  const date = new Date(value);
+  return date.getDate() === reference.getDate()
+    && date.getMonth() === reference.getMonth()
+    && date.getFullYear() === reference.getFullYear();
+}
+
+function paymentLabel(method?: string | null) {
+  if (method === "cash") return "Contanti";
+  if (method === "mixed") return "Pagamento misto";
+  if (method === "bank") return "Bonifico";
+  return "Carta";
+}
+
 function isAppointmentFinished(appointment: AppointmentItem) {
   const start = new Date(appointment.date).getTime();
   const durationMs = Number(appointment.duration || 0) * 60 * 1000;
@@ -204,6 +263,7 @@ export default function VenditePage() {
 
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [sales, setSales] = useState<SaleRecord[]>([]);
   const [servicePrices, setServicePrices] = useState<ServicePrice[]>([]);
   const [recipes, setRecipes] = useState<RecipeItem[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -220,6 +280,11 @@ export default function VenditePage() {
   const [discountType, setDiscountType] = useState<DiscountType>("none");
   const [discountValue, setDiscountValue] = useState("");
   const [receiptType, setReceiptType] = useState<ReceiptType>("FISCAL");
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [completedSale, setCompletedSale] = useState<CompletedSale | null>(null);
+  const [salesSearch, setSalesSearch] = useState("");
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("today");
+  const [cashReceived, setCashReceived] = useState("");
 
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -239,6 +304,26 @@ export default function VenditePage() {
     discountType,
     discountValue,
   ]);
+
+  useEffect(() => {
+    if (!registerOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || loading) return;
+      if (cart.length > 0 && !window.confirm("Uscire dalla cassa e perdere il carrello corrente?")) return;
+      setRegisterOpen(false);
+      setCompletedSale(null);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [cart.length, loading, registerOpen]);
 
   const rowSubtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -319,6 +404,44 @@ export default function VenditePage() {
     });
   }, [appointments, appointmentSearch]);
 
+  const filteredSales = useMemo(() => {
+    const query = salesSearch.trim().toLowerCase();
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - 6);
+    weekStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    return sales.filter((sale) => {
+      const createdAt = new Date(sale.createdAt);
+      const inPeriod = salesPeriod === "all"
+        || (salesPeriod === "today" && isSameDay(sale.createdAt, now))
+        || (salesPeriod === "week" && createdAt >= weekStart)
+        || (salesPeriod === "month" && createdAt >= monthStart);
+      if (!inPeriod) return false;
+      if (!query) return true;
+
+      const searchable = [
+        sale.clientGlobal.name,
+        sale.clientGlobal.phone,
+        sale.paymentMethod,
+        ...(sale.items || []).map((item) => item.name),
+      ].join(" ").toLowerCase();
+
+      return searchable.includes(query);
+    });
+  }, [sales, salesPeriod, salesSearch]);
+
+  const salesMetrics = useMemo(() => {
+    const now = new Date();
+    const todaySales = sales.filter((sale) => isSameDay(sale.createdAt, now));
+    const revenueToday = todaySales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+    const averageTicket = todaySales.length > 0 ? revenueToday / todaySales.length : 0;
+    const pendingReceipts = sales.filter((sale) => sale.fiscalStatus !== "ISSUED" && sale.fiscalStatus !== "NON_FISCAL").length;
+
+    return { revenueToday, averageTicket, pendingReceipts, transactionsToday: todaySales.length };
+  }, [sales]);
+
   const suggestions = useMemo(() => {
     const text = cart.map((i) => i.name).join(" ").toLowerCase();
     const tags: string[] = [];
@@ -350,12 +473,21 @@ export default function VenditePage() {
     return PRODUCTS.filter((p) => tags.includes(p.tag) && !already.includes(p.name)).slice(0, 3);
   }, [cart]);
 
+  const cashReceivedValue = numberFromInput(cashReceived);
+  const cashChange = paymentMethod === "cash"
+    ? Math.max(0, cashReceivedValue - total)
+    : 0;
+  const cashAmountIsInvalid = paymentMethod === "cash"
+    && cashReceived !== ""
+    && cashReceivedValue < total;
+
   const canCloseSale = Boolean(
     selectedClient &&
       cart.length > 0 &&
       total > 0 &&
       !loading &&
-      !missingStaffForServices,
+      !missingStaffForServices &&
+      !cashAmountIsInvalid,
   );
 
   const serviceCatalog = useMemo(() => {
@@ -370,7 +502,10 @@ export default function VenditePage() {
     });
 
     servicePrices.forEach((service) => {
-      const recipeCost = getRecipeTechnicalCost(service.name);
+      const recipeCost = Number(recipes
+        .filter((recipe) => recipe.serviceName === service.name)
+        .reduce((sum, recipe) => sum + inventoryUnitCost(recipe.product) * Number(recipe.quantity || 0), 0)
+        .toFixed(2));
 
       catalog[service.name] = {
         price: Number(service.price || 0),
@@ -381,38 +516,6 @@ export default function VenditePage() {
 
     return catalog;
   }, [servicePrices, recipes]);
-
-  function getProductUnitCost(product?: InventoryProduct) {
-    if (!product) return 0;
-
-    const directUnitCost = Number(product.unitCost || 0);
-    if (directUnitCost > 0) return directUnitCost;
-
-    const stock = Number(product.stock || 0);
-    const cost = Number(product.cost || 0);
-
-    if (stock > 0 && cost > 0) return cost / stock;
-
-    return cost;
-  }
-
-  function getRecipeTechnicalCost(serviceName: string) {
-    const serviceRecipes = recipes.filter((recipe) => recipe.serviceName === serviceName);
-
-    if (serviceRecipes.length === 0) return 0;
-
-    return Number(
-      serviceRecipes
-        .reduce((sum, recipe) => {
-          const product = recipe.product;
-          const unitCost = getProductUnitCost(product);
-          const quantity = Number(recipe.quantity || 0);
-
-          return sum + unitCost * quantity;
-        }, 0)
-        .toFixed(2),
-    );
-  }
 
   function getServiceData(name: string) {
     return serviceCatalog[name] || { price: 30, cost: 0, duration: 30 };
@@ -493,18 +596,20 @@ export default function VenditePage() {
     try {
       setDataLoading(true);
 
-      const [clientsData, appointmentsData, servicePricesData, recipesData, staffData] = await Promise.all([
+      const [clientsData, appointmentsData, servicePricesData, recipesData, staffData, salesData] = await Promise.all([
         fetchWithAuth("/clients"),
         fetchWithAuth("/appointments"),
         fetchWithAuth("/service-prices"),
         fetchWithAuth("/inventory/recipes"),
         fetchWithAuth("/staff"),
+        fetchWithAuth("/sales"),
       ]);
 
       setClients(clientsData || []);
       setServicePrices(Array.isArray(servicePricesData) ? servicePricesData.filter((item: ServicePrice) => item.active !== false) : []);
       setRecipes(Array.isArray(recipesData) ? recipesData : []);
       setStaff(Array.isArray(staffData) ? staffData.filter((item: StaffMember) => item.active !== false) : []);
+      setSales(Array.isArray(salesData) ? salesData : []);
 
       const ready = (appointmentsData || []).sort(
         (a: AppointmentItem, b: AppointmentItem) =>
@@ -715,7 +820,30 @@ export default function VenditePage() {
     setDiscountValue("");
     setReceiptType("FISCAL");
     setPaymentMethod("card");
+    setCashReceived("");
+    setCompletedSale(null);
     setMessage("Cassa pulita.");
+  }
+
+  function openRegister(appointment?: AppointmentItem) {
+    setRegisterOpen(true);
+    setCompletedSale(null);
+    setMessage("");
+
+    if (appointment) loadAppointment(appointment);
+  }
+
+  function closeRegister() {
+    if (loading) return;
+    if (cart.length > 0 && !window.confirm("Uscire dalla cassa e perdere il carrello corrente?")) return;
+    clearCheckout();
+    setMessage("");
+    setRegisterOpen(false);
+  }
+
+  function startNewSale() {
+    clearCheckout();
+    setMessage("");
   }
 
   async function closeSale() {
@@ -736,7 +864,7 @@ export default function VenditePage() {
     checkoutKeyRef.current = idempotencyKey;
 
     try {
-      await fetchWithAuth("/sales", {
+      const savedSale = await fetchWithAuth("/sales", {
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey },
         body: JSON.stringify({
@@ -761,11 +889,14 @@ export default function VenditePage() {
       });
 
       checkoutKeyRef.current = null;
-      setMessage(
-        receiptType === "FISCAL"
-          ? "✅ Vendita registrata. Scontrino fiscale da emettere."
-          : "✅ Vendita registrata come NON fiscale.",
-      );
+      setCompletedSale({
+        id: savedSale?.id || idempotencyKey,
+        total,
+        clientName: selectedClient.clientGlobal.name,
+        paymentMethod,
+        receiptType,
+      });
+      setMessage("");
 
       setCart([]);
       setSelectedAppointment(null);
@@ -773,6 +904,7 @@ export default function VenditePage() {
       setDiscountType("none");
       setDiscountValue("");
       setReceiptType("FISCAL");
+      setCashReceived("");
       await loadData();
     } catch (error) {
       setMessage(`⚠️ ${getErrorMessage(error, "Errore registrazione vendita")}`);
@@ -782,45 +914,199 @@ export default function VenditePage() {
   }
 
   return (
-    <main className={`sp-page ${ops.modulePage}`}>
-      <div className="sp-shell" style={{ maxWidth: 1640 }}>
-        <ModuleHeader
-          eyebrow="Cassa & checkout"
-          title="Cassa operativa"
-          description="Un flusso guidato dall’appuntamento all’incasso, con controllo di costi, sconti e marginalità reale."
-          icon="cash"
-          status="Pronta all’incasso"
-          actions={(
+    <>
+      <main className={`sp-page ${ops.modulePage}`}>
+        <div className={`sp-shell ${styles.historyShell}`}>
+          <ModuleHeader
+            eyebrow="Vendite & pagamenti"
+            title="Vendite"
+            description="Controlla gli incassi, ritrova ogni transazione e apri la cassa quando serve."
+            icon="cash"
+            status="Cassa pronta"
+            actions={(
+              <button className={`${ops.primaryAction} ${styles.openRegisterButton}`} onClick={() => openRegister()} type="button">
+                <AppIcon name="cash" size={17} />
+                Apri cassa
+              </button>
+            )}
+          />
+
+          <ModuleMetrics
+            items={[
+              { label: "Incasso di oggi", value: money(salesMetrics.revenueToday), detail: `${salesMetrics.transactionsToday} transazioni`, tone: "accent" },
+              { label: "Scontrino medio", value: money(salesMetrics.averageTicket), detail: "media delle vendite odierne" },
+              { label: "Da incassare", value: filteredAppointments.length, detail: "appuntamenti conclusi", tone: filteredAppointments.length ? "warning" : "neutral" },
+              { label: "Documenti aperti", value: salesMetrics.pendingReceipts, detail: "scontrini da emettere", tone: salesMetrics.pendingReceipts ? "danger" : "success" },
+            ]}
+          />
+
+          {message && !registerOpen ? <div className={styles.historyMessage}>{message}</div> : null}
+
+          <section className={styles.historyGrid}>
+            <article className={`sp-card ${ops.surface} ${styles.salesPanel}`}>
+              <div className={styles.panelHeading}>
+                <div>
+                  <span className={styles.kicker}>Movimenti</span>
+                  <h2>Storico vendite</h2>
+                  <p>Consulta rapidamente clienti, importi e stato del documento.</p>
+                </div>
+                <span className={styles.resultCount}>{filteredSales.length} risultati</span>
+              </div>
+
+              <div className={styles.salesToolbar}>
+                <label className={styles.searchBox}>
+                  <AppIcon name="search" size={17} />
+                  <input
+                    aria-label="Cerca nello storico vendite"
+                    onChange={(event) => setSalesSearch(event.target.value)}
+                    placeholder="Cerca cliente, telefono o servizio..."
+                    value={salesSearch}
+                  />
+                </label>
+                <div className={styles.periodTabs} aria-label="Periodo vendite">
+                  {([
+                    ["today", "Oggi"],
+                    ["week", "7 giorni"],
+                    ["month", "Mese"],
+                    ["all", "Tutte"],
+                  ] as Array<[SalesPeriod, string]>).map(([value, label]) => (
+                    <button
+                      className={salesPeriod === value ? styles.periodTabActive : ""}
+                      key={value}
+                      onClick={() => setSalesPeriod(value)}
+                      type="button"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.salesList}>
+                {dataLoading ? (
+                  <div className={styles.listEmpty}>Caricamento vendite...</div>
+                ) : filteredSales.length === 0 ? (
+                  <div className={styles.listEmpty}>
+                    <AppIcon name="cash" size={24} />
+                    <strong>Nessuna vendita nel periodo</strong>
+                    <span>Apri la cassa per registrare il prossimo incasso.</span>
+                  </div>
+                ) : filteredSales.slice(0, 60).map((sale) => {
+                  const date = new Date(sale.createdAt);
+                  const itemCount = (sale.items || []).reduce((sum, item) => sum + Number(item.quantity || 1), 0);
+                  const receiptIssued = sale.fiscalStatus === "ISSUED";
+                  const nonFiscal = sale.fiscalStatus === "NON_FISCAL";
+
+                  return (
+                    <div className={styles.saleRow} key={sale.id}>
+                      <div className={styles.saleDate}>
+                        <strong>{date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</strong>
+                        <span>{date.toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}</span>
+                      </div>
+                      <div className={styles.saleClient}>
+                        <strong>{sale.clientGlobal.name}</strong>
+                        <span>{itemCount} {itemCount === 1 ? "voce" : "voci"} · {sale.clientGlobal.phone}</span>
+                      </div>
+                      <span className={styles.paymentBadge}>{paymentLabel(sale.paymentMethod)}</span>
+                      <span className={receiptIssued ? styles.receiptIssued : nonFiscal ? styles.receiptNonFiscal : styles.receiptPending}>
+                        {receiptIssued ? "Documento emesso" : nonFiscal ? "Non fiscale" : "Da emettere"}
+                      </span>
+                      <strong className={styles.saleTotal}>{money(sale.total)}</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            </article>
+
+            <aside className={`sp-card ${ops.surface} ${styles.readyPanel}`}>
+              <div className={styles.panelHeading}>
+                <div>
+                  <span className={styles.kicker}>Flusso rapido</span>
+                  <h2>Pronti da incassare</h2>
+                  <p>Apri la cassa con cliente e servizi già caricati.</p>
+                </div>
+              </div>
+
+              <div className={styles.readyList}>
+                {dataLoading ? (
+                  <div className={styles.readyEmpty}>Caricamento appuntamenti...</div>
+                ) : filteredAppointments.length === 0 ? (
+                  <div className={styles.readyEmpty}>
+                    <AppIcon name="check" size={22} />
+                    <strong>Tutto incassato</strong>
+                    <span>Non ci sono appuntamenti conclusi in attesa.</span>
+                  </div>
+                ) : filteredAppointments.slice(0, 6).map((appointment) => (
+                  <button className={styles.readyCard} key={appointment.id} onClick={() => openRegister(appointment)} type="button">
+                    <div>
+                      <strong>{appointment.clientTenant.clientGlobal.name}</strong>
+                      <span>{appointment.note || "Appuntamento"}</span>
+                    </div>
+                    <small>{appointmentStatus(appointment)}</small>
+                    <AppIcon name="arrow" size={17} />
+                  </button>
+                ))}
+              </div>
+
+              <button className={styles.freeSaleButton} onClick={() => openRegister()} type="button">
+                <AppIcon name="plus" size={17} />
+                Nuova vendita libera
+              </button>
+            </aside>
+          </section>
+        </div>
+      </main>
+
+      {registerOpen ? (
+        <div aria-label="Cassa operativa" aria-modal="true" className={styles.registerOverlay} role="dialog">
+          {completedSale ? (
+            <div className={styles.successScreen}>
+              <div className={styles.successMark}><AppIcon name="check" size={36} /></div>
+              <span className={styles.kicker}>Pagamento completato</span>
+              <h2>{money(completedSale.total)} incassati</h2>
+              <p>La vendita di <strong>{completedSale.clientName}</strong> è stata registrata correttamente.</p>
+              <div className={styles.successDetails}>
+                <div><span>Pagamento</span><strong>{paymentLabel(completedSale.paymentMethod)}</strong></div>
+                <div><span>Documento</span><strong>{completedSale.receiptType === "FISCAL" ? "Fiscale da emettere" : "Non fiscale"}</strong></div>
+                <div><span>Operazione</span><strong>#{completedSale.id.slice(0, 8).toUpperCase()}</strong></div>
+              </div>
+              <div className={styles.successActions}>
+                <button className={styles.secondaryRegisterAction} onClick={() => { startNewSale(); setRegisterOpen(false); }} type="button">
+                  Torna alle vendite
+                </button>
+                <button className={styles.primaryRegisterAction} onClick={startNewSale} type="button">
+                  <AppIcon name="plus" size={17} /> Nuova vendita
+                </button>
+              </div>
+            </div>
+          ) : (
             <>
-            <button className={ops.secondaryAction} onClick={clearCheckout} type="button">
-              Pulisci cassa
-            </button>
-            <button className={ops.primaryAction} onClick={closeSale} disabled={!canCloseSale} type="button">
-              <AppIcon name="check" size={16} />
-              {loading ? "Salvataggio..." : `Incassa ${money(total)}`}
-            </button>
-            </>
-          )}
-        />
+              <header className={styles.registerHeader}>
+                <div className={styles.registerBrand}>
+                  <span className={styles.registerIcon}><AppIcon name="cash" size={20} /></span>
+                  <div><small>Modalità operativa</small><strong>Cassa principale</strong></div>
+                </div>
+                <div className={styles.registerContext}>
+                  <span><i /> Cassa online</span>
+                  <strong>{selectedClient ? selectedClient.clientGlobal.name : "Nessun cliente"}</strong>
+                  <small>{cart.length} {cart.length === 1 ? "articolo" : "articoli"} · {money(total)}</small>
+                </div>
+                <div className={styles.registerActions}>
+                  <button onClick={clearCheckout} type="button">Pulisci</button>
+                  <button onClick={closeRegister} type="button"><AppIcon name="x" size={17} /> Esci dalla cassa</button>
+                </div>
+              </header>
 
-        <ModuleMetrics
-          items={[
-            { label: "Pronti da incassare", value: filteredAppointments.length, detail: "appuntamenti conclusi", tone: filteredAppointments.length ? "warning" : "neutral" },
-            { label: "Voci carrello", value: cart.length, detail: selectedClient ? selectedClient.clientGlobal.name : "nessun cliente selezionato" },
-            { label: "Totale incasso", value: money(total), detail: discountTotal ? `${money(discountTotal)} di sconti` : "nessuno sconto", tone: "accent" },
-            { label: "Margine stimato", value: money(margin), detail: missingStaffForServices ? "seleziona l’operatore" : "costi tecnici e personale inclusi", tone: margin >= 0 ? "success" : "danger" },
-          ]}
-        />
+              <div className={styles.registerWorkspace}>
+                <section className={`${ops.stepBar} ${styles.registerSteps}`} style={stepBar}>
+                  <Step active={Boolean(selectedClient)} number="1" title="Cliente" text={selectedClient ? selectedClient.clientGlobal.name : "Seleziona"} />
+                  <Step active={cart.length > 0} number="2" title="Carrello" text={`${cart.length} voci`} />
+                  <Step active={total > 0} number="3" title="Pagamento" text={money(total)} />
+                </section>
 
-        <section className={ops.stepBar} style={stepBar}>
-          <Step active={Boolean(selectedClient)} number="1" title="Cliente" text={selectedClient ? selectedClient.clientGlobal.name : "Seleziona"} />
-          <Step active={cart.length > 0} number="2" title="Carrello cliente" text={`${cart.length} voci`} />
-          <Step active={total > 0} number="3" title="Incasso" text={money(total)} />
-        </section>
+                {message ? <div className={styles.registerMessage}>{message}</div> : null}
 
-        {message ? <div style={messageBox}>{message}</div> : null}
-
-        <section className={ops.contentGrid} style={mainGrid}>
+                <section className={`${ops.contentGrid} ${styles.registerGrid}`} style={mainGrid}>
           <aside className={`sp-card ${ops.surface}`} style={card}>
             <div style={sectionHeader}>
               <div>
@@ -1185,30 +1471,63 @@ export default function VenditePage() {
               <SummaryRow label="Margine reale" value={money(margin)} success />
             </div>
 
-            <div style={{ marginTop: 16 }}>
-              <label style={label}>Metodo pagamento</label>
-              <select
-                className="sp-input"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                <option value="card">Carta</option>
-                <option value="cash">Contanti</option>
-                <option value="mixed">Misto</option>
-                <option value="bank">Bonifico</option>
-              </select>
+            <div className={styles.paymentSection}>
+              <label style={label}>Metodo di pagamento</label>
+              <div className={styles.paymentMethods}>
+                {[
+                  ["card", "Carta", "POS"],
+                  ["cash", "Contanti", "Resto automatico"],
+                  ["mixed", "Misto", "Carta + contanti"],
+                  ["bank", "Bonifico", "Pagamento tracciato"],
+                ].map(([value, name, detail]) => (
+                  <button
+                    className={paymentMethod === value ? styles.paymentMethodActive : ""}
+                    key={value}
+                    onClick={() => {
+                      setPaymentMethod(value);
+                      if (value !== "cash") setCashReceived("");
+                    }}
+                    type="button"
+                  >
+                    <strong>{name}</strong>
+                    <span>{detail}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div style={{ marginTop: 16 }}>
+            {paymentMethod === "cash" ? (
+              <div className={styles.cashPanel}>
+                <label htmlFor="cash-received" style={label}>Contanti ricevuti</label>
+                <div className={styles.cashInputRow}>
+                  <span>€</span>
+                  <input
+                    className="sp-input"
+                    id="cash-received"
+                    inputMode="decimal"
+                    onChange={(event) => setCashReceived(event.target.value)}
+                    placeholder={total.toFixed(2)}
+                    value={cashReceived}
+                  />
+                  <button onClick={() => setCashReceived(total.toFixed(2))} type="button">Importo esatto</button>
+                </div>
+                <div className={cashAmountIsInvalid ? styles.cashWarning : styles.changeBox}>
+                  <span>{cashAmountIsInvalid ? "Mancano" : "Resto"}</span>
+                  <strong>{money(cashAmountIsInvalid ? total - cashReceivedValue : cashChange)}</strong>
+                </div>
+              </div>
+            ) : null}
+
+            <div className={styles.paymentSection}>
               <label style={label}>Documento</label>
-              <select
-                className="sp-input"
-                value={receiptType}
-                onChange={(e) => setReceiptType(e.target.value as ReceiptType)}
-              >
-                <option value="FISCAL">Scontrino fiscale</option>
-                <option value="NON_FISCAL">Non fiscale</option>
-              </select>
+              <div className={styles.documentOptions}>
+                <button className={receiptType === "FISCAL" ? styles.documentOptionActive : ""} onClick={() => setReceiptType("FISCAL")} type="button">
+                  <strong>Scontrino fiscale</strong><span>Da emettere dopo l’incasso</span>
+                </button>
+                <button className={receiptType === "NON_FISCAL" ? styles.documentOptionActive : ""} onClick={() => setReceiptType("NON_FISCAL")} type="button">
+                  <strong>Non fiscale</strong><span>Solo registrazione gestionale</span>
+                </button>
+              </div>
             </div>
 
             {!selectedClient ? (
@@ -1220,27 +1539,23 @@ export default function VenditePage() {
             ) : null}
 
             <button
-              className="sp-button-purple"
-              style={{
-                width: "100%",
-                marginTop: 18,
-                padding: 20,
-                fontSize: 16,
-                opacity: canCloseSale ? 1 : 0.5,
-              }}
+              className={styles.checkoutButton}
               onClick={closeSale}
               disabled={!canCloseSale}
             >
+              <span>{loading ? "Registrazione in corso" : "Conferma pagamento"}</span>
               {loading
-                ? "Salvataggio..."
-                : receiptType === "FISCAL"
-                  ? `Incassa ${money(total)} + scontrino`
-                  : `Incassa ${money(total)} non fiscale`}
+                ? "Attendi..."
+                : money(total)}
             </button>
           </aside>
-        </section>
-      </div>
-    </main>
+                </section>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -1292,16 +1607,6 @@ function SummaryRow({
     </div>
   );
 }
-
-const messageBox: React.CSSProperties = {
-  padding: 16,
-  borderRadius: 18,
-  marginBottom: 18,
-  background: "rgba(139,92,246,0.14)",
-  border: "1px solid rgba(139,92,246,0.32)",
-  color: "#fff",
-  fontWeight: 900,
-};
 
 const stepBar: React.CSSProperties = {
   display: "grid",
@@ -1561,12 +1866,6 @@ const qtyBtn: React.CSSProperties = {
   cursor: "pointer",
 };
 
-const rowRight: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-};
-
 const deleteButton: React.CSSProperties = {
   border: 0,
   borderRadius: 12,
@@ -1662,65 +1961,6 @@ const warningBox: React.CSSProperties = {
   border: "1px solid rgba(239,68,68,0.22)",
   color: "#fecaca",
   fontWeight: 900,
-};
-
-
-const checkoutQuickSummary: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(120px, 1fr))",
-  gap: 10,
-  margin: "12px 0",
-};
-
-const checkoutSummaryTile: React.CSSProperties = {
-  display: "grid",
-  gap: 5,
-  padding: 12,
-  borderRadius: 14,
-  background: "rgba(255,255,255,0.065)",
-  border: "1px solid rgba(255,255,255,0.08)",
-};
-
-const checkoutHelpBox: React.CSSProperties = {
-  margin: "10px 0 14px",
-  padding: 13,
-  borderRadius: 14,
-  border: "1px solid rgba(212,175,55,0.18)",
-  background: "rgba(212,175,55,0.08)",
-  color: "#fef3c7",
-  fontSize: 13,
-  fontWeight: 850,
-  lineHeight: 1.35,
-};
-
-const missingStaffWarningBox: React.CSSProperties = {
-  margin: "10px 0 14px",
-  padding: 13,
-  borderRadius: 14,
-  border: "1px solid rgba(239,68,68,0.35)",
-  background: "rgba(239,68,68,0.14)",
-  color: "#fecaca",
-  fontSize: 13,
-  fontWeight: 900,
-  lineHeight: 1.35,
-};
-
-const cartResultBox: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(5, minmax(86px, 1fr))",
-  gap: 8,
-  width: "100%",
-  marginTop: 8,
-};
-
-const cartResultTile: React.CSSProperties = {
-  display: "grid",
-  gap: 4,
-  padding: "8px 9px",
-  borderRadius: 12,
-  background: "rgba(0,0,0,0.25)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  fontSize: 12,
 };
 
 
