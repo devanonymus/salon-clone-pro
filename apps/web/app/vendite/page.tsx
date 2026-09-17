@@ -129,6 +129,7 @@ type CompletedSale = {
 type DiscountType = "none" | "percent" | "fixed";
 type ReceiptType = "FISCAL" | "NON_FISCAL";
 type SalesPeriod = "today" | "week" | "month" | "all";
+type CatalogMode = "services" | "products";
 
 const SERVICE_PRICES: Record<string, { price: number; cost: number }> = {
   Piega: { price: 18, cost: 0 },
@@ -272,7 +273,6 @@ export default function VenditePage() {
 
   const [selectedClientId, setSelectedClientId] = useState("");
   const [clientSearch, setClientSearch] = useState("");
-  const [appointmentSearch, setAppointmentSearch] = useState("");
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("card");
@@ -285,6 +285,9 @@ export default function VenditePage() {
   const [salesSearch, setSalesSearch] = useState("");
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("today");
   const [cashReceived, setCashReceived] = useState("");
+  const [catalogMode, setCatalogMode] = useState<CatalogMode>("services");
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -313,6 +316,10 @@ export default function VenditePage() {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || loading) return;
+      if (paymentOpen) {
+        setPaymentOpen(false);
+        return;
+      }
       if (cart.length > 0 && !window.confirm("Uscire dalla cassa e perdere il carrello corrente?")) return;
       setRegisterOpen(false);
       setCompletedSale(null);
@@ -323,7 +330,7 @@ export default function VenditePage() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [cart.length, loading, registerOpen]);
+  }, [cart.length, loading, paymentOpen, registerOpen]);
 
   const rowSubtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -355,27 +362,6 @@ export default function VenditePage() {
   const discountTotal = rowDiscountTotal + globalDiscountAmount;
   const total = Math.max(0, rowSubtotal - discountTotal);
 
-  const technicalCostTotal = useMemo(() => {
-    return cart.reduce((sum, item) => {
-      const quantity = Number(item.quantity || 1);
-      const technicalCost = Number(item.technicalCost ?? (item.type === "product" ? item.cost : 0));
-
-      return sum + technicalCost * quantity;
-    }, 0);
-  }, [cart]);
-
-  const laborCostTotal = useMemo(() => {
-    return cart.reduce((sum, item) => {
-      const quantity = Number(item.quantity || 1);
-      const laborCost = Number(item.laborCost || 0);
-
-      return sum + laborCost * quantity;
-    }, 0);
-  }, [cart]);
-
-  const costTotal = technicalCostTotal + laborCostTotal;
-  const margin = total - costTotal;
-
   const hasServiceItems = cart.some((item) => item.type === "service");
   const missingStaffForServices = hasServiceItems && !selectedStaffId;
 
@@ -390,19 +376,10 @@ export default function VenditePage() {
   }, [clients, clientSearch]);
 
   const filteredAppointments = useMemo(() => {
-    const q = appointmentSearch.toLowerCase().trim();
-
-    const ready = appointments.filter((appointment) => {
+    return appointments.filter((appointment) => {
       return !appointment.sale && isAppointmentFinished(appointment);
     });
-
-    if (!q) return ready;
-
-    return ready.filter((appointment) => {
-      const text = `${appointment.clientTenant.clientGlobal.name} ${appointment.clientTenant.clientGlobal.phone} ${appointment.note || ""}`.toLowerCase();
-      return text.includes(q);
-    });
-  }, [appointments, appointmentSearch]);
+  }, [appointments]);
 
   const filteredSales = useMemo(() => {
     const query = salesSearch.trim().toLowerCase();
@@ -480,14 +457,18 @@ export default function VenditePage() {
   const cashAmountIsInvalid = paymentMethod === "cash"
     && cashReceived !== ""
     && cashReceivedValue < total;
+  const cashAmountIsMissing = paymentMethod === "cash" && cashReceived === "";
 
-  const canCloseSale = Boolean(
+  const canStartPayment = Boolean(
     selectedClient &&
       cart.length > 0 &&
       total > 0 &&
       !loading &&
-      !missingStaffForServices &&
-      !cashAmountIsInvalid,
+      !missingStaffForServices,
+  );
+
+  const canCloseSale = Boolean(
+    canStartPayment && !cashAmountIsInvalid && !cashAmountIsMissing,
   );
 
   const serviceCatalog = useMemo(() => {
@@ -516,6 +497,27 @@ export default function VenditePage() {
 
     return catalog;
   }, [servicePrices, recipes]);
+
+  const filteredServiceNames = useMemo(() => {
+    const query = catalogSearch.trim().toLowerCase();
+    return Object.keys(serviceCatalog)
+      .filter((name) => !query || name.toLowerCase().includes(query))
+      .sort((a, b) => a.localeCompare(b, "it"));
+  }, [catalogSearch, serviceCatalog]);
+
+  const filteredProducts = useMemo(() => {
+    const query = catalogSearch.trim().toLowerCase();
+    return PRODUCTS.filter((product) => !query || product.name.toLowerCase().includes(query));
+  }, [catalogSearch]);
+
+  const cashQuickAmounts = useMemo(() => {
+    const roundedFive = Math.ceil(total / 5) * 5;
+    const roundedTen = Math.ceil(total / 10) * 10;
+    return Array.from(new Set([total, roundedFive, roundedTen, 20, 50, 100]))
+      .filter((amount) => amount >= total && amount > 0)
+      .sort((a, b) => a - b)
+      .slice(0, 4);
+  }, [total]);
 
   function getServiceData(name: string) {
     return serviceCatalog[name] || { price: 30, cost: 0, duration: 30 };
@@ -821,12 +823,16 @@ export default function VenditePage() {
     setReceiptType("FISCAL");
     setPaymentMethod("card");
     setCashReceived("");
+    setCatalogMode("services");
+    setCatalogSearch("");
+    setPaymentOpen(false);
     setCompletedSale(null);
     setMessage("Cassa pulita.");
   }
 
   function openRegister(appointment?: AppointmentItem) {
     setRegisterOpen(true);
+    setPaymentOpen(false);
     setCompletedSale(null);
     setMessage("");
 
@@ -896,6 +902,7 @@ export default function VenditePage() {
         paymentMethod,
         receiptType,
       });
+      setPaymentOpen(false);
       setMessage("");
 
       setCart([]);
@@ -1081,476 +1088,297 @@ export default function VenditePage() {
             </div>
           ) : (
             <>
-              <header className={styles.registerHeader}>
-                <div className={styles.registerBrand}>
+              <header className={styles.posHeader}>
+                <div className={styles.posBrand}>
                   <span className={styles.registerIcon}><AppIcon name="cash" size={20} /></span>
-                  <div><small>Modalità operativa</small><strong>Cassa principale</strong></div>
+                  <div><small>Vendita in corso</small><strong>Registratore di cassa</strong></div>
                 </div>
-                <div className={styles.registerContext}>
+                <div className={styles.posStatus}>
                   <span><i /> Cassa online</span>
-                  <strong>{selectedClient ? selectedClient.clientGlobal.name : "Nessun cliente"}</strong>
-                  <small>{cart.length} {cart.length === 1 ? "articolo" : "articoli"} · {money(total)}</small>
+                  <strong>{selectedClient ? selectedClient.clientGlobal.name : "Seleziona il cliente"}</strong>
+                  <small>{cart.length} {cart.length === 1 ? "voce" : "voci"} nello scontrino</small>
                 </div>
-                <div className={styles.registerActions}>
-                  <button onClick={clearCheckout} type="button">Pulisci</button>
-                  <button onClick={closeRegister} type="button"><AppIcon name="x" size={17} /> Esci dalla cassa</button>
+                <div className={styles.posHeaderActions}>
+                  <button onClick={clearCheckout} type="button">Nuova vendita</button>
+                  <button onClick={closeRegister} type="button"><AppIcon name="x" size={17} /> Esci</button>
                 </div>
               </header>
 
-              <div className={styles.registerWorkspace}>
-                <section className={`${ops.stepBar} ${styles.registerSteps}`} style={stepBar}>
-                  <Step active={Boolean(selectedClient)} number="1" title="Cliente" text={selectedClient ? selectedClient.clientGlobal.name : "Seleziona"} />
-                  <Step active={cart.length > 0} number="2" title="Carrello" text={`${cart.length} voci`} />
-                  <Step active={total > 0} number="3" title="Pagamento" text={money(total)} />
-                </section>
-
+              <div className={styles.posWorkspace}>
                 {message ? <div className={styles.registerMessage}>{message}</div> : null}
 
-                <section className={`${ops.contentGrid} ${styles.registerGrid}`} style={mainGrid}>
-          <aside className={`sp-card ${ops.surface}`} style={card}>
-            <div style={sectionHeader}>
-              <div>
-                <span style={stepBadge}>1</span>
-                <h2 style={title}>1. Cliente</h2>
-              </div>
-            </div>
-
-            <div style={hintBox}>
-              Consiglio: clicca un appuntamento pronto. Il cliente e i servizi si caricano da soli.
-            </div>
-
-            <input
-              className="sp-input"
-              placeholder="Cerca appuntamento o cliente..."
-              value={appointmentSearch}
-              onChange={(e) => setAppointmentSearch(e.target.value)}
-              style={searchInput}
-            />
-
-            <div style={listArea}>
-              {dataLoading ? (
-                <EmptyBox text="Caricamento appuntamenti..." />
-              ) : filteredAppointments.length === 0 ? (
-                <EmptyBox text="Nessun appuntamento finito da incassare. Se serve, seleziona un cliente sotto." />
-              ) : (
-                filteredAppointments.slice(0, 8).map((appointment) => {
-                  const active = selectedAppointment?.id === appointment.id;
-                  const date = new Date(appointment.date);
-
-                  return (
-                    <button
-                      key={appointment.id}
-                      onClick={() => loadAppointment(appointment)}
-                      style={{
-                        ...appointmentCard,
-                        borderColor: active
-                          ? "rgba(212,175,55,0.85)"
-                          : "rgba(255,255,255,0.09)",
-                        background: active
-                          ? "linear-gradient(135deg,rgba(139,92,246,0.25),rgba(212,175,55,0.14))"
-                          : "rgba(255,255,255,0.055)",
-                      }}
-                    >
-                      <div style={appointmentTop}>
-                        <strong>{appointment.clientTenant.clientGlobal.name}</strong>
-                        <span>{date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
+                <div className={styles.posGrid}>
+                  <section className={styles.catalogPanel}>
+                    {filteredAppointments.length > 0 ? (
+                      <div className={styles.readyCheckoutStrip}>
+                        <div className={styles.readyCheckoutHeading}>
+                          <span><AppIcon name="agenda" size={16} /> Pronti da incassare</span>
+                          <small>Clicca un appuntamento: cliente e servizi si caricano da soli.</small>
+                        </div>
+                        <div className={styles.readyCheckoutList}>
+                          {filteredAppointments.slice(0, 5).map((appointment) => {
+                            const date = new Date(appointment.date);
+                            const active = selectedAppointment?.id === appointment.id;
+                            return (
+                              <button
+                                className={active ? styles.readyCheckoutActive : ""}
+                                key={appointment.id}
+                                onClick={() => loadAppointment(appointment)}
+                                type="button"
+                              >
+                                <span>{date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
+                                <strong>{appointment.clientTenant.clientGlobal.name}</strong>
+                                <small>{appointment.note || "Appuntamento"}</small>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <span>{appointment.note || "Appuntamento"}</span>
-                      <small>{appointmentStatus(appointment)}</small>
-                      <em>Carica in cassa →</em>
-                    </button>
-                  );
-                })
-              )}
-            </div>
+                    ) : null}
 
-            <h3 style={smallTitle}>Cliente senza appuntamento</h3>
-
-            <input
-              className="sp-input"
-              placeholder="Cerca cliente..."
-              value={clientSearch}
-              onChange={(e) => setClientSearch(e.target.value)}
-              style={searchInput}
-            />
-
-            <select
-              className="sp-input"
-              value={selectedClientId}
-              onChange={(e) => loadClientOnly(e.target.value)}
-            >
-              <option value="">Seleziona cliente...</option>
-              {filteredClients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.clientGlobal.name} - {client.clientGlobal.phone}
-                </option>
-              ))}
-            </select>
-
-            {selectedClient ? (
-              <div style={selectedClientBox}>
-                <strong>{selectedClient.clientGlobal.name}</strong>
-                <span>{selectedClient.clientGlobal.phone}</span>
-              </div>
-            ) : null}
-          </aside>
-
-          <section className={`sp-card ${ops.surface}`} style={card}>
-            <div style={sectionHeader}>
-              <div>
-                <span style={stepBadge}>2</span>
-                <h2 style={title}>2. Servizi e prodotti</h2>
-              </div>
-            </div>
-
-            {selectedAppointment ? (
-              <div style={selectedBox}>
-                <strong>{selectedAppointment.clientTenant.clientGlobal.name}</strong>
-                <span>{selectedAppointment.clientTenant.clientGlobal.phone}</span>
-                <span>{selectedAppointment.note || "Appuntamento"}</span>
-              </div>
-            ) : selectedClient ? (
-              <div style={selectedBox}>
-                <strong>{selectedClient.clientGlobal.name}</strong>
-                <span>{selectedClient.clientGlobal.phone}</span>
-                <span>Vendita libera senza appuntamento.</span>
-              </div>
-            ) : (
-              <EmptyBox text="Carica un appuntamento o seleziona un cliente." />
-            )}
-
-            {staff.length > 0 ? (
-              <div style={staffSelectBox}>
-                <label style={label}>Operatore</label>
-                <select
-                  className="sp-input"
-                  value={selectedStaffId}
-                  onChange={(e) => changeCheckoutStaff(e.target.value)}
-                >
-                  <option value="">Nessun operatore</option>
-                  {staff.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name}
-                    </option>
-                  ))}
-                </select>
-                <small>
-                  Serve per calcolare il costo personale reale del servizio.
-                </small>
-              </div>
-            ) : null}
-
-            <div style={quickPanel}>
-              <h3 style={smallTitleNoMargin}>Servizi rapidi</h3>
-              <div style={quickGrid}>
-                {["Piega", "Colore Base + Piega", "Taglio Donna + Piega", "Ricostruzione"].map((name) => (
-                  <button key={name} style={quickButton} onClick={() => addService(name)}>
-                    + {name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={extraGrid}>
-              <select
-                className="sp-input"
-                value=""
-                onChange={(e) => {
-                  if (e.target.value) addService(e.target.value);
-                }}
-              >
-                <option value="">+ Servizio extra...</option>
-                {Object.keys(serviceCatalog).map((name) => (
-                  <option key={name} value={name}>
-                    {name} — {money(serviceCatalog[name].price)}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="sp-input"
-                value=""
-                onChange={(e) => {
-                  const product = PRODUCTS.find((p) => p.name === e.target.value);
-                  if (product) addProduct(product);
-                }}
-              >
-                <option value="">+ Prodotto...</option>
-                {PRODUCTS.map((product) => (
-                  <option key={product.name} value={product.name}>
-                    {product.name} — {money(product.price)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={cartHeader}>
-              <h2 style={title}>Carrello cliente</h2>
-              {cart.length > 0 ? (
-                <button style={miniDanger} onClick={() => setCart([])}>
-                  Svuota
-                </button>
-              ) : null}
-            </div>
-            {cart.length === 0 ? (
-              <div style={bigEmptyCart}>
-                <strong>Carrello cliente vuoto</strong>
-                <span>Aggiungi un servizio rapido oppure carica un appuntamento finito.</span>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gap: 12 }}>
-                {cart.map((item) => {
-                  const itemSubtotal = item.price * item.quantity;
-                  const itemDiscount = (itemSubtotal * item.discount) / 100;
-                  const itemTotal = itemSubtotal - itemDiscount;
-
-                  return (
-                    <div key={item.id} style={cartRow}>
-                      <div style={cartFields}>
-                        <select
-                          className="sp-input"
-                          value={item.type}
-                          onChange={(e) => updateItem(item.id, "type", e.target.value)}
-                        >
-                          <option value="service">Servizio</option>
-                          <option value="product">Prodotto</option>
+                    <div className={styles.saleContextBar}>
+                      <label>
+                        <span>Cliente</span>
+                        <div className={styles.contextInput}>
+                          <AppIcon name="search" size={16} />
+                          <input
+                            onChange={(event) => setClientSearch(event.target.value)}
+                            placeholder="Cerca cliente..."
+                            value={clientSearch}
+                          />
+                        </div>
+                        <select value={selectedClientId} onChange={(event) => loadClientOnly(event.target.value)}>
+                          <option value="">Seleziona cliente</option>
+                          {filteredClients.map((client) => (
+                            <option key={client.id} value={client.id}>
+                              {client.clientGlobal.name} · {client.clientGlobal.phone}
+                            </option>
+                          ))}
                         </select>
+                      </label>
 
-                        <input
-                          className="sp-input"
-                          value={item.name}
-                          onChange={(e) => updateItem(item.id, "name", e.target.value)}
-                        />
-
-                        <input
-                          className="sp-input"
-                          type="number"
-                          value={item.price}
-                          onChange={(e) => updateItem(item.id, "price", e.target.value)}
-                          placeholder="Prezzo"
-                        />
-
-                        <input
-                          className="sp-input"
-                          type="number"
-                          value={item.discount}
-                          onChange={(e) => updateItem(item.id, "discount", e.target.value)}
-                          placeholder="Sconto %"
-                        />
-                      </div>
-
-                      <div style={rowBottom}>
-                        <div style={qtyBox}>
-                          <button type="button" style={qtyBtn} onClick={() => increment(item.id, -1)}>
-                            -
-                          </button>
-                          <strong>{item.quantity}</strong>
-                          <button type="button" style={qtyBtn} onClick={() => increment(item.id, 1)}>
-                            +
-                          </button>
-                        </div>
-
-                        <div style={rowRightEasy}>
-                          <div style={easyTotalBox}>
-                            <span>Totale</span>
-                            <strong>{money(itemTotal)}</strong>
-                          </div>
-
-                          <div style={easyMarginBox}>
-                            <span>Margine</span>
-                            <strong>
-                              {item.type === "service" && !selectedStaffId
-                                ? "Incompleto"
-                                : money(itemMarginTotal(item))}
-                            </strong>
-                          </div>
-
-                          <details style={costDetailsBox}>
-                            <summary>Dettaglio costi</summary>
-
-                            <div style={costDetailsGrid}>
-                              <span>Materiali</span>
-                              <strong>{money(itemTechnicalTotal(item))}</strong>
-
-                              <span>Personale</span>
-                              <strong>
-                                {item.type === "service" && !selectedStaffId
-                                  ? "Manca operatore"
-                                  : money(itemLaborTotal(item))}
-                              </strong>
-
-                              <span>Costo reale</span>
-                              <strong>
-                                {item.type === "service" && !selectedStaffId
-                                  ? "Incompleto"
-                                  : money(itemRealCostTotal(item))}
-                              </strong>
-                            </div>
-                          </details>
-
-                          {item.discount > 0 ? (
-                            <small style={{ color: "#fecaca", fontWeight: 900 }}>
-                              Sconto riga -{money(itemDiscount)}
-                            </small>
-                          ) : null}
-
-                          <button type="button" style={deleteButton} onClick={() => removeItem(item.id)}>
-                            X
-                          </button>
-                        </div>
-                      </div>
+                      <label>
+                        <span>Operatore</span>
+                        <select value={selectedStaffId} onChange={(event) => changeCheckoutStaff(event.target.value)}>
+                          <option value="">Seleziona operatore</option>
+                          {staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+                        </select>
+                        <small>{selectedAppointment ? "Impostato dall’appuntamento" : "Necessario per i servizi"}</small>
+                      </label>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
 
-          <aside className={`sp-card ${ops.surface}`} style={checkoutCard}>
-            <div style={sectionHeader}>
-              <div>
-                <span style={stepBadge}>3</span>
-                <h2 style={title}>3. Incasso</h2>
-              </div>
-            </div>
+                    <div className={styles.catalogToolbar}>
+                      <div className={styles.catalogTabs}>
+                        <button className={catalogMode === "services" ? styles.catalogTabActive : ""} onClick={() => setCatalogMode("services")} type="button">
+                          Servizi
+                        </button>
+                        <button className={catalogMode === "products" ? styles.catalogTabActive : ""} onClick={() => setCatalogMode("products")} type="button">
+                          Prodotti
+                        </button>
+                      </div>
+                      <label className={styles.catalogSearch}>
+                        <AppIcon name="search" size={17} />
+                        <input
+                          onChange={(event) => setCatalogSearch(event.target.value)}
+                          placeholder={catalogMode === "services" ? "Cerca un servizio..." : "Cerca un prodotto..."}
+                          value={catalogSearch}
+                        />
+                      </label>
+                    </div>
 
-            <div style={coachBlock}>
-              <h3>💎 Prodotti consigliati</h3>
-              <p>
-                {cart.length === 0
-                  ? "Aggiungi un servizio: ti suggerirò i prodotti giusti."
-                  : "Suggerimenti utili in base ai servizi inseriti."}
-              </p>
+                    <div className={styles.catalogGrid}>
+                      {catalogMode === "services" ? filteredServiceNames.map((name) => (
+                        <button className={styles.catalogTile} key={name} onClick={() => addService(name)} type="button">
+                          <span className={styles.catalogTileIcon}><AppIcon name="plus" size={18} /></span>
+                          <strong>{name}</strong>
+                          <span>{money(serviceCatalog[name].price)}</span>
+                          <small>{serviceCatalog[name].duration} min</small>
+                        </button>
+                      )) : filteredProducts.map((product) => (
+                        <button className={styles.catalogTile} key={product.name} onClick={() => addProduct(product)} type="button">
+                          <span className={styles.catalogTileIcon}><AppIcon name="plus" size={18} /></span>
+                          <strong>{product.name}</strong>
+                          <span>{money(product.price)}</span>
+                          <small>Prodotto</small>
+                        </button>
+                      ))}
+                    </div>
 
-              <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-                {suggestions.map((product) => (
-                  <button key={product.name} style={suggestionButton} onClick={() => addProduct(product)}>
-                    <strong>{product.name}</strong>
-                    <span>{product.reason}</span>
-                    <em>+ {money(product.price)} · margine {money(product.price - product.cost)}</em>
-                  </button>
-                ))}
-              </div>
-            </div>
+                    {catalogMode === "services" && cart.length > 0 && suggestions.length > 0 ? (
+                      <div className={styles.upsellBar}>
+                        <div><AppIcon name="sparkle" size={17} /><span>Da proporre al cliente</span></div>
+                        {suggestions.map((product) => (
+                          <button key={product.name} onClick={() => addProduct(product)} type="button">
+                            <span>+ {product.name}</span><strong>{money(product.price)}</strong>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </section>
 
-            <div style={summaryBox}>
-              <SummaryRow label="Totale servizi/prodotti" value={money(rowSubtotal)} />
-              <SummaryRow label="Sconti sui servizi" value={`-${money(rowDiscountTotal)}`} danger />
+                  <aside className={styles.receiptPanel}>
+                    <div className={styles.receiptHeader}>
+                      <div>
+                        <span>Scontrino</span>
+                        <strong>{selectedClient?.clientGlobal.name || "Vendita libera"}</strong>
+                      </div>
+                      {cart.length > 0 ? <button onClick={() => setCart([])} type="button">Svuota</button> : null}
+                    </div>
 
-              <div style={discountPanel}>
-                <label style={label}>Sconto finale</label>
-                <div style={discountGrid}>
-                  <select
-                    className="sp-input"
-                    value={discountType}
-                    onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-                  >
-                    <option value="none">Nessuno</option>
-                    <option value="percent">Sconto %</option>
-                    <option value="fixed">Sconto €</option>
-                  </select>
+                    <div className={styles.receiptLines}>
+                      {cart.length === 0 ? (
+                        <div className={styles.receiptEmpty}>
+                          <span><AppIcon name="cash" size={26} /></span>
+                          <strong>Scontrino vuoto</strong>
+                          <p>Tocca un servizio o un prodotto per aggiungerlo.</p>
+                        </div>
+                      ) : cart.map((item) => {
+                        const itemSubtotal = item.price * item.quantity;
+                        const itemDiscount = (itemSubtotal * item.discount) / 100;
+                        const itemTotal = itemSubtotal - itemDiscount;
+                        return (
+                          <article className={styles.receiptLine} key={item.id}>
+                            <div className={styles.receiptLineTop}>
+                              <div><small>{item.type === "service" ? "Servizio" : "Prodotto"}</small><strong>{item.name}</strong></div>
+                              <strong>{money(itemTotal)}</strong>
+                            </div>
+                            <div className={styles.receiptLineActions}>
+                              <div className={styles.quantityControl}>
+                                <button onClick={() => increment(item.id, -1)} type="button">−</button>
+                                <strong>{item.quantity}</strong>
+                                <button onClick={() => increment(item.id, 1)} type="button">+</button>
+                              </div>
+                              <details className={styles.lineEditor}>
+                                <summary>Modifica</summary>
+                                <div>
+                                  <label>Descrizione<input value={item.name} onChange={(event) => updateItem(item.id, "name", event.target.value)} /></label>
+                                  <label>Prezzo €<input type="number" value={item.price} onChange={(event) => updateItem(item.id, "price", event.target.value)} /></label>
+                                  <label>Sconto %<input type="number" value={item.discount} onChange={(event) => updateItem(item.id, "discount", event.target.value)} /></label>
+                                  <p>Margine: <strong>{item.type === "service" && !selectedStaffId ? "seleziona operatore" : money(itemMarginTotal(item))}</strong></p>
+                                </div>
+                              </details>
+                              <button className={styles.removeLineButton} onClick={() => removeItem(item.id)} type="button"><AppIcon name="x" size={15} /></button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
 
-                  <input
-                    className="sp-input"
-                    placeholder={discountType === "percent" ? "Es. 10" : "Es. 5"}
-                    value={discountValue}
-                    onChange={(e) => setDiscountValue(e.target.value)}
-                    disabled={discountType === "none"}
-                  />
+                    <details className={styles.receiptDiscount}>
+                      <summary>Sconto sul totale <span>{discountTotal > 0 ? `-${money(discountTotal)}` : "Nessuno"}</span></summary>
+                      <div>
+                        <select value={discountType} onChange={(event) => setDiscountType(event.target.value as DiscountType)}>
+                          <option value="none">Nessuno sconto</option>
+                          <option value="percent">Percentuale %</option>
+                          <option value="fixed">Importo €</option>
+                        </select>
+                        <input
+                          disabled={discountType === "none"}
+                          onChange={(event) => setDiscountValue(event.target.value)}
+                          placeholder={discountType === "percent" ? "10" : "5,00"}
+                          value={discountValue}
+                        />
+                      </div>
+                    </details>
+
+                    <div className={styles.receiptTotals}>
+                      <div><span>Subtotale</span><strong>{money(rowSubtotal)}</strong></div>
+                      {discountTotal > 0 ? <div><span>Sconti</span><strong>-{money(discountTotal)}</strong></div> : null}
+                      <div className={styles.receiptGrandTotal}><span>Totale</span><strong>{money(total)}</strong></div>
+                    </div>
+
+                    {!selectedClient ? <p className={styles.checkoutHint}>Seleziona un cliente per continuare.</p>
+                      : cart.length === 0 ? <p className={styles.checkoutHint}>Aggiungi almeno una voce.</p>
+                      : missingStaffForServices ? <p className={styles.checkoutHint}>Seleziona l’operatore.</p>
+                      : <p className={styles.checkoutReady}><AppIcon name="check" size={15} /> Pronto per il pagamento</p>}
+
+                    <button className={styles.goToPaymentButton} disabled={!canStartPayment} onClick={() => setPaymentOpen(true)} type="button">
+                      <span>Vai al pagamento</span><strong>{money(total)}</strong><AppIcon name="arrow" size={19} />
+                    </button>
+                  </aside>
                 </div>
               </div>
 
-              <SummaryRow label="Sconto finale" value={`-${money(globalDiscountAmount)}`} danger />
-              <SummaryRow label="Sconto totale" value={`-${money(discountTotal)}`} danger />
+              {paymentOpen ? (
+                <div aria-label="Pagamento" aria-modal="true" className={styles.paymentOverlay} role="dialog">
+                  <section className={styles.paymentDialog}>
+                    <header>
+                      <button onClick={() => setPaymentOpen(false)} type="button">← Torna allo scontrino</button>
+                      <div><small>Totale da incassare</small><strong>{money(total)}</strong></div>
+                      <span>{selectedClient?.clientGlobal.name}</span>
+                    </header>
 
-              <div style={totalBox}>
-                <span>Cliente paga</span>
-                <strong>{money(total)}</strong>
-              </div>
+                    <div className={styles.paymentBody}>
+                      <div className={styles.paymentChoice}>
+                        <h2>Come paga il cliente?</h2>
+                        <p>Scegli il metodo di pagamento.</p>
+                        <div className={styles.paymentMethods}>
+                          {[
+                            ["card", "Carta", "POS"],
+                            ["cash", "Contanti", "Calcola il resto"],
+                            ["mixed", "Misto", "Carta + contanti"],
+                            ["bank", "Bonifico", "Pagamento tracciato"],
+                          ].map(([value, name, detail]) => (
+                            <button
+                              className={paymentMethod === value ? styles.paymentMethodActive : ""}
+                              key={value}
+                              onClick={() => {
+                                setPaymentMethod(value);
+                                setCashReceived(value === "cash" ? total.toFixed(2) : "");
+                              }}
+                              type="button"
+                            >
+                              <span>{name.slice(0, 1)}</span><strong>{name}</strong><small>{detail}</small>
+                            </button>
+                          ))}
+                        </div>
 
-              <SummaryRow label="Margine reale" value={money(margin)} success />
-            </div>
+                        {paymentMethod === "cash" ? (
+                          <div className={styles.cashPanel}>
+                            <label htmlFor="cash-received">Contanti ricevuti</label>
+                            <div className={styles.cashQuickButtons}>
+                              {cashQuickAmounts.map((amount) => (
+                                <button className={cashReceivedValue === amount ? styles.cashQuickActive : ""} key={amount} onClick={() => setCashReceived(amount.toFixed(2))} type="button">
+                                  {amount === total ? "Esatto" : money(amount)}
+                                </button>
+                              ))}
+                            </div>
+                            <div className={styles.cashInputRow}>
+                              <span>€</span><input id="cash-received" inputMode="decimal" onChange={(event) => setCashReceived(event.target.value)} value={cashReceived} />
+                            </div>
+                            <div className={cashAmountIsInvalid || cashAmountIsMissing ? styles.cashWarning : styles.changeBox}>
+                              <span>{cashAmountIsMissing ? "Inserisci l’importo" : cashAmountIsInvalid ? "Mancano" : "Resto da dare"}</span>
+                              <strong>{cashAmountIsMissing ? "—" : money(cashAmountIsInvalid ? total - cashReceivedValue : cashChange)}</strong>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
 
-            <div className={styles.paymentSection}>
-              <label style={label}>Metodo di pagamento</label>
-              <div className={styles.paymentMethods}>
-                {[
-                  ["card", "Carta", "POS"],
-                  ["cash", "Contanti", "Resto automatico"],
-                  ["mixed", "Misto", "Carta + contanti"],
-                  ["bank", "Bonifico", "Pagamento tracciato"],
-                ].map(([value, name, detail]) => (
-                  <button
-                    className={paymentMethod === value ? styles.paymentMethodActive : ""}
-                    key={value}
-                    onClick={() => {
-                      setPaymentMethod(value);
-                      if (value !== "cash") setCashReceived("");
-                    }}
-                    type="button"
-                  >
-                    <strong>{name}</strong>
-                    <span>{detail}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {paymentMethod === "cash" ? (
-              <div className={styles.cashPanel}>
-                <label htmlFor="cash-received" style={label}>Contanti ricevuti</label>
-                <div className={styles.cashInputRow}>
-                  <span>€</span>
-                  <input
-                    className="sp-input"
-                    id="cash-received"
-                    inputMode="decimal"
-                    onChange={(event) => setCashReceived(event.target.value)}
-                    placeholder={total.toFixed(2)}
-                    value={cashReceived}
-                  />
-                  <button onClick={() => setCashReceived(total.toFixed(2))} type="button">Importo esatto</button>
+                      <aside className={styles.paymentSummary}>
+                        <h3>Documento</h3>
+                        <div className={styles.documentOptions}>
+                          <button className={receiptType === "FISCAL" ? styles.documentOptionActive : ""} onClick={() => setReceiptType("FISCAL")} type="button">
+                            <strong>Fiscale</strong><span>Da emettere dopo l’incasso</span>
+                          </button>
+                          <button className={receiptType === "NON_FISCAL" ? styles.documentOptionActive : ""} onClick={() => setReceiptType("NON_FISCAL")} type="button">
+                            <strong>Non fiscale</strong><span>Solo registrazione gestionale</span>
+                          </button>
+                        </div>
+                        <div className={styles.paymentRecap}>
+                          <div><span>Cliente</span><strong>{selectedClient?.clientGlobal.name}</strong></div>
+                          <div><span>Voci</span><strong>{cart.reduce((sum, item) => sum + item.quantity, 0)}</strong></div>
+                          <div><span>Pagamento</span><strong>{paymentLabel(paymentMethod)}</strong></div>
+                          <div><span>Totale</span><strong>{money(total)}</strong></div>
+                        </div>
+                        <button className={styles.checkoutButton} disabled={!canCloseSale} onClick={closeSale} type="button">
+                          <span>{loading ? "Registrazione in corso..." : "Incassa ora"}</span>
+                          <strong>{loading ? "Attendi" : money(total)}</strong>
+                        </button>
+                      </aside>
+                    </div>
+                  </section>
                 </div>
-                <div className={cashAmountIsInvalid ? styles.cashWarning : styles.changeBox}>
-                  <span>{cashAmountIsInvalid ? "Mancano" : "Resto"}</span>
-                  <strong>{money(cashAmountIsInvalid ? total - cashReceivedValue : cashChange)}</strong>
-                </div>
-              </div>
-            ) : null}
-
-            <div className={styles.paymentSection}>
-              <label style={label}>Documento</label>
-              <div className={styles.documentOptions}>
-                <button className={receiptType === "FISCAL" ? styles.documentOptionActive : ""} onClick={() => setReceiptType("FISCAL")} type="button">
-                  <strong>Scontrino fiscale</strong><span>Da emettere dopo l’incasso</span>
-                </button>
-                <button className={receiptType === "NON_FISCAL" ? styles.documentOptionActive : ""} onClick={() => setReceiptType("NON_FISCAL")} type="button">
-                  <strong>Non fiscale</strong><span>Solo registrazione gestionale</span>
-                </button>
-              </div>
-            </div>
-
-            {!selectedClient ? (
-              <div style={warningBox}>{missingStaffForServices
-                    ? "Seleziona un operatore per calcolare il costo personale e incassare."
-                    : "Seleziona un cliente per incassare."}</div>
-            ) : cart.length === 0 ? (
-              <div style={warningBox}>Aggiungi almeno una voce al carrello.</div>
-            ) : null}
-
-            <button
-              className={styles.checkoutButton}
-              onClick={closeSale}
-              disabled={!canCloseSale}
-            >
-              <span>{loading ? "Registrazione in corso" : "Conferma pagamento"}</span>
-              {loading
-                ? "Attendi..."
-                : money(total)}
-            </button>
-          </aside>
-                </section>
-              </div>
+              ) : null}
             </>
           )}
         </div>
@@ -1558,452 +1386,3 @@ export default function VenditePage() {
     </>
   );
 }
-
-function Step({
-  active,
-  number,
-  title,
-  text,
-}: {
-  active: boolean;
-  number: string;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div style={{ ...stepItem, opacity: active ? 1 : 0.72 }}>
-      <span style={{ ...stepCircle, background: active ? "linear-gradient(135deg,#8b5cf6,#d4af37)" : "rgba(255,255,255,0.1)" }}>
-        {number}
-      </span>
-      <div>
-        <strong>{title}</strong>
-        <small>{text}</small>
-      </div>
-    </div>
-  );
-}
-
-function EmptyBox({ text }: { text: string }) {
-  return <div style={emptyBox}>{text}</div>;
-}
-
-function SummaryRow({
-  label,
-  value,
-  danger,
-  success,
-}: {
-  label: string;
-  value: string;
-  danger?: boolean;
-  success?: boolean;
-}) {
-  return (
-    <div style={summaryRow}>
-      <span>{label}</span>
-      <strong style={{ color: danger ? "#fecaca" : success ? "#86efac" : "#fff" }}>
-        {value}
-      </strong>
-    </div>
-  );
-}
-
-const stepBar: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, 1fr)",
-  gap: 12,
-  marginBottom: 18,
-};
-
-const stepItem: React.CSSProperties = {
-  display: "flex",
-  gap: 12,
-  alignItems: "center",
-  padding: 14,
-  borderRadius: 18,
-  border: "1px solid rgba(212,175,55,0.2)",
-  background: "rgba(255,255,255,0.055)",
-  color: "#fff",
-};
-
-const stepCircle: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: 999,
-  display: "grid",
-  placeItems: "center",
-  fontWeight: 950,
-  color: "#fff",
-};
-
-const mainGrid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "0.82fr 1.25fr 0.9fr",
-  gap: 18,
-  alignItems: "start",
-};
-
-const card: React.CSSProperties = {
-  padding: 22,
-  minHeight: 720,
-};
-
-const checkoutCard: React.CSSProperties = {
-  padding: 22,
-  position: "sticky",
-  top: 18,
-};
-
-const sectionHeader: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-};
-
-const stepBadge: React.CSSProperties = {
-  display: "inline-grid",
-  placeItems: "center",
-  width: 28,
-  height: 28,
-  borderRadius: 999,
-  background: "rgba(139,92,246,0.22)",
-  border: "1px solid rgba(139,92,246,0.45)",
-  color: "#fff",
-  fontWeight: 950,
-  marginRight: 10,
-};
-
-const title: React.CSSProperties = {
-  color: "#d4af37",
-  margin: 0,
-};
-
-const smallTitle: React.CSSProperties = {
-  color: "#d4af37",
-  margin: "22px 0 10px",
-};
-
-const smallTitleNoMargin: React.CSSProperties = {
-  color: "#d4af37",
-  margin: 0,
-};
-
-const hintBox: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 16,
-  background: "rgba(212,175,55,0.12)",
-  border: "1px solid rgba(212,175,55,0.20)",
-  color: "#f8e9ad",
-  fontWeight: 850,
-  marginBottom: 14,
-};
-
-const searchInput: React.CSSProperties = {
-  marginBottom: 12,
-};
-
-const listArea: React.CSSProperties = {
-  display: "grid",
-  gap: 10,
-  maxHeight: 360,
-  overflowY: "auto",
-  paddingRight: 4,
-};
-
-const appointmentCard: React.CSSProperties = {
-  width: "100%",
-  padding: 16,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "#fff",
-  textAlign: "left",
-  display: "grid",
-  gap: 7,
-  cursor: "pointer",
-};
-
-const appointmentTop: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 10,
-};
-
-const selectedClientBox: React.CSSProperties = {
-  marginTop: 14,
-  padding: 14,
-  borderRadius: 16,
-  background: "rgba(34,197,94,0.10)",
-  border: "1px solid rgba(34,197,94,0.22)",
-  color: "#fff",
-  display: "grid",
-  gap: 4,
-};
-
-const selectedBox: React.CSSProperties = {
-  padding: 16,
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.075)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  color: "#fff",
-  display: "grid",
-  gap: 6,
-  marginBottom: 16,
-};
-
-const emptyBox: React.CSSProperties = {
-  padding: 16,
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.07)",
-  color: "#d7d7e7",
-  fontWeight: 850,
-};
-
-const staffSelectBox: React.CSSProperties = {
-  padding: 16,
-  borderRadius: 18,
-  background: "rgba(34,197,94,0.08)",
-  border: "1px solid rgba(34,197,94,0.18)",
-  color: "#d9f99d",
-  display: "grid",
-  gap: 8,
-  marginBottom: 16,
-};
-
-const quickPanel: React.CSSProperties = {
-  padding: 16,
-  borderRadius: 18,
-  background: "rgba(0,0,0,0.22)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  marginBottom: 16,
-};
-
-const quickGrid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 10,
-  marginTop: 12,
-};
-
-const quickButton: React.CSSProperties = {
-  border: "1px solid rgba(212,175,55,0.25)",
-  borderRadius: 14,
-  padding: 13,
-  background: "rgba(212,175,55,0.1)",
-  color: "#fff",
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const extraGrid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 12,
-  marginBottom: 18,
-};
-
-const cartHeader: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 10,
-};
-
-const bigEmptyCart: React.CSSProperties = {
-  minHeight: 220,
-  borderRadius: 22,
-  border: "1px dashed rgba(255,255,255,0.16)",
-  background: "rgba(255,255,255,0.04)",
-  display: "grid",
-  placeItems: "center",
-  textAlign: "center",
-  color: "#d7d7e7",
-  fontWeight: 900,
-  padding: 24,
-};
-
-const cartRow: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.065)",
-  border: "1px solid rgba(255,255,255,0.10)",
-};
-
-const cartFields: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "0.85fr 1.45fr 0.6fr 0.6fr",
-  gap: 10,
-};
-
-const rowBottom: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 12,
-  alignItems: "center",
-  marginTop: 10,
-};
-
-const qtyBox: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 12,
-  padding: 8,
-  borderRadius: 14,
-  background: "rgba(0,0,0,0.28)",
-};
-
-const qtyBtn: React.CSSProperties = {
-  width: 30,
-  height: 30,
-  border: 0,
-  borderRadius: 10,
-  background: "rgba(139,92,246,0.9)",
-  color: "#fff",
-  fontWeight: 950,
-  cursor: "pointer",
-};
-
-const deleteButton: React.CSSProperties = {
-  border: 0,
-  borderRadius: 12,
-  background: "#ef4444",
-  color: "#fff",
-  fontWeight: 950,
-  cursor: "pointer",
-  padding: "9px 12px",
-};
-
-const miniDanger: React.CSSProperties = {
-  ...deleteButton,
-  padding: "8px 12px",
-};
-
-const coachBlock: React.CSSProperties = {
-  padding: 16,
-  borderRadius: 20,
-  background: "rgba(212,175,55,0.10)",
-  border: "1px solid rgba(212,175,55,0.18)",
-  color: "#fff",
-  marginBottom: 16,
-};
-
-const suggestionButton: React.CSSProperties = {
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: 16,
-  padding: 14,
-  background: "rgba(255,255,255,0.07)",
-  color: "#fff",
-  display: "grid",
-  gap: 5,
-  textAlign: "left",
-  cursor: "pointer",
-};
-
-const summaryBox: React.CSSProperties = {
-  borderRadius: 20,
-  background: "rgba(0,0,0,0.38)",
-  padding: 16,
-  border: "1px solid rgba(255,255,255,0.08)",
-};
-
-const summaryRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 10,
-  color: "#fff",
-  fontWeight: 850,
-};
-
-const discountPanel: React.CSSProperties = {
-  padding: 12,
-  borderRadius: 16,
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  margin: "12px 0",
-};
-
-const label: React.CSSProperties = {
-  display: "block",
-  color: "#fff",
-  fontWeight: 900,
-  marginBottom: 8,
-};
-
-const discountGrid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 10,
-};
-
-const totalBox: React.CSSProperties = {
-  marginTop: 14,
-  marginBottom: 12,
-  padding: 16,
-  borderRadius: 18,
-  background: "linear-gradient(135deg,rgba(139,92,246,0.28),rgba(212,175,55,0.18))",
-  border: "1px solid rgba(212,175,55,0.25)",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  color: "#fff",
-};
-
-const warningBox: React.CSSProperties = {
-  marginTop: 14,
-  padding: 14,
-  borderRadius: 16,
-  background: "rgba(239,68,68,0.12)",
-  border: "1px solid rgba(239,68,68,0.22)",
-  color: "#fecaca",
-  fontWeight: 900,
-};
-
-
-const rowRightEasy: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "110px 110px 1fr auto",
-  gap: 10,
-  alignItems: "center",
-  width: "100%",
-};
-
-const easyTotalBox: React.CSSProperties = {
-  display: "grid",
-  gap: 3,
-  padding: "10px 12px",
-  borderRadius: 12,
-  background: "rgba(212,175,55,0.12)",
-  border: "1px solid rgba(212,175,55,0.18)",
-};
-
-const easyMarginBox: React.CSSProperties = {
-  display: "grid",
-  gap: 3,
-  padding: "10px 12px",
-  borderRadius: 12,
-  background: "rgba(34,197,94,0.10)",
-  border: "1px solid rgba(34,197,94,0.18)",
-  color: "#86efac",
-};
-
-const costDetailsBox: React.CSSProperties = {
-  padding: "10px 12px",
-  borderRadius: 12,
-  background: "rgba(255,255,255,0.055)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.82)",
-  fontWeight: 850,
-};
-
-const costDetailsGrid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr auto",
-  gap: "6px 12px",
-  marginTop: 10,
-  fontSize: 13,
-};
