@@ -1,5 +1,11 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma.service";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
+import type {
+  CreateFixedCostDto,
+  SavePrebookingDto,
+  UpdateCoachSettingsDto,
+  UpdateFixedCostDto,
+} from './coach.dto';
 
 @Injectable()
 export class CoachService {
@@ -17,7 +23,7 @@ export class CoachService {
     });
   }
 
-  async updateSettings(tenantId: string, body: any) {
+  async updateSettings(tenantId: string, body: UpdateCoachSettingsDto) {
     await this.getSettings(tenantId);
 
     return this.prisma.coachSettings.update({
@@ -30,9 +36,18 @@ export class CoachService {
         variableOverheadPercent: this.num(body.variableOverheadPercent),
         taxReservePercent: this.num(body.taxReservePercent),
         productiveHoursMonth: this.num(body.productiveHoursMonth),
-        agendaGridMinutes: body.agendaGridMinutes !== undefined ? Number(body.agendaGridMinutes || 5) : undefined,
-        cardGiftKitInCost: body.cardGiftKitInCost !== undefined ? Boolean(body.cardGiftKitInCost) : undefined,
-        allowedDomains: body.allowedDomains !== undefined ? String(body.allowedDomains || "") : undefined,
+        agendaGridMinutes:
+          body.agendaGridMinutes !== undefined
+            ? Number(body.agendaGridMinutes || 5)
+            : undefined,
+        cardGiftKitInCost:
+          body.cardGiftKitInCost !== undefined
+            ? Boolean(body.cardGiftKitInCost)
+            : undefined,
+        allowedDomains:
+          body.allowedDomains !== undefined
+            ? String(body.allowedDomains || '')
+            : undefined,
       },
     });
   }
@@ -40,32 +55,44 @@ export class CoachService {
   listFixedCosts(tenantId: string) {
     return this.prisma.coachFixedCost.findMany({
       where: { tenantId, active: true },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
-  createFixedCost(tenantId: string, body: { name?: string; amount?: number | string }) {
+  createFixedCost(tenantId: string, body: CreateFixedCostDto) {
     return this.prisma.coachFixedCost.create({
       data: {
         tenantId,
-        name: String(body.name || "").trim().toUpperCase(),
-        amount: Number(String(body.amount || 0).replace(",", ".")),
+        name: String(body.name || '')
+          .trim()
+          .toUpperCase(),
+        amount: Number(String(body.amount || 0).replace(',', '.')),
       },
     });
   }
 
-  async updateFixedCost(tenantId: string, id: string, body: { name?: string; amount?: number | string }) {
+  async updateFixedCost(
+    tenantId: string,
+    id: string,
+    body: UpdateFixedCostDto,
+  ) {
     const item = await this.prisma.coachFixedCost.findFirst({
       where: { id, tenantId },
     });
 
-    if (!item) throw new NotFoundException("Costo fisso non trovato");
+    if (!item) throw new NotFoundException('Costo fisso non trovato');
 
     return this.prisma.coachFixedCost.update({
       where: { id },
       data: {
-        name: body.name !== undefined ? String(body.name).trim().toUpperCase() : undefined,
-        amount: body.amount !== undefined ? Number(String(body.amount || 0).replace(",", ".")) : undefined,
+        name:
+          body.name !== undefined
+            ? String(body.name).trim().toUpperCase()
+            : undefined,
+        amount:
+          body.amount !== undefined
+            ? Number(String(body.amount || 0).replace(',', '.'))
+            : undefined,
       },
     });
   }
@@ -75,14 +102,13 @@ export class CoachService {
       where: { id, tenantId },
     });
 
-    if (!item) throw new NotFoundException("Costo fisso non trovato");
+    if (!item) throw new NotFoundException('Costo fisso non trovato');
 
     return this.prisma.coachFixedCost.update({
       where: { id },
       data: { active: false },
     });
   }
-
 
   listPrebooking(tenantId: string, dateKey?: string) {
     return this.prisma.coachPrebookingResult.findMany({
@@ -91,23 +117,22 @@ export class CoachService {
         ...(dateKey ? { dateKey } : {}),
       },
       orderBy: {
-        updatedAt: "desc",
+        updatedAt: 'desc',
       },
     });
   }
 
-  savePrebooking(
+  async savePrebooking(
     tenantId: string,
     appointmentId: string,
-    body: {
-      dateKey?: string;
-      clientName?: string;
-      clientPhone?: string;
-      serviceName?: string;
-      status?: string;
-      note?: string;
-    },
+    body: SavePrebookingDto,
   ) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id: appointmentId, tenantId },
+      select: { id: true },
+    });
+    if (!appointment) throw new NotFoundException('Appuntamento non trovato');
+
     return this.prisma.coachPrebookingResult.upsert({
       where: {
         tenantId_appointmentId: {
@@ -116,21 +141,21 @@ export class CoachService {
         },
       },
       update: {
-        dateKey: String(body.dateKey || ""),
-        clientName: String(body.clientName || ""),
+        dateKey: String(body.dateKey || ''),
+        clientName: String(body.clientName || ''),
         clientPhone: body.clientPhone ? String(body.clientPhone) : null,
         serviceName: body.serviceName ? String(body.serviceName) : null,
-        status: String(body.status || "NON_PROPOSTO"),
-        note: body.note !== undefined ? String(body.note || "") : undefined,
+        status: String(body.status || 'NON_PROPOSTO'),
+        note: body.note !== undefined ? String(body.note || '') : undefined,
       },
       create: {
         tenantId,
         appointmentId,
-        dateKey: String(body.dateKey || ""),
-        clientName: String(body.clientName || ""),
+        dateKey: String(body.dateKey || ''),
+        clientName: String(body.clientName || ''),
         clientPhone: body.clientPhone ? String(body.clientPhone) : null,
         serviceName: body.serviceName ? String(body.serviceName) : null,
-        status: String(body.status || "NON_PROPOSTO"),
+        status: String(body.status || 'NON_PROPOSTO'),
         note: body.note ? String(body.note) : null,
       },
     });
@@ -138,7 +163,7 @@ export class CoachService {
 
   private num(value: any) {
     if (value === undefined) return undefined;
-    const n = Number(String(value || 0).replace(",", "."));
+    const n = Number(String(value || 0).replace(',', '.'));
     return Number.isFinite(n) ? n : 0;
   }
 }

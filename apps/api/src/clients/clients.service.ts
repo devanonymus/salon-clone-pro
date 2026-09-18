@@ -1,5 +1,10 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../prisma.service";
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class ClientsService {
@@ -15,12 +20,10 @@ export class ClientsService {
         clientGlobal: true,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
   }
-
-
 
   async updateClient(
     tenantId: string,
@@ -42,32 +45,46 @@ export class ClientsService {
     });
 
     if (!clientTenant) {
-      throw new Error("Cliente non trovato");
+      throw new NotFoundException('Cliente non trovato');
     }
 
     if (body.name !== undefined || body.phone !== undefined) {
-      await this.prisma.clientGlobal.update({
-        where: {
-          id: clientGlobalId,
-        },
-        data: {
-          ...(body.name !== undefined ? { name: body.name } : {}),
-          ...(body.phone !== undefined ? { phone: body.phone } : {}),
-        },
-      });
-    }
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.clientGlobal.update({
+            where: { id: clientGlobalId },
+            data: {
+              ...(body.name !== undefined ? { name: body.name } : {}),
+              ...(body.phone !== undefined ? { phone: body.phone } : {}),
+            },
+          });
 
-    if (body.notes !== undefined) {
+          if (body.notes !== undefined) {
+            await tx.clientTenant.update({
+              where: {
+                tenantId_clientGlobalId: { tenantId, clientGlobalId },
+              },
+              data: { notes: body.notes },
+            });
+          }
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new ConflictException(
+            'Il numero di telefono appartiene già a un altro cliente',
+          );
+        }
+        throw error;
+      }
+    } else if (body.notes !== undefined) {
       await this.prisma.clientTenant.update({
         where: {
-          tenantId_clientGlobalId: {
-            tenantId,
-            clientGlobalId,
-          },
+          tenantId_clientGlobalId: { tenantId, clientGlobalId },
         },
-        data: {
-          notes: body.notes,
-        },
+        data: { notes: body.notes },
       });
     }
 
@@ -82,11 +99,13 @@ export class ClientsService {
     });
   }
 
-  async updateNotes(
-    tenantId: string,
-    clientGlobalId: string,
-    notes: string,
-  ) {
+  async updateNotes(tenantId: string, clientGlobalId: string, notes: string) {
+    const client = await this.prisma.clientTenant.findUnique({
+      where: { tenantId_clientGlobalId: { tenantId, clientGlobalId } },
+      select: { id: true },
+    });
+    if (!client) throw new NotFoundException('Cliente non trovato');
+
     return this.prisma.clientTenant.update({
       where: {
         tenantId_clientGlobalId: {
@@ -103,8 +122,13 @@ export class ClientsService {
     });
   }
 
-
   async deleteClient(tenantId: string, clientGlobalId: string) {
+    const client = await this.prisma.clientTenant.findUnique({
+      where: { tenantId_clientGlobalId: { tenantId, clientGlobalId } },
+      select: { id: true },
+    });
+    if (!client) throw new NotFoundException('Cliente non trovato');
+
     return this.prisma.clientTenant.update({
       where: {
         tenantId_clientGlobalId: {
@@ -121,11 +145,7 @@ export class ClientsService {
     });
   }
 
-  async createQuick(
-    tenantId: string,
-    name: string,
-    phone: string,
-  ) {
+  async createQuick(tenantId: string, name: string, phone: string) {
     const clientGlobal = await this.prisma.clientGlobal.upsert({
       where: { phone },
       update: {

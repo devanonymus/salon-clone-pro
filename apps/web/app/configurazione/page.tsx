@@ -70,6 +70,10 @@ export default function ConfigurazionePage() {
   const [serviceDuration, setServiceDuration] = useState("");
 
   const [fiscalMode, setFiscalMode] = useState("DEMO");
+  const [fiscalSimulated, setFiscalSimulated] = useState(true);
+  const [fiscalMessage, setFiscalMessage] = useState(
+    "Modalità dimostrativa: nessun documento fiscale reale viene trasmesso",
+  );
   const [diagnosticResult, setDiagnosticResult] = useState("");
 
   async function fetchWithAuth(url: string, options?: RequestInit) {
@@ -153,6 +157,22 @@ export default function ConfigurazionePage() {
       setWaHasToken(Boolean(config.hasToken));
     } catch (err: any) {
       setMessage(`⚠️ ${err.message || "Errore caricamento WhatsApp"}`);
+    }
+  }
+
+  async function loadFiscalStatus() {
+    try {
+      const status = await fetchWithAuth(`${API_URL}/fiscal/status`);
+      setFiscalMode(status.provider || "DEMO");
+      setFiscalSimulated(Boolean(status.simulated));
+      setFiscalMessage(status.message || "Stato fiscale non disponibile");
+    } catch (err: unknown) {
+      setFiscalSimulated(true);
+      setFiscalMessage(
+        err instanceof Error
+          ? err.message
+          : "Errore controllo provider fiscale",
+      );
     }
   }
 
@@ -321,7 +341,7 @@ export default function ConfigurazionePage() {
         `✅ WhatsApp: ${waEnabled ? "attivo" : "non attivo"}`,
         `✅ Phone Number ID: ${waPhoneNumberId || "non configurato"}`,
         `✅ Token WhatsApp: ${waHasToken ? "presente" : "mancante"}`,
-        `✅ Cassa fiscale: ${fiscalMode}`,
+        `${fiscalSimulated ? "⚠️" : "✅"} Cassa fiscale: ${fiscalMode} - ${fiscalMessage}`,
         `✅ Listino servizi: ${services.length} servizi attivi`,
       ].join("\n"),
     );
@@ -331,6 +351,7 @@ export default function ConfigurazionePage() {
     loadWhatsappConfig();
     loadServices();
     loadPdfTemplate();
+    loadFiscalStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -350,7 +371,7 @@ export default function ConfigurazionePage() {
             { label: "Servizi configurati", value: services.length, detail: "voci nel listino", tone: "accent" },
             { label: "WhatsApp", value: waEnabled ? "Attivo" : "Disattivo", detail: waPhoneNumberId || "numero non configurato", tone: waEnabled ? "success" : "warning" },
             { label: "Token API", value: waHasToken ? "Protetto" : "Mancante", detail: "credenziale WhatsApp", tone: waHasToken ? "success" : "danger" },
-            { label: "Modalità fiscale", value: fiscalMode, detail: "provider corrente" },
+            { label: "Modalità fiscale", value: fiscalMode, detail: fiscalSimulated ? "solo simulazione" : "provider reale" },
           ]}
         />
 
@@ -648,19 +669,18 @@ export default function ConfigurazionePage() {
           <section className={`sp-card ${ops.surface}`} style={cardPad}>
             <SectionTitle kicker="Cassa fiscale" title="Scontrini e provider fiscali" />
 
-            <div style={grid2}>
-              <select className="sp-input" value={fiscalMode} onChange={(e) => setFiscalMode(e.target.value)}>
-                <option value="DEMO">DEMO - Simulazione</option>
-                <option value="API_PROVIDER">API Provider fiscale</option>
-                <option value="RT_LOCALE">Registratore telematico locale</option>
-              </select>
-
-              <input className="sp-input" placeholder="Nome punto cassa" />
+            <div style={messageBox}>
+              <strong>{fiscalSimulated ? "⚠️ Modalità dimostrativa" : "✅ Provider fiscale attivo"}</strong>
+              <div style={{ marginTop: 8 }}>{fiscalMessage}</div>
             </div>
 
-            <button className="sp-button" style={{ marginTop: 18 }}>
-              Salva configurazione fiscale
-            </button>
+            <select className="sp-input" value={fiscalMode} disabled style={{ marginTop: 18 }}>
+              <option value={fiscalMode}>{fiscalMode}</option>
+            </select>
+
+            <p style={{ marginTop: 14, color: "rgba(255,255,255,.68)" }}>
+              La scelta del provider reale verrà abilitata dopo aver configurato le credenziali del registratore telematico o del servizio fiscale scelto.
+            </p>
           </section>
         ) : null}
       </div>

@@ -1002,6 +1002,7 @@ export default function VenditePage() {
                   const date = new Date(sale.createdAt);
                   const itemCount = (sale.items || []).reduce((sum, item) => sum + Number(item.quantity || 1), 0);
                   const receiptIssued = sale.fiscalStatus === "ISSUED";
+                  const receiptDemo = sale.fiscalStatus === "DEMO_ISSUED";
                   const nonFiscal = sale.fiscalStatus === "NON_FISCAL";
 
                   return (
@@ -1016,7 +1017,7 @@ export default function VenditePage() {
                       </div>
                       <span className={styles.paymentBadge}>{paymentLabel(sale.paymentMethod)}</span>
                       <span className={receiptIssued ? styles.receiptIssued : nonFiscal ? styles.receiptNonFiscal : styles.receiptPending}>
-                        {receiptIssued ? "Documento emesso" : nonFiscal ? "Non fiscale" : "Da emettere"}
+                        {receiptIssued ? "Documento emesso" : receiptDemo ? "Stampa demo" : nonFiscal ? "Non fiscale" : "Da emettere"}
                       </span>
                       <strong className={styles.saleTotal}>{money(sale.total)}</strong>
                     </div>

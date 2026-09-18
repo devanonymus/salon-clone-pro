@@ -13,26 +13,27 @@ model Tenant {
   code      String   @unique
   createdAt DateTime @default(now())
 
-  users                 User[]
-  clients               Client[]
-  clientTenants         ClientTenant[]
-  appointments          Appointment[]
-  sales                 Sale[]
-  fiscalReceipts        FiscalReceipt[]
-  staff                 Staff[]
-  inventoryProducts     InventoryProduct[]
-  serviceRecipeItems    ServiceRecipeItem[]
-  inventoryMovements    InventoryMovement[]
-  whatsappConfig        TenantWhatsappConfig?
-  whatsappConversations WhatsappConversation[]
-  servicePrices         ServicePrice[]
-  marketingCards        MarketingCard[]
-  marketingCardSales    MarketingCardSale[]
-  marketingCardPayments MarketingCardPayment[]
-  coachSettings        CoachSettings?
-  coachFixedCosts      CoachFixedCost[]
+  users                  User[]
+  clients                Client[]
+  clientTenants          ClientTenant[]
+  appointments           Appointment[]
+  sales                  Sale[]
+  fiscalReceipts         FiscalReceipt[]
+  staff                  Staff[]
+  inventoryProducts      InventoryProduct[]
+  serviceRecipeItems     ServiceRecipeItem[]
+  inventoryMovements     InventoryMovement[]
+  whatsappConfig         TenantWhatsappConfig?
+  whatsappConversations  WhatsappConversation[]
+  servicePrices          ServicePrice[]
+  marketingCards         MarketingCard[]
+  marketingCardSales     MarketingCardSale[]
+  marketingCardPayments  MarketingCardPayment[]
+  clientAwards           ClientAward[]
+  coachSettings          CoachSettings?
+  coachFixedCosts        CoachFixedCost[]
   coachPrebookingResults CoachPrebookingResult[]
-  marketingCardTemplate MarketingCardTemplate?
+  marketingCardTemplate  MarketingCardTemplate?
 
   @@schema("app")
 }
@@ -78,6 +79,7 @@ model ClientGlobal {
 
   tenants ClientTenant[]
   sales   Sale[]
+  awards  ClientAward[]
 
   @@schema("app")
 }
@@ -100,11 +102,11 @@ model ClientTenant {
 }
 
 model Staff {
-  id        String   @id @default(uuid())
-  tenantId  String
-  name      String
-  role      String   @default("COLLABORATORE")
-  color     String   @default("#8b5cf6")
+  id              String   @id @default(uuid())
+  tenantId        String
+  name            String
+  role            String   @default("COLLABORATORE")
+  color           String   @default("#8b5cf6")
   active          Boolean  @default(true)
   monthlyCost     Float    @default(0)
   productiveHours Float    @default(140)
@@ -128,10 +130,11 @@ model Appointment {
   note           String?
   createdAt      DateTime @default(now())
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id])
-  clientTenant ClientTenant @relation(fields: [clientTenantId], references: [id])
-  staff        Staff?       @relation(fields: [staffId], references: [id])
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  clientTenant ClientTenant  @relation(fields: [clientTenantId], references: [id])
+  staff        Staff?        @relation(fields: [staffId], references: [id])
   sale         Sale?
+  awards       ClientAward[]
 
   @@index([tenantId, date], map: "Appointment_tenant_date_idx")
   @@index([tenantId, staffId, date], map: "Appointment_tenant_staff_date_idx")
@@ -162,11 +165,11 @@ model Sale {
 }
 
 model SaleItem {
-  id       String @id @default(uuid())
-  saleId   String
-  name     String
-  type     String @default("service")
-  price    Float
+  id            String  @id @default(uuid())
+  saleId        String
+  name          String
+  type          String  @default("service")
+  price         Float
   cost          Float   @default(0)
   technicalCost Float   @default(0)
   laborCost     Float   @default(0)
@@ -225,8 +228,8 @@ model InventoryProduct {
 }
 
 model ServiceRecipeItem {
-  id          String @id @default(uuid())
-  tenantId    String
+  id              String @id @default(uuid())
+  tenantId        String
   serviceName     String
   productCategory String @default("Shampoo")
   productId       String
@@ -300,12 +303,37 @@ model WhatsappMessage {
   direction      String
   phone          String
   text           String
-  providerId     String?
+  providerId     String?  @unique(map: "WhatsappMessage_providerId_key")
   createdAt      DateTime @default(now())
 
   conversation WhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt], map: "WhatsappMessage_conversation_created_idx")
+  @@schema("app")
+}
+
+model ClientAward {
+  id             String    @id @default(uuid())
+  tenantId       String
+  clientGlobalId String
+  appointmentId  String?
+  prizeName      String
+  prizeType      String    @default("WHEEL_PRIZE")
+  value          Float     @default(0)
+  source         String    @default("WHEEL")
+  status         String    @default("ACTIVE")
+  expiresAt      DateTime?
+  whatsappSent   Boolean   @default(false)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  clientGlobal ClientGlobal @relation(fields: [clientGlobalId], references: [id])
+  appointment  Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([tenantId, clientGlobalId, createdAt], map: "ClientAward_tenant_client_created_idx")
+  @@index([tenantId, status, expiresAt], map: "ClientAward_tenant_status_expiry_idx")
   @@schema("app")
 }
 
@@ -328,7 +356,6 @@ model ServicePrice {
   @@schema("app")
 }
 
-
 model MarketingCard {
   id            String   @id @default(uuid())
   tenantId      String
@@ -348,60 +375,57 @@ model MarketingCard {
   @@schema("app")
 }
 
-
 model MarketingCardTemplate {
-  id             String   @id @default(uuid())
-  tenantId       String   @unique
-  logoUrl        String?
-  salonName      String   @default("Acquaviva Strategic")
-  templateStyle  String   @default("LUXURY_GOLD")
-  primaryColor   String   @default("#080808")
-  accentColor    String   @default("#d4af37")
-  title          String   @default("Il tuo percorso bellezza personalizzato")
-  subtitle       String   @default("Una card pensata per mantenere il risultato nel tempo.")
-  promiseText    String   @default("Non è una semplice promozione: è un percorso guidato per farti restare sempre in ordine, senza improvvisare.")
-  valueText      String   @default("Abbiamo racchiuso servizi, prodotti e bonus in una proposta chiara, comoda e ad alto valore.")
-  bonusText      String   @default("I bonus inclusi sono pensati per aumentare il risultato e farti vivere un’esperienza più completa.")
-  urgencyText    String   @default("I posti disponibili per questo percorso sono limitati per garantire continuità e qualità.")
-  guaranteeText  String   @default("Ti guideremo passo dopo passo nella scelta più adatta ai tuoi capelli.")
-  ctaText        String   @default("Blocca oggi il tuo percorso e programma subito le sedute.")
-  footerText     String   @default("Card personale, non convertibile in denaro.")
-  signature      String   @default("Il tuo salone di fiducia")
+  id                     String   @id @default(uuid())
+  tenantId               String   @unique
+  logoUrl                String?
+  salonName              String   @default("Acquaviva Strategic")
+  templateStyle          String   @default("LUXURY_GOLD")
+  primaryColor           String   @default("#080808")
+  accentColor            String   @default("#d4af37")
+  title                  String   @default("Il tuo percorso bellezza personalizzato")
+  subtitle               String   @default("Una card pensata per mantenere il risultato nel tempo.")
+  promiseText            String   @default("Non è una semplice promozione: è un percorso guidato per farti restare sempre in ordine, senza improvvisare.")
+  valueText              String   @default("Abbiamo racchiuso servizi, prodotti e bonus in una proposta chiara, comoda e ad alto valore.")
+  bonusText              String   @default("I bonus inclusi sono pensati per aumentare il risultato e farti vivere un’esperienza più completa.")
+  urgencyText            String   @default("I posti disponibili per questo percorso sono limitati per garantire continuità e qualità.")
+  guaranteeText          String   @default("Ti guideremo passo dopo passo nella scelta più adatta ai tuoi capelli.")
+  ctaText                String   @default("Blocca oggi il tuo percorso e programma subito le sedute.")
+  footerText             String   @default("Card personale, non convertibile in denaro.")
+  signature              String   @default("Il tuo salone di fiducia")
   promoMessageTemplate   String   @default("Ciao {nome_cliente} 💛\n\nAbbiamo preparato una proposta speciale pensata per mantenere il risultato nel tempo:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nVuoi che ti blocchiamo questa possibilità?\n\n{firma}")
   confirmMessageTemplate String   @default("Ciao {nome_cliente} 💛\n\nTi confermiamo la tua card:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nTi aspettiamo in salone.\n\n{firma}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@schema("app")
 }
 
-
 model MarketingCardSale {
-  id              String   @id @default(uuid())
-  tenantId        String
-  clientTenantId  String?
-  clientName      String
-  whatsapp        String?
-  cardName        String
-  price           Float    @default(0)
-  used            Int      @default(0)
-  total           Int      @default(1)
-  sessions        Json?
-  appointments    Json?
-  paymentMode     String   @default("RATE_SEDUTE")
-  active          Boolean  @default(true)
-  payments        MarketingCardPayment[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String                 @id @default(uuid())
+  tenantId       String
+  clientTenantId String?
+  clientName     String
+  whatsapp       String?
+  cardName       String
+  price          Float                  @default(0)
+  used           Int                    @default(0)
+  total          Int                    @default(1)
+  sessions       Json?
+  appointments   Json?
+  paymentMode    String                 @default("RATE_SEDUTE")
+  active         Boolean                @default(true)
+  payments       MarketingCardPayment[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, active, createdAt], map: "MarketingCardSale_tenant_active_created_idx")
   @@schema("app")
 }
-
 
 model MarketingCardPayment {
   id                  String   @id @default(uuid())
@@ -414,7 +438,7 @@ model MarketingCardPayment {
   paidAt              DateTime @default(now())
   createdAt           DateTime @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant Tenant            @relation(fields: [tenantId], references: [id])
   sale   MarketingCardSale @relation(fields: [marketingCardSaleId], references: [id])
 
   @@index([marketingCardSaleId, paidAt], map: "MarketingCardPayment_sale_paid_idx")
@@ -425,18 +449,18 @@ model MarketingCardPayment {
 model CoachSettings {
   id                      String   @id @default(uuid())
   tenantId                String   @unique
-  vatServicesPercent       Float    @default(22)
-  vatResalePercent         Float    @default(22)
-  posFeePercent            Float    @default(1.5)
-  posFixedFee              Float    @default(0)
-  variableOverheadPercent  Float    @default(3)
-  taxReservePercent        Float    @default(25)
-  productiveHoursMonth     Float    @default(140)
-  agendaGridMinutes        Int      @default(5)
-  cardGiftKitInCost        Boolean  @default(false)
-  allowedDomains           String   @default("")
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  vatServicesPercent      Float    @default(22)
+  vatResalePercent        Float    @default(22)
+  posFeePercent           Float    @default(1.5)
+  posFixedFee             Float    @default(0)
+  variableOverheadPercent Float    @default(3)
+  taxReservePercent       Float    @default(25)
+  productiveHoursMonth    Float    @default(140)
+  agendaGridMinutes       Int      @default(5)
+  cardGiftKitInCost       Boolean  @default(false)
+  allowedDomains          String   @default("")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 

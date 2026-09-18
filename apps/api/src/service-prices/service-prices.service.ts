@@ -3,9 +3,13 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from "@nestjs/common";
-import { PrismaService } from "../prisma.service";
-import { Prisma } from "@prisma/client";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
+import { Prisma } from '@prisma/client';
+import type {
+  CreateServicePriceDto,
+  UpdateServicePriceDto,
+} from './service-prices.dto';
 
 @Injectable()
 export class ServicePricesService {
@@ -13,7 +17,7 @@ export class ServicePricesService {
 
   async list(tenantId: string) {
     if (!tenantId) {
-      throw new BadRequestException("tenantId mancante");
+      throw new BadRequestException('tenantId mancante');
     }
 
     return this.prisma.servicePrice.findMany({
@@ -21,25 +25,22 @@ export class ServicePricesService {
         tenantId,
         active: true,
       },
-      orderBy: [
-        { category: "asc" },
-        { name: "asc" },
-      ],
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
   }
 
-  async create(tenantId: string, body: any) {
+  async create(tenantId: string, body: CreateServicePriceDto) {
     if (!tenantId) {
-      throw new BadRequestException("tenantId mancante");
+      throw new BadRequestException('tenantId mancante');
     }
 
-    const name = String(body?.name || "").trim();
+    const name = String(body?.name || '').trim();
 
     if (!name) {
-      throw new BadRequestException("Nome servizio obbligatorio");
+      throw new BadRequestException('Nome servizio obbligatorio');
     }
 
-    const category = String(body?.category || "Altro").trim();
+    const category = String(body?.category || 'Altro').trim();
     const duration = Number(body?.duration || 30);
     const price = Number(body?.price || 0);
     const cost = Number(body?.cost || 0);
@@ -67,7 +68,7 @@ export class ServicePricesService {
         });
       }
 
-      throw new ConflictException("Esiste già un servizio con questo nome");
+      throw new ConflictException('Esiste già un servizio con questo nome');
     }
 
     try {
@@ -85,18 +86,18 @@ export class ServicePricesService {
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
+        error.code === 'P2002'
       ) {
-        throw new ConflictException("Esiste già un servizio con questo nome");
+        throw new ConflictException('Esiste già un servizio con questo nome');
       }
 
       throw error;
     }
   }
 
-  async update(tenantId: string, id: string, body: any) {
+  async update(tenantId: string, id: string, body: UpdateServicePriceDto) {
     if (!tenantId) {
-      throw new BadRequestException("tenantId mancante");
+      throw new BadRequestException('tenantId mancante');
     }
 
     const service = await this.prisma.servicePrice.findFirst({
@@ -107,14 +108,14 @@ export class ServicePricesService {
     });
 
     if (!service) {
-      throw new NotFoundException("Servizio non trovato");
+      throw new NotFoundException('Servizio non trovato');
     }
 
     const nextName =
       body?.name !== undefined ? String(body.name).trim() : service.name;
 
     if (!nextName) {
-      throw new BadRequestException("Nome servizio obbligatorio");
+      throw new BadRequestException('Nome servizio obbligatorio');
     }
 
     const duplicate = await this.prisma.servicePrice.findFirst({
@@ -128,7 +129,9 @@ export class ServicePricesService {
     });
 
     if (duplicate) {
-      throw new ConflictException("Esiste già un altro servizio con questo nome");
+      throw new ConflictException(
+        'Esiste già un altro servizio con questo nome',
+      );
     }
 
     return this.prisma.servicePrice.update({
@@ -138,20 +141,20 @@ export class ServicePricesService {
       data: {
         name: body?.name !== undefined ? nextName : undefined,
         category:
-          body?.category !== undefined ? String(body.category).trim() : undefined,
+          body?.category !== undefined
+            ? String(body.category).trim()
+            : undefined,
         duration:
           body?.duration !== undefined ? Number(body.duration) : undefined,
-        price:
-          body?.price !== undefined ? Number(body.price) : undefined,
-        cost:
-          body?.cost !== undefined ? Number(body.cost) : undefined,
+        price: body?.price !== undefined ? Number(body.price) : undefined,
+        cost: body?.cost !== undefined ? Number(body.cost) : undefined,
       },
     });
   }
 
   async delete(tenantId: string, id: string) {
     if (!tenantId) {
-      throw new BadRequestException("tenantId mancante");
+      throw new BadRequestException('tenantId mancante');
     }
 
     const service = await this.prisma.servicePrice.findFirst({
@@ -162,7 +165,7 @@ export class ServicePricesService {
     });
 
     if (!service) {
-      throw new NotFoundException("Servizio non trovato");
+      throw new NotFoundException('Servizio non trovato');
     }
 
     return this.prisma.servicePrice.update({

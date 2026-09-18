@@ -13,6 +13,7 @@ import type { AuthRequest } from '../auth/auth-request';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { StaffService } from './staff.service';
+import { CreateStaffDto, UpdateStaffDto } from './staff.dto';
 
 @Controller('staff')
 @UseGuards(JwtGuard, RolesGuard)
@@ -26,19 +27,7 @@ export class StaffController {
 
   @Post()
   @Roles('OWNER', 'MANAGER')
-  create(
-    @Req() req: AuthRequest,
-    @Body()
-    body: {
-      name: string;
-      role?: string;
-      color?: string;
-      monthlyCost?: number | string;
-      productiveHours?: number | string;
-      monthlyTarget?: number | string;
-      active?: boolean;
-    },
-  ) {
+  create(@Req() req: AuthRequest, @Body() body: CreateStaffDto) {
     return this.service.create(req.user.tenantId, body);
   }
 
@@ -47,16 +36,7 @@ export class StaffController {
   update(
     @Req() req: AuthRequest,
     @Param('id') id: string,
-    @Body()
-    body: {
-      name?: string;
-      role?: string;
-      color?: string;
-      monthlyCost?: number | string;
-      productiveHours?: number | string;
-      monthlyTarget?: number | string;
-      active?: boolean;
-    },
+    @Body() body: UpdateStaffDto,
   ) {
     return this.service.update(req.user.tenantId, id, body);
   }

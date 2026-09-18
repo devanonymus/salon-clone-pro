@@ -14,6 +14,13 @@ import type { AuthRequest } from '../auth/auth-request';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { MarketingCardsService } from './marketing-cards.service';
+import {
+  AddMarketingCardPaymentDto,
+  CreateMarketingCardDto,
+  CreateMarketingCardSaleDto,
+  SaveMarketingCardTemplateDto,
+  UpdateMarketingCardDto,
+} from './marketing-cards.dto';
 
 @Controller('marketing/cards')
 @UseGuards(JwtGuard, RolesGuard)
@@ -33,17 +40,7 @@ export class MarketingCardsController {
   @Post('sales')
   createSale(
     @Req() req: AuthRequest,
-    @Body()
-    body: {
-      clientTenantId?: string;
-      clientName: string;
-      whatsapp?: string;
-      cardName: string;
-      price?: number;
-      total?: number;
-      sessions?: any;
-      appointments?: any;
-    },
+    @Body() body: CreateMarketingCardSaleDto,
   ) {
     return this.service.createSale(req.user.tenantId, body);
   }
@@ -52,13 +49,7 @@ export class MarketingCardsController {
   addSalePayment(
     @Req() req: AuthRequest,
     @Param('id') id: string,
-    @Body()
-    body: {
-      amount?: number;
-      paymentType?: string;
-      method?: string;
-      note?: string;
-    },
+    @Body() body: AddMarketingCardPaymentDto,
   ) {
     return this.service.addSalePayment(req.user.tenantId, id, body);
   }
@@ -83,43 +74,14 @@ export class MarketingCardsController {
   @Roles('OWNER', 'MANAGER')
   saveTemplate(
     @Req() req: AuthRequest,
-    @Body()
-    body: {
-      logoUrl?: string;
-      salonName?: string;
-      templateStyle?: string;
-      primaryColor?: string;
-      accentColor?: string;
-      title?: string;
-      subtitle?: string;
-      promiseText?: string;
-      valueText?: string;
-      bonusText?: string;
-      urgencyText?: string;
-      guaranteeText?: string;
-      ctaText?: string;
-      footerText?: string;
-      signature?: string;
-      promoMessageTemplate?: string;
-      confirmMessageTemplate?: string;
-    },
+    @Body() body: SaveMarketingCardTemplateDto,
   ) {
     return this.service.saveTemplate(req.user.tenantId, body);
   }
 
   @Post()
   @Roles('OWNER', 'MANAGER')
-  create(
-    @Req() req: AuthRequest,
-    @Body()
-    body: {
-      name: string;
-      price?: number;
-      sessionsCount?: number;
-      sessions?: any;
-      increaseTotal?: number;
-    },
-  ) {
+  create(@Req() req: AuthRequest, @Body() body: CreateMarketingCardDto) {
     return this.service.create(req.user.tenantId, body);
   }
 
@@ -128,15 +90,7 @@ export class MarketingCardsController {
   update(
     @Req() req: AuthRequest,
     @Param('id') id: string,
-    @Body()
-    body: {
-      name?: string;
-      price?: number;
-      sessionsCount?: number;
-      sessions?: any;
-      increaseTotal?: number;
-      active?: boolean;
-    },
+    @Body() body: UpdateMarketingCardDto,
   ) {
     return this.service.update(req.user.tenantId, id, body);
   }

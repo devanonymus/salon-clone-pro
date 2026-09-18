@@ -1,14 +1,14 @@
 # Prisma migrations
 
-La prima migration versionata è additiva perché gli ambienti esistenti sono già
-stati provisionati prima dell'introduzione della cronologia Prisma.
+La migration `20260914000000_initial_schema_baseline` rende la cronologia
+riproducibile anche su un database vuoto. È idempotente: sugli ambienti già
+provisionati registra la baseline senza ricreare tabelle o modificare dati.
 
 Prima del deploy:
 
 1. creare un backup PostgreSQL;
-2. marcare come baseline lo schema già esistente, se necessario;
-3. eseguire `pnpm prisma migrate deploy` dalla root;
-4. eseguire `pnpm prisma generate` e riavviare l'API.
+2. eseguire `pnpm prisma migrate deploy` dalla root;
+3. eseguire `pnpm prisma generate` e riavviare l'API.
 
-La migration aggiunge idempotenza al checkout e indici sui percorsi di query
-multi-tenant. Non elimina né converte colonne esistenti.
+Le migration successive aggiungono idempotenza al checkout, premi Loyalty e
+indici sui percorsi multi-tenant. Non eliminano tabelle o colonne.

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
@@ -10,6 +11,13 @@ export class FiscalService {
   constructor(private prisma: PrismaService) {}
 
   async printReceipt(tenantId: string, saleId: string) {
+    const provider = (process.env.FISCAL_PROVIDER || 'DEMO').toUpperCase();
+    if (provider !== 'DEMO') {
+      throw new ServiceUnavailableException(
+        `Provider fiscale ${provider} non ancora configurato`,
+      );
+    }
+
     const sale = await this.prisma.sale.findFirst({
       where: {
         id: saleId,
@@ -25,7 +33,11 @@ export class FiscalService {
       throw new NotFoundException('Vendita non trovata');
     }
 
-    if (sale.fiscalStatus === 'ISSUED') {
+    if (sale.fiscalStatus === 'NON_FISCAL') {
+      throw new BadRequestException('La vendita è marcata come non fiscale');
+    }
+
+    if (['ISSUED', 'DEMO_ISSUED'].includes(sale.fiscalStatus)) {
       throw new BadRequestException('Scontrino già emesso');
     }
 
@@ -59,9 +71,9 @@ export class FiscalService {
         where: {
           id: sale.id,
           tenantId,
-          fiscalStatus: { not: 'ISSUED' },
+          fiscalStatus: { notIn: ['ISSUED', 'DEMO_ISSUED', 'NON_FISCAL'] },
         },
-        data: { fiscalStatus: 'ISSUED' },
+        data: { fiscalStatus: 'DEMO_ISSUED' },
       });
 
       if (updated.count !== 1) {
@@ -104,5 +116,18 @@ export class FiscalService {
         createdAt: 'desc',
       },
     });
+  }
+
+  status() {
+    const provider = (process.env.FISCAL_PROVIDER || 'DEMO').toUpperCase();
+    return {
+      provider,
+      simulated: provider === 'DEMO',
+      ready: provider === 'DEMO',
+      message:
+        provider === 'DEMO'
+          ? 'Modalità dimostrativa: nessun documento fiscale reale viene trasmesso'
+          : `Provider ${provider} da configurare`,
+    };
   }
 }
