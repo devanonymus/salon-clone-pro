@@ -839,23 +839,28 @@
 }
 
 .posWorkspace {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
   overflow: hidden;
   padding: 14px;
 }
 
 .posWorkspace > .registerMessage {
+  flex: 0 0 auto;
+  width: min(100%, 1600px);
   max-width: 1600px;
   margin: 0 auto 10px;
 }
 
 .posGrid {
   display: grid;
+  flex: 1;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
   gap: 14px;
   width: min(100%, 1700px);
-  height: 100%;
+  min-height: 0;
   margin: 0 auto;
 }
 
