@@ -6,30 +6,33 @@ import {
   Patch,
   Delete,
   Param,
-  BadRequestException,
   Req,
   UseGuards,
-} from "@nestjs/common";
-import { ClientsService } from "./clients.service";
-import { JwtGuard } from "../auth/jwt.guard";
+} from '@nestjs/common';
+import { ClientsService } from './clients.service';
+import { JwtGuard } from '../auth/jwt.guard';
+import type { AuthRequest } from '../auth/auth-request';
+import {
+  CreateQuickClientDto,
+  UpdateClientDto,
+  UpdateClientNotesDto,
+} from './clients.dto';
 
-@Controller("clients")
+@Controller('clients')
 @UseGuards(JwtGuard)
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Get()
-  getAll(@Req() req: any) {
+  getAll(@Req() req: AuthRequest) {
     return this.clientsService.getAll(req.user.tenantId);
   }
 
-
-
-  @Patch(":id")
+  @Patch(':id')
   updateClient(
-    @Req() req: any,
-    @Param("id") id: string,
-    @Body() body: { name?: string; phone?: string; notes?: string },
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: UpdateClientDto,
   ) {
     return this.clientsService.updateClient(req.user.tenantId, id, {
       name: body.name,
@@ -38,38 +41,22 @@ export class ClientsController {
     });
   }
 
-  @Patch(":id/notes")
+  @Patch(':id/notes')
   updateNotes(
-    @Req() req: any,
-    @Param("id") id: string,
-    @Body() body: { notes?: string },
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: UpdateClientNotesDto,
   ) {
-    return this.clientsService.updateNotes(
-      req.user.tenantId,
-      id,
-      body.notes || "",
-    );
+    return this.clientsService.updateNotes(req.user.tenantId, id, body.notes);
   }
 
-
-  @Delete(":id")
-  deleteClient(@Req() req: any, @Param("id") id: string) {
+  @Delete(':id')
+  deleteClient(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.clientsService.deleteClient(req.user.tenantId, id);
   }
 
-  @Post("quick")
-  createQuick(
-    @Req() req: any,
-    @Body() body: { name?: string; phone?: string },
-  ) {
-    if (!body.name) {
-      throw new BadRequestException("Nome mancante");
-    }
-
-    if (!body.phone) {
-      throw new BadRequestException("Telefono mancante");
-    }
-
+  @Post('quick')
+  createQuick(@Req() req: AuthRequest, @Body() body: CreateQuickClientDto) {
     return this.clientsService.createQuick(
       req.user.tenantId,
       body.name,

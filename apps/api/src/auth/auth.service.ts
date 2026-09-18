@@ -148,6 +148,24 @@ export class AuthService {
     };
   }
 
+  async changePin(currentUser: AuthUser, pin: string) {
+    const pinHash = await bcrypt.hash(pin, 12);
+    const updated = await this.prisma.user.updateMany({
+      where: {
+        id: currentUser.userId,
+        tenantId: currentUser.tenantId,
+        active: true,
+      },
+      data: { pinHash },
+    });
+
+    if (updated.count !== 1) {
+      throw new NotFoundException('Utente non trovato');
+    }
+
+    return { ok: true, message: 'PIN aggiornato correttamente' };
+  }
+
   async login(tenantCode: string, username: string, pin: string) {
     if (!process.env.JWT_SECRET) {
       throw new Error('JWT_SECRET mancante nel file .env');

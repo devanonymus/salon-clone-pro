@@ -1,11 +1,19 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtGuard } from './jwt.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
 import type { AuthRequest } from './auth-request';
-import { CreateSalonDto, LoginDto } from './auth.dto';
+import { ChangePinDto, CreateSalonDto, LoginDto } from './auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -34,5 +42,12 @@ export class AuthController {
   @Get('me')
   me(@Req() req: AuthRequest) {
     return req.user;
+  }
+
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles('OWNER')
+  @Patch('me/pin')
+  changePin(@Req() req: AuthRequest, @Body() body: ChangePinDto) {
+    return this.authService.changePin(req.user, body.pin);
   }
 }

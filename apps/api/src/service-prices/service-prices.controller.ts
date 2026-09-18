@@ -14,6 +14,10 @@ import type { AuthRequest } from '../auth/auth-request';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ServicePricesService } from './service-prices.service';
+import {
+  CreateServicePriceDto,
+  UpdateServicePriceDto,
+} from './service-prices.dto';
 
 @Controller('service-prices')
 @UseGuards(JwtGuard, RolesGuard)
@@ -27,13 +31,17 @@ export class ServicePricesController {
 
   @Post()
   @Roles('OWNER', 'MANAGER')
-  create(@Req() req: AuthRequest, @Body() body: any) {
+  create(@Req() req: AuthRequest, @Body() body: CreateServicePriceDto) {
     return this.service.create(req.user.tenantId, body);
   }
 
   @Patch(':id')
   @Roles('OWNER', 'MANAGER')
-  update(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: any) {
+  update(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: UpdateServicePriceDto,
+  ) {
     return this.service.update(req.user.tenantId, id, body);
   }
 

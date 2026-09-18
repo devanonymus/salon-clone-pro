@@ -1,11 +1,22 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma.service";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
+import { Prisma } from '@prisma/client';
+import type {
+  AddMarketingCardPaymentDto,
+  CreateMarketingCardDto,
+  CreateMarketingCardSaleDto,
+  SaveMarketingCardTemplateDto,
+  UpdateMarketingCardDto,
+} from './marketing-cards.dto';
 
 @Injectable()
 export class MarketingCardsService {
   constructor(private prisma: PrismaService) {}
-
-
 
   async listSales(tenantId: string) {
     return this.prisma.marketingCardSale.findMany({
@@ -16,104 +27,98 @@ export class MarketingCardsService {
       include: {
         payments: {
           orderBy: {
-            paidAt: "desc",
+            paidAt: 'desc',
           },
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
   }
 
-  async createSale(
-    tenantId: string,
-    body: {
-      clientTenantId?: string;
-      clientName: string;
-      whatsapp?: string;
-      cardName: string;
-      price?: number;
-      total?: number;
-      sessions?: any;
-      appointments?: any;
-      paymentMode?: string;
-    },
-  ) {
+  async createSale(tenantId: string, body: CreateMarketingCardSaleDto) {
+    let clientName = body.clientName;
+    let whatsapp = body.whatsapp || null;
+    if (body.clientTenantId) {
+      const client = await this.prisma.clientTenant.findFirst({
+        where: { id: body.clientTenantId, tenantId, archived: false },
+        include: { clientGlobal: true },
+      });
+      if (!client) {
+        throw new NotFoundException('Cliente non associato a questo salone');
+      }
+      clientName = client.clientGlobal.name;
+      whatsapp = client.clientGlobal.phone;
+    }
+
     return this.prisma.marketingCardSale.create({
       data: {
         tenantId,
         clientTenantId: body.clientTenantId || null,
-        clientName: body.clientName,
-        whatsapp: body.whatsapp || null,
+        clientName,
+        whatsapp,
         cardName: body.cardName,
         price: Number(body.price || 0),
         used: 0,
-        total: Number(body.total || 1),
+        total: body.total,
         sessions: body.sessions || [],
         appointments: body.appointments || [],
-        paymentMode: body.paymentMode || "RATE_SEDUTE",
+        paymentMode: body.paymentMode || 'RATE_SEDUTE',
         active: true,
       },
     });
   }
 
-
   async addSalePayment(
     tenantId: string,
     id: string,
-    body: {
-      amount?: number;
-      paymentType?: string;
-      method?: string;
-      note?: string;
-    },
+    body: AddMarketingCardPaymentDto,
   ) {
-    const sale = await this.prisma.marketingCardSale.findFirst({
-      where: {
-        id,
-        tenantId,
-        active: true,
-      },
-      include: {
-        payments: true,
-      },
-    });
+    return this.prisma.$transaction(
+      async (tx) => {
+        const sale = await tx.marketingCardSale.findFirst({
+          where: { id, tenantId, active: true },
+          include: { payments: true },
+        });
 
-    if (!sale) {
-      throw new NotFoundException("Card venduta non trovata");
-    }
+        if (!sale) {
+          throw new NotFoundException('Card venduta non trovata');
+        }
 
-    const amount = Number(body.amount || 0);
+        const amount = body.amount;
+        const paid = sale.payments.reduce(
+          (sum, payment) => sum + payment.amount,
+          0,
+        );
+        if (Math.round((paid + amount) * 100) > Math.round(sale.price * 100)) {
+          throw new ConflictException(
+            'Il pagamento supera il residuo della card',
+          );
+        }
 
-    if (!amount || amount <= 0) {
-      throw new BadRequestException("Importo pagamento non valido");
-    }
-
-    await this.prisma.marketingCardPayment.create({
-      data: {
-        tenantId,
-        marketingCardSaleId: id,
-        amount,
-        paymentType: body.paymentType || "RATA_SEDUTA",
-        method: body.method || "CONTANTI",
-        note: body.note || null,
-      },
-    });
-
-    return this.prisma.marketingCardSale.findFirst({
-      where: {
-        id,
-        tenantId,
-      },
-      include: {
-        payments: {
-          orderBy: {
-            paidAt: "desc",
+        await tx.marketingCardPayment.create({
+          data: {
+            tenantId,
+            marketingCardSaleId: id,
+            amount,
+            paymentType: body.paymentType || 'RATA_SEDUTA',
+            method: body.method || 'CONTANTI',
+            note: body.note || null,
           },
-        },
+        });
+
+        return tx.marketingCardSale.findFirst({
+          where: { id, tenantId },
+          include: {
+            payments: {
+              orderBy: { paidAt: 'desc' },
+            },
+          },
+        });
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   async useSale(tenantId: string, id: string) {
@@ -126,15 +131,26 @@ export class MarketingCardsService {
     });
 
     if (!sale) {
-      throw new NotFoundException("Card venduta non trovata");
+      throw new NotFoundException('Card venduta non trovata');
     }
 
-    return this.prisma.marketingCardSale.update({
-      where: { id },
-      data: {
-        used: Math.min(sale.used + 1, sale.total),
-      },
+    if (sale.used >= sale.total) {
+      throw new ConflictException(
+        'Tutte le sedute della card sono già state usate',
+      );
+    }
+
+    const updated = await this.prisma.marketingCardSale.updateMany({
+      where: { id, tenantId, active: true, used: { lt: sale.total } },
+      data: { used: { increment: 1 } },
     });
+    if (updated.count !== 1) {
+      throw new ConflictException(
+        'Tutte le sedute della card sono già state usate',
+      );
+    }
+
+    return this.prisma.marketingCardSale.findUniqueOrThrow({ where: { id } });
   }
 
   async removeSale(tenantId: string, id: string) {
@@ -146,7 +162,7 @@ export class MarketingCardsService {
     });
 
     if (!sale) {
-      throw new NotFoundException("Card venduta non trovata");
+      throw new NotFoundException('Card venduta non trovata');
     }
 
     return this.prisma.marketingCardSale.update({
@@ -173,28 +189,7 @@ export class MarketingCardsService {
     });
   }
 
-  async saveTemplate(
-    tenantId: string,
-    body: {
-      logoUrl?: string;
-      salonName?: string;
-      templateStyle?: string;
-      primaryColor?: string;
-      accentColor?: string;
-      title?: string;
-      subtitle?: string;
-      promiseText?: string;
-      valueText?: string;
-      bonusText?: string;
-      urgencyText?: string;
-      guaranteeText?: string;
-      ctaText?: string;
-      footerText?: string;
-      signature?: string;
-      promoMessageTemplate?: string;
-      confirmMessageTemplate?: string;
-    },
-  ) {
+  async saveTemplate(tenantId: string, body: SaveMarketingCardTemplateDto) {
     return this.prisma.marketingCardTemplate.upsert({
       where: {
         tenantId,
@@ -221,26 +216,35 @@ export class MarketingCardsService {
       create: {
         tenantId,
         logoUrl: body.logoUrl,
-        salonName: body.salonName || "Acquaviva Strategic",
-        templateStyle: body.templateStyle || "LUXURY_GOLD",
-        primaryColor: body.primaryColor || "#080808",
-        accentColor: body.accentColor || "#d4af37",
-        title: body.title || "Il tuo percorso bellezza personalizzato",
-        subtitle: body.subtitle || "Una card pensata per mantenere il risultato nel tempo.",
-        promiseText: body.promiseText || "Non è una semplice promozione: è un percorso guidato.",
-        valueText: body.valueText || "Una proposta chiara, comoda e ad alto valore.",
-        bonusText: body.bonusText || "Bonus inclusi per aumentare il risultato.",
-        urgencyText: body.urgencyText || "Posti limitati per garantire continuità e qualità.",
-        guaranteeText: body.guaranteeText || "Ti guideremo passo dopo passo.",
-        ctaText: body.ctaText || "Blocca oggi il tuo percorso.",
-        footerText: body.footerText || "Card personale, non convertibile in denaro.",
-        signature: body.signature || "Il tuo salone di fiducia",
+        salonName: body.salonName || 'Acquaviva Strategic',
+        templateStyle: body.templateStyle || 'LUXURY_GOLD',
+        primaryColor: body.primaryColor || '#080808',
+        accentColor: body.accentColor || '#d4af37',
+        title: body.title || 'Il tuo percorso bellezza personalizzato',
+        subtitle:
+          body.subtitle ||
+          'Una card pensata per mantenere il risultato nel tempo.',
+        promiseText:
+          body.promiseText ||
+          'Non è una semplice promozione: è un percorso guidato.',
+        valueText:
+          body.valueText || 'Una proposta chiara, comoda e ad alto valore.',
+        bonusText:
+          body.bonusText || 'Bonus inclusi per aumentare il risultato.',
+        urgencyText:
+          body.urgencyText ||
+          'Posti limitati per garantire continuità e qualità.',
+        guaranteeText: body.guaranteeText || 'Ti guideremo passo dopo passo.',
+        ctaText: body.ctaText || 'Blocca oggi il tuo percorso.',
+        footerText:
+          body.footerText || 'Card personale, non convertibile in denaro.',
+        signature: body.signature || 'Il tuo salone di fiducia',
         promoMessageTemplate:
           body.promoMessageTemplate ||
-          "Ciao {nome_cliente} 💛\n\nAbbiamo preparato una proposta speciale pensata per mantenere il risultato nel tempo:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nVuoi che ti blocchiamo questa possibilità?\n\n{firma}",
+          'Ciao {nome_cliente} 💛\n\nAbbiamo preparato una proposta speciale pensata per mantenere il risultato nel tempo:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nVuoi che ti blocchiamo questa possibilità?\n\n{firma}',
         confirmMessageTemplate:
           body.confirmMessageTemplate ||
-          "Ciao {nome_cliente} 💛\n\nTi confermiamo la tua card:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nTi aspettiamo in salone.\n\n{firma}",
+          'Ciao {nome_cliente} 💛\n\nTi confermiamo la tua card:\n*{nome_card}*\n\nPrezzo card: € {prezzo_card}\nSedute incluse: {sedute}\nPrezzo medio per seduta: € {prezzo_seduta}\n\nTi aspettiamo in salone.\n\n{firma}',
       },
     });
   }
@@ -252,23 +256,14 @@ export class MarketingCardsService {
         active: true,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
   }
 
-  async create(
-    tenantId: string,
-    body: {
-      name: string;
-      price?: number;
-      sessionsCount?: number;
-      sessions?: any;
-      increaseTotal?: number;
-    },
-  ) {
+  async create(tenantId: string, body: CreateMarketingCardDto) {
     if (!body.name?.trim()) {
-      throw new BadRequestException("Nome card mancante");
+      throw new BadRequestException('Nome card mancante');
     }
 
     return this.prisma.marketingCard.upsert({
@@ -296,18 +291,7 @@ export class MarketingCardsService {
     });
   }
 
-  async update(
-    tenantId: string,
-    id: string,
-    body: {
-      name?: string;
-      price?: number;
-      sessionsCount?: number;
-      sessions?: any;
-      increaseTotal?: number;
-      active?: boolean;
-    },
-  ) {
+  async update(tenantId: string, id: string, body: UpdateMarketingCardDto) {
     const existing = await this.prisma.marketingCard.findFirst({
       where: {
         id,
@@ -316,7 +300,7 @@ export class MarketingCardsService {
     });
 
     if (!existing) {
-      throw new NotFoundException("Card non trovata");
+      throw new NotFoundException('Card non trovata');
     }
 
     return this.prisma.marketingCard.update({
@@ -325,11 +309,19 @@ export class MarketingCardsService {
       },
       data: {
         name: body.name?.trim() || existing.name,
-        price: body.price === undefined ? existing.price : Number(body.price || 0),
-        sessionsCount: body.sessionsCount === undefined ? existing.sessionsCount : Number(body.sessionsCount || 4),
-        sessions: body.sessions === undefined ? existing.sessions : body.sessions,
-        increaseTotal: body.increaseTotal === undefined ? existing.increaseTotal : Number(body.increaseTotal || 0),
-        active: body.active === undefined ? existing.active : Boolean(body.active),
+        price:
+          body.price === undefined ? existing.price : Number(body.price || 0),
+        sessionsCount:
+          body.sessionsCount === undefined
+            ? existing.sessionsCount
+            : Number(body.sessionsCount || 4),
+        sessions: body.sessions,
+        increaseTotal:
+          body.increaseTotal === undefined
+            ? existing.increaseTotal
+            : Number(body.increaseTotal || 0),
+        active:
+          body.active === undefined ? existing.active : Boolean(body.active),
       },
     });
   }
@@ -343,7 +335,7 @@ export class MarketingCardsService {
     });
 
     if (!existing) {
-      throw new NotFoundException("Card non trovata");
+      throw new NotFoundException('Card non trovata');
     }
 
     return this.prisma.marketingCard.update({

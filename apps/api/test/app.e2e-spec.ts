@@ -63,6 +63,20 @@ describe('App runtime (e2e)', () => {
     );
   });
 
+  it('exposes the protected owner PIN endpoint', () => {
+    return request(app.getHttpServer())
+      .patch('/auth/me/pin')
+      .send({ pin: '1234' })
+      .expect(401);
+  });
+
+  it('exposes the protected client awards endpoint', () => {
+    return request(app.getHttpServer())
+      .post('/client-awards')
+      .send({})
+      .expect(401);
+  });
+
   afterEach(async () => {
     await app.close();
   });

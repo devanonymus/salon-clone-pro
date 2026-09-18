@@ -1,23 +1,17 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma.service";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
+import type { Prisma } from '@prisma/client';
+import type {
+  CreateAppointmentDto,
+  UpdateAppointmentDto,
+} from './appointments.dto';
 
-const SERVICE_DURATIONS: Record<string, number> = {
-  Piega: 35,
-  "Piega Atelier Extra Styling": 45,
-  "Taglio Donna": 35,
-  "Taglio Donna + Piega": 60,
-  "Shampoo + Taglio Uomo": 30,
-  "Barba Rifinitura": 10,
-  "Colore Base": 35,
-  "Colore Base + Piega": 80,
-  "Colore Base + Taglio + Piega": 105,
-  "Tonalizzante/Gloss": 25,
-  "Tonalizzante + Piega": 70,
-  "Decapaggio Colore": 45,
-  "Decapaggio + Piega": 140,
-  "Schiariture Parziali Meches Light": 90,
-  "Colpi di Sole/Meches + Piega": 120,
-};
+const DEFAULT_SERVICE_DURATION_MINUTES = 30;
 
 @Injectable()
 export class AppointmentsService {
@@ -36,20 +30,12 @@ export class AppointmentsService {
         sale: true,
       },
       orderBy: {
-        date: "asc",
+        date: 'asc',
       },
     });
   }
 
-  async create(
-    tenantId: string,
-    input: {
-      clientTenantId: string;
-      date: string;
-      services: string[];
-      staffId?: string | null;
-    },
-  ) {
+  async create(tenantId: string, input: CreateAppointmentDto) {
     const clientTenant = await this.prisma.clientTenant.findFirst({
       where: {
         id: input.clientTenantId,
@@ -58,22 +44,29 @@ export class AppointmentsService {
     });
 
     if (!clientTenant) {
-      throw new NotFoundException("Cliente non trovato nel salone");
+      throw new NotFoundException('Cliente non trovato nel salone');
     }
 
     if (input.staffId) {
       await this.assertStaffTenant(tenantId, input.staffId);
     }
 
-    const duration = this.calculateDuration(input.services);
-    const note = input.services.join(" + ");
+    const date = this.parseDate(input.date);
+    const duration = await this.calculateDuration(tenantId, input.services);
+    await this.assertNoStaffOverlap(
+      tenantId,
+      input.staffId || null,
+      date,
+      duration,
+    );
+    const note = input.services.join(' + ');
 
     return this.prisma.appointment.create({
       data: {
         tenantId,
         clientTenantId: input.clientTenantId,
         staffId: input.staffId || null,
-        date: new Date(input.date),
+        date,
         duration,
         note,
       },
@@ -89,19 +82,10 @@ export class AppointmentsService {
     });
   }
 
-  async update(
-    tenantId: string,
-    id: string,
-    input: {
-      clientTenantId?: string;
-      date?: string;
-      services?: string[];
-      staffId?: string | null;
-    },
-  ) {
-    await this.assertAppointmentTenant(tenantId, id);
+  async update(tenantId: string, id: string, input: UpdateAppointmentDto) {
+    const existing = await this.assertAppointmentTenant(tenantId, id);
 
-    const data: any = {};
+    const data: Prisma.AppointmentUncheckedUpdateInput = {};
 
     if (input.clientTenantId) {
       const clientTenant = await this.prisma.clientTenant.findFirst({
@@ -112,7 +96,7 @@ export class AppointmentsService {
       });
 
       if (!clientTenant) {
-        throw new NotFoundException("Cliente non trovato nel salone");
+        throw new NotFoundException('Cliente non trovato nel salone');
       }
 
       data.clientTenantId = input.clientTenantId;
@@ -126,14 +110,28 @@ export class AppointmentsService {
       data.staffId = input.staffId || null;
     }
 
+    const nextDate = input.date ? this.parseDate(input.date) : existing.date;
+    const nextStaffId =
+      input.staffId !== undefined ? input.staffId || null : existing.staffId;
+    let nextDuration = existing.duration;
+
     if (input.date) {
-      data.date = new Date(input.date);
+      data.date = nextDate;
     }
 
     if (input.services && input.services.length > 0) {
-      data.note = input.services.join(" + ");
-      data.duration = this.calculateDuration(input.services);
+      data.note = input.services.join(' + ');
+      nextDuration = await this.calculateDuration(tenantId, input.services);
+      data.duration = nextDuration;
     }
+
+    await this.assertNoStaffOverlap(
+      tenantId,
+      nextStaffId,
+      nextDate,
+      nextDuration,
+      id,
+    );
 
     return this.prisma.appointment.update({
       where: { id },
@@ -150,11 +148,20 @@ export class AppointmentsService {
     });
   }
 
-  async move(tenantId: string, id: string, date: string, staffId?: string | null) {
-    await this.assertAppointmentTenant(tenantId, id);
+  async move(
+    tenantId: string,
+    id: string,
+    date: string,
+    staffId?: string | null,
+  ) {
+    const existing = await this.assertAppointmentTenant(tenantId, id);
 
-    const data: any = {
-      date: new Date(date),
+    const nextDate = this.parseDate(date);
+    const nextStaffId =
+      staffId !== undefined ? staffId || null : existing.staffId;
+
+    const data: Prisma.AppointmentUncheckedUpdateInput = {
+      date: nextDate,
     };
 
     if (staffId !== undefined) {
@@ -164,6 +171,14 @@ export class AppointmentsService {
 
       data.staffId = staffId || null;
     }
+
+    await this.assertNoStaffOverlap(
+      tenantId,
+      nextStaffId,
+      nextDate,
+      existing.duration,
+      id,
+    );
 
     return this.prisma.appointment.update({
       where: { id },
@@ -201,7 +216,7 @@ export class AppointmentsService {
     });
 
     if (!appointment) {
-      throw new NotFoundException("Appuntamento non trovato");
+      throw new NotFoundException('Appuntamento non trovato');
     }
 
     return appointment;
@@ -217,15 +232,74 @@ export class AppointmentsService {
     });
 
     if (!staff) {
-      throw new NotFoundException("Dipendente non trovato nel salone");
+      throw new NotFoundException('Dipendente non trovato nel salone');
     }
 
     return staff;
   }
 
-  private calculateDuration(services: string[]) {
-    return services.reduce((sum, service) => {
-      return sum + (SERVICE_DURATIONS[service] || 30);
-    }, 0);
+  private parseDate(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('Data appuntamento non valida');
+    }
+    return date;
+  }
+
+  private async calculateDuration(tenantId: string, services: string[]) {
+    const names = [...new Set(services.map((service) => service.trim()))];
+    const configured = await this.prisma.servicePrice.findMany({
+      where: {
+        tenantId,
+        active: true,
+        name: { in: names },
+      },
+      select: { name: true, duration: true },
+    });
+    const durations = new Map(
+      configured.map((service) => [service.name, service.duration]),
+    );
+
+    return services.reduce(
+      (sum, service) =>
+        sum +
+        (durations.get(service.trim()) || DEFAULT_SERVICE_DURATION_MINUTES),
+      0,
+    );
+  }
+
+  private async assertNoStaffOverlap(
+    tenantId: string,
+    staffId: string | null,
+    start: Date,
+    duration: number,
+    excludeAppointmentId?: string,
+  ) {
+    if (!staffId) return;
+
+    const end = new Date(start.getTime() + duration * 60_000);
+    const lookback = new Date(start.getTime() - 7 * 24 * 60 * 60_000);
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        tenantId,
+        staffId,
+        date: { gte: lookback, lt: end },
+        ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
+      },
+      select: { id: true, date: true, duration: true },
+    });
+
+    const conflict = appointments.find((appointment) => {
+      const appointmentEnd = new Date(
+        appointment.date.getTime() + appointment.duration * 60_000,
+      );
+      return appointmentEnd > start;
+    });
+
+    if (conflict) {
+      throw new ConflictException(
+        'Il collaboratore ha già un appuntamento in questa fascia oraria',
+      );
+    }
   }
 }

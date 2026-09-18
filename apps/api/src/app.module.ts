@@ -1,8 +1,4 @@
-import {
-  MiddlewareConsumer,
-  Module,
-  type NestModule,
-} from '@nestjs/common';
+import { MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
@@ -12,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
 import { CoachModule } from './coach/coach.module';
 import { DatabaseModule } from './database/database.module';
+import { ClientAwardsModule } from './client-awards/client-awards.module';
 import { FiscalModule } from './fiscal/fiscal.module';
 import { HealthController } from './health/health.controller';
 import { InventoryModule } from './inventory/inventory.module';
@@ -38,17 +35,13 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     CoachModule,
     MarketingCardsModule,
     FiscalModule,
+    ClientAwardsModule,
   ],
   controllers: [AppController, HealthController],
-  providers: [
-    AppService,
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(RequestIdMiddleware, HttpLoggingMiddleware)
-      .forRoutes('*');
+    consumer.apply(RequestIdMiddleware, HttpLoggingMiddleware).forRoutes('*');
   }
 }

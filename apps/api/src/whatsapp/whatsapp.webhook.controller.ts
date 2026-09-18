@@ -1,5 +1,16 @@
-import { Body, Controller, Get, Post, Query, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { WhatsappService } from './whatsapp.service';
 
 @Controller('whatsapp/webhook')
@@ -24,7 +35,15 @@ export class WhatsappWebhookController {
   }
 
   @Post()
-  async receiveWebhook(@Body() body: unknown) {
+  async receiveWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-hub-signature-256') signature: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!req.rawBody) {
+      throw new BadRequestException('Payload webhook non disponibile');
+    }
+    this.whatsappService.assertWebhookSignature(req.rawBody, signature);
     await this.whatsappService.handleWebhook(body);
 
     return {

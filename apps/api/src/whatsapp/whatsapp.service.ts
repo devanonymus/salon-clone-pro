@@ -3,13 +3,17 @@ import {
   Injectable,
   InternalServerErrorException,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   createCipheriv,
   createDecipheriv,
   createHash,
+  createHmac,
   randomBytes,
+  timingSafeEqual,
 } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import type { SaveWhatsappConfigDto } from './whatsapp.dto';
 
@@ -141,22 +145,35 @@ export class WhatsappService {
 
     const accessToken = this.decryptSecret(config.accessTokenEncrypted);
     const normalizedPhone = to.replace(/^\+/, '');
-    const response = await fetch(
-      `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+    const configuredTimeout = Number(process.env.WHATSAPP_HTTP_TIMEOUT_MS);
+    const timeout =
+      Number.isFinite(configuredTimeout) && configuredTimeout > 0
+        ? configuredTimeout
+        : 10_000;
+    let response: Response;
+    try {
+      response = await fetch(
+        `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: normalizedPhone,
+            type: 'text',
+            text: { preview_url: false, body: text },
+          }),
+          signal: AbortSignal.timeout(timeout),
         },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: normalizedPhone,
-          type: 'text',
-          text: { preview_url: false, body: text },
-        }),
-      },
-    );
+      );
+    } catch {
+      throw new ServiceUnavailableException(
+        'WhatsApp non raggiungibile, riprova tra poco',
+      );
+    }
 
     const data = (await response.json()) as MetaMessageResponse;
     if (!response.ok) {
@@ -216,32 +233,63 @@ export class WhatsappService {
           if (duplicate) continue;
         }
 
-        await this.prisma.$transaction(async (tx) => {
-          const conversation = await tx.whatsappConversation.upsert({
-            where: { tenantId_phone: { tenantId: config.tenantId, phone } },
-            update: { lastMessage: text, lastAt: new Date() },
-            create: {
-              tenantId: config.tenantId,
-              phone,
-              lastMessage: text,
-              lastAt: new Date(),
-            },
-          });
+        try {
+          await this.prisma.$transaction(async (tx) => {
+            const conversation = await tx.whatsappConversation.upsert({
+              where: { tenantId_phone: { tenantId: config.tenantId, phone } },
+              update: { lastMessage: text, lastAt: new Date() },
+              create: {
+                tenantId: config.tenantId,
+                phone,
+                lastMessage: text,
+                lastAt: new Date(),
+              },
+            });
 
-          await tx.whatsappMessage.create({
-            data: {
-              conversationId: conversation.id,
-              direction: 'IN',
-              phone,
-              text,
-              providerId: message.id || null,
-            },
+            await tx.whatsappMessage.create({
+              data: {
+                conversationId: conversation.id,
+                direction: 'IN',
+                phone,
+                text,
+                providerId: message.id || null,
+              },
+            });
           });
-        });
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            continue;
+          }
+          throw error;
+        }
       }
     }
 
     return { ok: true };
+  }
+
+  assertWebhookSignature(rawBody: Buffer, signature?: string) {
+    const appSecret = process.env.WHATSAPP_APP_SECRET;
+    if (!appSecret) {
+      throw new ServiceUnavailableException(
+        'WHATSAPP_APP_SECRET non configurato',
+      );
+    }
+
+    const expected = `sha256=${createHmac('sha256', appSecret)
+      .update(rawBody)
+      .digest('hex')}`;
+    const received = signature || '';
+    const valid =
+      received.length === expected.length &&
+      timingSafeEqual(Buffer.from(received), Buffer.from(expected));
+
+    if (!valid) {
+      throw new UnauthorizedException('Firma webhook WhatsApp non valida');
+    }
   }
 
   private encryptSecret(value: string) {

@@ -24,4 +24,10 @@ export class FiscalController {
   list(@Req() req: AuthRequest) {
     return this.service.list(req.user.tenantId);
   }
+
+  @UseGuards(JwtGuard)
+  @Get('status')
+  status() {
+    return this.service.status();
+  }
 }

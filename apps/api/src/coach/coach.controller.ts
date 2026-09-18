@@ -15,6 +15,13 @@ import type { AuthRequest } from '../auth/auth-request';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CoachService } from './coach.service';
+import {
+  CreateFixedCostDto,
+  ListPrebookingQueryDto,
+  SavePrebookingDto,
+  UpdateCoachSettingsDto,
+  UpdateFixedCostDto,
+} from './coach.dto';
 
 @Controller('coach')
 @UseGuards(JwtGuard, RolesGuard)
@@ -28,7 +35,10 @@ export class CoachController {
 
   @Patch('settings')
   @Roles('OWNER', 'MANAGER')
-  updateSettings(@Req() req: AuthRequest, @Body() body: any) {
+  updateSettings(
+    @Req() req: AuthRequest,
+    @Body() body: UpdateCoachSettingsDto,
+  ) {
     return this.service.updateSettings(req.user.tenantId, body);
   }
 
@@ -39,10 +49,7 @@ export class CoachController {
 
   @Post('fixed-costs')
   @Roles('OWNER', 'MANAGER')
-  createFixedCost(
-    @Req() req: AuthRequest,
-    @Body() body: { name?: string; amount?: number | string },
-  ) {
+  createFixedCost(@Req() req: AuthRequest, @Body() body: CreateFixedCostDto) {
     return this.service.createFixedCost(req.user.tenantId, body);
   }
 
@@ -51,7 +58,7 @@ export class CoachController {
   updateFixedCost(
     @Req() req: AuthRequest,
     @Param('id') id: string,
-    @Body() body: { name?: string; amount?: number | string },
+    @Body() body: UpdateFixedCostDto,
   ) {
     return this.service.updateFixedCost(req.user.tenantId, id, body);
   }
@@ -63,23 +70,18 @@ export class CoachController {
   }
 
   @Get('prebooking')
-  listPrebooking(@Req() req: AuthRequest, @Query('dateKey') dateKey?: string) {
-    return this.service.listPrebooking(req.user.tenantId, dateKey);
+  listPrebooking(
+    @Req() req: AuthRequest,
+    @Query() query: ListPrebookingQueryDto,
+  ) {
+    return this.service.listPrebooking(req.user.tenantId, query.dateKey);
   }
 
   @Patch('prebooking/:appointmentId')
   savePrebooking(
     @Req() req: AuthRequest,
     @Param('appointmentId') appointmentId: string,
-    @Body()
-    body: {
-      dateKey?: string;
-      clientName?: string;
-      clientPhone?: string;
-      serviceName?: string;
-      status?: string;
-      note?: string;
-    },
+    @Body() body: SavePrebookingDto,
   ) {
     return this.service.savePrebooking(req.user.tenantId, appointmentId, body);
   }

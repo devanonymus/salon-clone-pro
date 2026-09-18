@@ -287,7 +287,9 @@ export default function DashboardPage() {
                 <div className={styles.saleRow} key={sale.id}>
                   <span className={styles.clientAvatar}>{sale.clientGlobal.name.slice(0, 2).toUpperCase()}</span>
                   <div className={styles.rowCopy}><strong>{sale.clientGlobal.name}</strong><small>{new Date(sale.createdAt).toLocaleDateString("it-IT", { day: "2-digit", month: "short" })} · {paymentLabel(sale.paymentMethod)}</small></div>
-                  <span className={sale.fiscalStatus === "ISSUED" ? styles.fiscalOk : styles.fiscalPending}>{sale.fiscalStatus === "ISSUED" ? "Emesso" : "Da verificare"}</span>
+                  <span className={sale.fiscalStatus === "ISSUED" ? styles.fiscalOk : styles.fiscalPending}>
+                    {sale.fiscalStatus === "ISSUED" ? "Emesso" : sale.fiscalStatus === "DEMO_ISSUED" ? "Demo" : "Da verificare"}
+                  </span>
                   <strong className={styles.saleValue}>{euro.format(sale.total)}</strong>
                 </div>
               ))}

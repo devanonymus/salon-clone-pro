@@ -1,87 +1,43 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma.service";
-
-const DEFAULT_STAFF = [
-  { name: "Pamela", role: "COLLABORATORE", color: "#22c55e" },
-  { name: "Katia", role: "COLLABORATORE", color: "#3b82f6" },
-  { name: "Stefania", role: "COLLABORATORE", color: "#f97316" },
-  { name: "Sonia", role: "TITOLARE", color: "#d4af37" },
-  { name: "Brian Laddomada", role: "COLLABORATORE", color: "#8b5cf6" },
-];
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
+import type { CreateStaffDto, UpdateStaffDto } from './staff.dto';
 
 @Injectable()
 export class StaffService {
   constructor(private prisma: PrismaService) {}
 
   async list(tenantId: string) {
-    const existing = await this.prisma.staff.findMany({
-      where: { tenantId, active: true },
-      orderBy: { createdAt: "asc" },
-    });
-
-    if (existing.length > 0) return existing;
-
-    await this.prisma.staff.createMany({
-      data: DEFAULT_STAFF.map((member) => ({
-        tenantId,
-        name: member.name,
-        role: member.role,
-        color: member.color,
-      })),
-    });
-
     return this.prisma.staff.findMany({
       where: { tenantId, active: true },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
-
-
-  async create(
-    tenantId: string,
-    body: {
-      name: string;
-      role?: string;
-      color?: string;
-      monthlyCost?: number | string;
-      productiveHours?: number | string;
-      monthlyTarget?: number | string;
-      active?: boolean;
-    },
-  ) {
+  async create(tenantId: string, body: CreateStaffDto) {
     return this.prisma.staff.create({
       data: {
         tenantId,
         name: body.name,
-        role: body.role ?? "COLLABORATORE",
-        color: body.color ?? "#8b5cf6",
+        role: body.role ?? 'COLLABORATORE',
+        color: body.color ?? '#8b5cf6',
         active: body.active ?? true,
-        monthlyCost: Number(String(body.monthlyCost ?? 0).replace(",", ".")),
-        productiveHours: Number(String(body.productiveHours ?? 140).replace(",", ".")),
-        monthlyTarget: Number(String(body.monthlyTarget ?? 0).replace(",", ".")),
+        monthlyCost: Number(String(body.monthlyCost ?? 0).replace(',', '.')),
+        productiveHours: Number(
+          String(body.productiveHours ?? 140).replace(',', '.'),
+        ),
+        monthlyTarget: Number(
+          String(body.monthlyTarget ?? 0).replace(',', '.'),
+        ),
       },
     });
   }
 
-  async update(
-    tenantId: string,
-    id: string,
-    body: {
-      name?: string;
-      role?: string;
-      color?: string;
-      monthlyCost?: number | string;
-      productiveHours?: number | string;
-      monthlyTarget?: number | string;
-      active?: boolean;
-    },
-  ) {
+  async update(tenantId: string, id: string, body: UpdateStaffDto) {
     const staff = await this.prisma.staff.findFirst({
       where: { id, tenantId },
     });
 
-    if (!staff) throw new NotFoundException("Dipendente non trovato");
+    if (!staff) throw new NotFoundException('Dipendente non trovato');
 
     return this.prisma.staff.update({
       where: { id },
@@ -93,15 +49,15 @@ export class StaffService {
         monthlyCost:
           body.monthlyCost === undefined
             ? undefined
-            : Number(String(body.monthlyCost).replace(",", ".")),
+            : Number(String(body.monthlyCost).replace(',', '.')),
         productiveHours:
           body.productiveHours === undefined
             ? undefined
-            : Number(String(body.productiveHours).replace(",", ".")),
+            : Number(String(body.productiveHours).replace(',', '.')),
         monthlyTarget:
           body.monthlyTarget === undefined
             ? undefined
-            : Number(String(body.monthlyTarget).replace(",", ".")),
+            : Number(String(body.monthlyTarget).replace(',', '.')),
       },
     });
   }

@@ -2,7 +2,13 @@ import { createHash } from 'node:crypto';
 
 const CENTS_PER_UNIT = 100;
 const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
-const INVALID_IDEMPOTENCY_KEY = /[\u0000-\u0020\u007f]/;
+
+function containsInvalidIdempotencyCharacter(value: string) {
+  return Array.from(value).some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 32 || code === 127;
+  });
+}
 
 export type MoneyLine = {
   price: number;
@@ -38,9 +44,7 @@ export function sumMoneyLines(lines: MoneyLine[]): number {
   return fromCents(cents);
 }
 
-export function normalizeIdempotencyKey(
-  value?: string,
-): string | undefined {
+export function normalizeIdempotencyKey(value?: string): string | undefined {
   if (value === undefined) return undefined;
 
   const key = value.trim();
@@ -48,7 +52,7 @@ export function normalizeIdempotencyKey(
 
   if (
     key.length > IDEMPOTENCY_KEY_MAX_LENGTH ||
-    INVALID_IDEMPOTENCY_KEY.test(key)
+    containsInvalidIdempotencyCharacter(key)
   ) {
     throw new RangeError('Idempotency-Key non valida');
   }

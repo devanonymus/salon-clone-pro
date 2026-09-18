@@ -8,69 +8,46 @@ import {
   Post,
   Req,
   UseGuards,
-  BadRequestException,
-} from "@nestjs/common";
-import { JwtGuard } from "../auth/jwt.guard";
-import { AppointmentsService } from "./appointments.service";
+} from '@nestjs/common';
+import { JwtGuard } from '../auth/jwt.guard';
+import type { AuthRequest } from '../auth/auth-request';
+import { AppointmentsService } from './appointments.service';
+import {
+  CreateAppointmentDto,
+  MoveAppointmentDto,
+  UpdateAppointmentDto,
+} from './appointments.dto';
 
-@Controller("appointments")
+@Controller('appointments')
 @UseGuards(JwtGuard)
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
   @Get()
-  getAll(@Req() req: any) {
+  getAll(@Req() req: AuthRequest) {
     return this.appointmentsService.getAll(req.user.tenantId);
   }
 
   @Post()
-  create(
-    @Req() req: any,
-    @Body()
-    body: {
-      clientTenantId?: string;
-      date?: string;
-      services?: string[];
-      staffId?: string | null;
-    },
-  ) {
-    if (!body.clientTenantId) throw new BadRequestException("Cliente mancante");
-    if (!body.date) throw new BadRequestException("Data mancante");
-    if (!body.services || body.services.length === 0) {
-      throw new BadRequestException("Trattamenti mancanti");
-    }
-
-    return this.appointmentsService.create(req.user.tenantId, {
-      clientTenantId: body.clientTenantId,
-      date: body.date,
-      services: body.services,
-      staffId: body.staffId || null,
-    });
+  create(@Req() req: AuthRequest, @Body() body: CreateAppointmentDto) {
+    return this.appointmentsService.create(req.user.tenantId, body);
   }
 
-  @Patch(":id")
+  @Patch(':id')
   update(
-    @Req() req: any,
-    @Param("id") id: string,
-    @Body()
-    body: {
-      clientTenantId?: string;
-      date?: string;
-      services?: string[];
-      staffId?: string | null;
-    },
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: UpdateAppointmentDto,
   ) {
     return this.appointmentsService.update(req.user.tenantId, id, body);
   }
 
-  @Patch(":id/move")
+  @Patch(':id/move')
   move(
-    @Req() req: any,
-    @Param("id") id: string,
-    @Body() body: { date?: string; staffId?: string | null },
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: MoveAppointmentDto,
   ) {
-    if (!body.date) throw new BadRequestException("Data mancante");
-
     return this.appointmentsService.move(
       req.user.tenantId,
       id,
@@ -79,8 +56,8 @@ export class AppointmentsController {
     );
   }
 
-  @Delete(":id")
-  delete(@Req() req: any, @Param("id") id: string) {
+  @Delete(':id')
+  delete(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.appointmentsService.delete(req.user.tenantId, id);
   }
 }

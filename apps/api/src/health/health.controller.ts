@@ -20,7 +20,8 @@ export class HealthController {
     return {
       status: 'up',
       service: 'salon-pro-api',
-      version: process.env.APP_VERSION || process.env.npm_package_version || 'dev',
+      version:
+        process.env.APP_VERSION || process.env.npm_package_version || 'dev',
       uptimeSeconds: Math.floor(process.uptime()),
       checkedAt: new Date().toISOString(),
       requestId: request.requestId,
