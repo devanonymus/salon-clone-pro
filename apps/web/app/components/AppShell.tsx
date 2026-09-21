@@ -150,13 +150,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Image
                 alt=""
                 className={styles.logoImage}
-                height={58}
-                src="/acquaviva-strategic-logo.png"
-                width={116}
+                height={1152}
+                src="/salon-pro-logo-official.png"
+                width={2048}
               />
             </span>
             <span className={styles.brandCopy}>
-              <strong>Salon Pro</strong>
+              <strong className={styles.brandWordmark}>
+                <span>Salon</span><span>Pro</span>
+              </strong>
               <small>Business Operating System</small>
             </span>
           </Link>

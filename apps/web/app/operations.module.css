@@ -1,6 +1,6 @@
 .modulePage {
   background:
-    radial-gradient(circle at 82% -20%, rgba(210, 169, 77, 0.055), transparent 34%),
+    radial-gradient(circle at 82% -20%, rgba(137, 100, 236, 0.055), transparent 34%),
     var(--sp-bg);
 }
 
@@ -20,7 +20,7 @@
 }
 
 .primaryAction {
-  border: 1px solid rgba(210, 169, 77, 0.26);
+  border: 1px solid rgba(137, 100, 236, 0.26);
   background: var(--sp-accent);
   color: #17140c;
 }
@@ -35,7 +35,7 @@
 }
 
 .secondaryAction:hover,
-.iconAction:hover { border-color: rgba(210,169,77,0.25); background: var(--sp-accent-soft); }
+.iconAction:hover { border-color: rgba(137, 100, 236,0.25); background: var(--sp-accent-soft); }
 .iconAction { width: 40px; padding: 0; }
 
 .surface {

@@ -268,7 +268,7 @@ export default function DashboardPage() {
                 return (
                   <div className={styles.appointmentRow} key={appointment.id}>
                     <div className={styles.timeBox}><strong>{date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</strong><small>{date.toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}</small></div>
-                    <span className={styles.staffDot} style={{ background: appointment.staff?.color || "#d2a94d" }} />
+                    <span className={styles.staffDot} style={{ background: appointment.staff?.color || "#8964EC" }} />
                     <div className={styles.rowCopy}><strong>{appointment.clientTenant.clientGlobal.name}</strong><small>{appointment.note || "Servizio da definire"} · {appointment.duration} min</small></div>
                     <span className={appointment.sale ? styles.doneBadge : styles.scheduledBadge}>{appointment.sale ? "Chiuso" : appointment.staff?.name || "Da assegnare"}</span>
                   </div>

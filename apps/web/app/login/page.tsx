@@ -45,10 +45,12 @@ export default function LoginPage() {
       <section className={styles.brandPanel}>
         <div className={styles.brandTop}>
           <span className={styles.brandMark}>
-            <Image alt="" height={72} src="/acquaviva-strategic-logo.png" width={144} />
+            <Image alt="" height={1152} src="/salon-pro-logo-official.png" width={2048} />
           </span>
           <span className={styles.brandName}>
-            <strong>Salon Pro</strong>
+            <strong className={styles.brandWordmark}>
+              <span>Salon</span><span>Pro</span>
+            </strong>
             <small>Business Operating System</small>
           </span>
         </div>
@@ -67,7 +69,7 @@ export default function LoginPage() {
           <div><AppIcon name="check" /><span><strong>Semplicità</strong><small>Tutto in un solo sistema</small></span></div>
         </div>
 
-        <p className={styles.brandFooter}>Salon Pro · Powered by Acquaviva Strategic</p>
+        <p className={styles.brandFooter}>Salon Pro · Business Operating System</p>
       </section>
 
       <section className={styles.formPanel}>

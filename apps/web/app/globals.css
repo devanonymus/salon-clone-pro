@@ -1,16 +1,25 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap");
+
 :root {
-  --sp-bg: #0e1015;
-  --sp-surface: #15181e;
-  --sp-surface-raised: #191d24;
-  --sp-surface-soft: #111319;
+  --sp-charcoal: #191a26;
+  --sp-icon-bg: #191a25;
+  --sp-icon-highlight: #28293f;
+  --sp-violet: #8964ec;
+  --sp-violet-mid: #9269ee;
+  --sp-violet-light: #9e71f2;
+  --sp-symbol-gradient: linear-gradient(135deg, #745bb6 0%, #9b74ec 36%, #c897ed 68%, #f0bde4 100%);
+  --sp-bg: var(--sp-charcoal);
+  --sp-surface: #202131;
+  --sp-surface-raised: var(--sp-icon-highlight);
+  --sp-surface-soft: #1d1e2c;
   --sp-border: rgba(255, 255, 255, 0.085);
   --sp-border-strong: rgba(255, 255, 255, 0.13);
   --sp-text: #f1f2f4;
   --sp-text-muted: #8b929f;
   --sp-text-soft: #686f7c;
-  --sp-accent: #d2a94d;
-  --sp-accent-hover: #dfbb68;
-  --sp-accent-soft: rgba(210, 169, 77, 0.12);
+  --sp-accent: var(--sp-violet);
+  --sp-accent-hover: var(--sp-violet-light);
+  --sp-accent-soft: rgba(137, 100, 236, 0.12);
   --sp-success: #38c783;
   --sp-warning: #e7aa4a;
   --sp-danger: #eb6666;
@@ -31,7 +40,7 @@ body {
   overflow-x: hidden;
   background: var(--sp-bg);
   color: var(--sp-text);
-  font-family: Inter, "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Outfit", "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -49,8 +58,8 @@ button:disabled { cursor: not-allowed; opacity: 0.58; }
 a { color: inherit; }
 img, svg, video, canvas { max-width: 100%; }
 table { width: 100%; border-collapse: collapse; }
-::selection { background: rgba(210, 169, 77, 0.28); color: #fff; }
-:focus-visible { outline: 2px solid rgba(210, 169, 77, 0.72); outline-offset: 2px; }
+::selection { background: rgba(137, 100, 236, 0.34); color: #fff; }
+:focus-visible { outline: 2px solid rgba(158, 113, 242, 0.78); outline-offset: 2px; }
 
 .sp-page {
   min-height: calc(100vh - 72px);
@@ -96,24 +105,24 @@ table { width: 100%; border-collapse: collapse; }
   border: 1px solid var(--sp-border-strong);
   border-radius: 11px;
   outline: none;
-  background: #101218;
+  background: #171824;
   color: var(--sp-text);
   font-weight: 560;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .sp-input:focus {
-  border-color: rgba(210, 169, 77, 0.44);
-  box-shadow: 0 0 0 3px rgba(210, 169, 77, 0.07);
+  border-color: rgba(137, 100, 236, 0.52);
+  box-shadow: 0 0 0 3px rgba(137, 100, 236, 0.1);
 }
 
 .sp-button-purple, .sp-change-button {
   min-height: 40px;
   padding: 0 15px;
-  border: 1px solid rgba(210, 169, 77, 0.2);
+  border: 1px solid rgba(158, 113, 242, 0.3);
   border-radius: 11px;
   background: var(--sp-accent);
-  color: #17140c;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 760;
 }
