@@ -38,9 +38,9 @@ export default function LeadForm() {
   return (
     <div className={styles.formCard}>
       <div className={styles.formHeading}>
-        <span><i /> Richiesta riservata</span>
-        <h3>Parliamo del tuo salone.</h3>
-        <p>Lascia i tuoi dati: ti ricontatteremo per organizzare la demo.</p>
+        <span><i /> Demo riservata ai professionisti</span>
+        <h3>Prenota la demo guidata.</h3>
+        <p>Pochi dati, poi ti ricontattiamo noi per scegliere il momento migliore.</p>
       </div>
 
       {state === "success" ? (
@@ -72,14 +72,6 @@ export default function LeadForm() {
               <input autoComplete="tel" inputMode="tel" name="telefono" placeholder="Es. 333 123 4567" required type="tel" />
             </label>
             <label>
-              <span>Email</span>
-              <input autoComplete="email" name="email" placeholder="nome@email.it" type="email" />
-            </label>
-            <label>
-              <span>Città *</span>
-              <input autoComplete="address-level2" name="citta" placeholder="Dove si trova?" required />
-            </label>
-            <label>
               <span>Dimensione del team *</span>
               <select defaultValue="" name="team" required>
                 <option disabled value="">Seleziona</option>
@@ -90,17 +82,6 @@ export default function LeadForm() {
               </select>
             </label>
           </div>
-
-          <label className={styles.fullField}>
-            <span>Come gestisci oggi il salone?</span>
-            <select defaultValue="" name="gestione-attuale">
-              <option value="">Seleziona una risposta</option>
-              <option value="Carta o agenda">Carta o agenda</option>
-              <option value="Fogli di calcolo">Fogli di calcolo</option>
-              <option value="Altro gestionale">Altro gestionale</option>
-              <option value="Più strumenti separati">Più strumenti separati</option>
-            </select>
-          </label>
 
           <label className={styles.consent}>
             <input name="consenso-ricontatto" required type="checkbox" value="si" />
@@ -114,10 +95,10 @@ export default function LeadForm() {
           ) : null}
 
           <button className={styles.formSubmit} disabled={state === "submitting"} type="submit">
-            <span>{state === "submitting" ? "Invio in corso…" : "Richiedi la demo"}</span>
+            <span>{state === "submitting" ? "Invio in corso…" : "Voglio vedere Salon Pro"}</span>
             <AppIcon name={state === "submitting" ? "sparkle" : "arrow"} size={18} />
           </button>
-          <small className={styles.formMicrocopy}>Nessun impegno. Nessuna chiamata automatica.</small>
+          <small className={styles.formMicrocopy}>6 minuti · Nessun impegno · Nessuna chiamata automatica</small>
         </form>
       )}
     </div>

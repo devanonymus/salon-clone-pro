@@ -8,7 +8,7 @@ import styles from "./landing.module.css";
 export const metadata: Metadata = {
   title: "Gestionale per parrucchieri e saloni",
   description:
-    "Salon Pro collega agenda, clienti, cassa, magazzino, team e performance in un unico gestionale per parrucchieri e saloni.",
+    "Gestisci agenda, clienti, cassa, magazzino e team in un unico sistema. Scopri Salon Pro con una demo guidata pensata per il tuo salone.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "Salon Pro · Il sistema operativo del tuo salone",
@@ -83,6 +83,41 @@ const painPoints = [
   },
 ];
 
+const businessQuestions = [
+  {
+    value: "Clienti",
+    title: "Chi non sta tornando?",
+    copy: "Individua i clienti da ricontattare prima che diventino clienti persi.",
+    icon: "clients" as AppIconName,
+  },
+  {
+    value: "Agenda",
+    title: "Dove sono le ore vuote?",
+    copy: "Leggi disponibilità, carico del team e spazi da recuperare in un colpo d’occhio.",
+    icon: "agenda" as AppIconName,
+  },
+  {
+    value: "Margine",
+    title: "Cosa sta rendendo davvero?",
+    copy: "Collega servizi, prodotti, vendite e costi per decidere con numeri più chiari.",
+    icon: "trend" as AppIconName,
+  },
+  {
+    value: "Priorità",
+    title: "Qual è la prossima azione?",
+    copy: "Porta in primo piano ciò che richiede attenzione, senza inseguire fogli e chat.",
+    icon: "sparkle" as AppIconName,
+  },
+];
+
+const operatingFlow = [
+  { label: "Appuntamento", icon: "agenda" as AppIconName },
+  { label: "Cliente", icon: "clients" as AppIconName },
+  { label: "Servizio", icon: "team" as AppIconName },
+  { label: "Pagamento", icon: "cash" as AppIconName },
+  { label: "Decisione", icon: "trend" as AppIconName },
+];
+
 const faqs = [
   {
     question: "Salon Pro è soltanto un’agenda online?",
@@ -103,6 +138,16 @@ const faqs = [
     question: "Devo cambiare tutto subito?",
     answer:
       "No. Il percorso viene impostato per rendere il passaggio ordinato e comprensibile, senza complicare il lavoro quotidiano.",
+  },
+  {
+    question: "È prevista assistenza nella configurazione?",
+    answer:
+      "Sì. L’avvio comprende configurazione iniziale e onboarding, così titolare e team possono iniziare con un flusso già adatto al lavoro quotidiano.",
+  },
+  {
+    question: "Salon Pro sostituisce il registratore telematico?",
+    answer:
+      "No. Salon Pro organizza il flusso di vendita, gli incassi e il controllo operativo, ma non sostituisce il registratore telematico o gli adempimenti fiscali previsti.",
   },
 ];
 
@@ -160,28 +205,28 @@ export default function HomePage() {
           <div className={styles.heroCopy}>
             <span className={styles.eyebrow}>
               <span className={styles.liveDot} />
-              Per saloni che vogliono crescere
+              Gestionale per parrucchieri e saloni
             </span>
             <h1>
               Il tuo salone.<br />
-              <em>Sotto controllo.</em>
+              <em>Più semplice da guidare.</em>
             </h1>
             <p>
-              Non il solito gestionale. Salon Pro collega agenda, clienti, vendite,
-              magazzino e team per aiutarti a prendere decisioni migliori ogni giorno.
+              Salon Pro collega agenda, clienti, vendite, magazzino e team. Tu ritrovi
+              controllo, tempo e numeri chiari per far crescere il salone ogni giorno.
             </p>
             <div className={styles.heroActions}>
               <a className={styles.primaryCta} href="#demo">
-                Richiedi una demo <AppIcon name="arrow" size={18} />
+                Prenota la demo guidata <AppIcon name="arrow" size={18} />
               </a>
-              <a className={styles.secondaryCta} href="#prodotto">
-                Guarda come funziona
+              <a className={styles.secondaryCta} href="#flusso">
+                Scopri il flusso completo
               </a>
             </div>
             <div className={styles.heroAssurances}>
-              <span><AppIcon name="check" size={15} /> Demo guidata</span>
+              <span><AppIcon name="check" size={15} /> Demo in 6 minuti</span>
               <span><AppIcon name="check" size={15} /> Nessun impegno</span>
-              <span><AppIcon name="check" size={15} /> Pensato per il lavoro reale</span>
+              <span><AppIcon name="check" size={15} /> Avvio assistito</span>
             </div>
           </div>
 
@@ -225,6 +270,29 @@ export default function HomePage() {
             <AppIcon name={icon as AppIconName} size={18} /> {label}
           </span>
         ))}
+      </section>
+
+      <section className={styles.businessSection} aria-labelledby="business-title">
+        <div className={styles.businessIntro}>
+          <span className={styles.sectionKicker}>Dal lavoro quotidiano alle risposte che contano</span>
+          <h2 id="business-title">Le informazioni che servono al titolare. Quando servono.</h2>
+          <p>
+            Salon Pro non si limita a registrare ciò che accade: collega i dati e li rende
+            utili per scegliere dove intervenire.
+          </p>
+        </div>
+        <div className={styles.businessGrid}>
+          {businessQuestions.map((item) => (
+            <article className={styles.businessCard} key={item.title}>
+              <div>
+                <span><AppIcon name={item.icon} size={20} /></span>
+                <small>{item.value}</small>
+              </div>
+              <h3>{item.title}</h3>
+              <p>{item.copy}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className={styles.problemSection} id="perche">
@@ -278,6 +346,31 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className={styles.flowSection} id="flusso">
+        <div className={styles.flowHeading}>
+          <span className={styles.sectionKicker}>Un unico flusso, senza passaggi persi</span>
+          <h2>Dal primo appuntamento alla decisione successiva.</h2>
+          <p>
+            Ogni operazione aggiorna il sistema. Il lavoro del team diventa una visione
+            completa e leggibile per chi guida il salone.
+          </p>
+        </div>
+        <div className={styles.flowTrack}>
+          {operatingFlow.map((item, index) => (
+            <div className={styles.flowStep} key={item.label}>
+              <span><AppIcon name={item.icon} size={22} /></span>
+              <small>{String(index + 1).padStart(2, "0")}</small>
+              <strong>{item.label}</strong>
+              {index < operatingFlow.length - 1 ? <AppIcon name="arrow" size={18} /> : null}
+            </div>
+          ))}
+        </div>
+        <div className={styles.flowPromise}>
+          <AppIcon name="check" size={20} />
+          <p><strong>Meno strumenti separati.</strong><span>Più continuità tra reception, team e titolare.</span></p>
+        </div>
+      </section>
+
       <section className={styles.outcomeSection}>
         <div className={styles.outcomeVisual}>
           <div className={styles.outcomeOrb}>
@@ -305,13 +398,30 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className={styles.launchSection}>
+        <div className={styles.launchLabel}>
+          <AppIcon name="sparkle" size={20} />
+          <span>Edizione lancio assistita</span>
+        </div>
+        <div className={styles.launchCopy}>
+          <h2>Non ti consegniamo un software. Ti aiutiamo a farlo entrare nel salone.</h2>
+          <p>Configurazione iniziale, onboarding e supporto per partire con un metodo chiaro fin dal primo giorno.</p>
+        </div>
+        <ul>
+          <li><AppIcon name="check" size={17} /> Configurazione guidata</li>
+          <li><AppIcon name="check" size={17} /> Formazione operativa</li>
+          <li><AppIcon name="check" size={17} /> Aggiornamenti e supporto</li>
+        </ul>
+        <a className={styles.secondaryCta} href="#demo">Scopri se è adatto al tuo salone</a>
+      </section>
+
       <section className={styles.demoSection} id="demo">
         <div className={styles.demoCopy}>
-          <span className={styles.sectionKicker}>Una demo costruita sul tuo salone</span>
-          <h2>Scopri dove puoi recuperare controllo e margine.</h2>
+          <span className={styles.sectionKicker}>Una demo guidata in 6 minuti</span>
+          <h2>Scopri dove il tuo salone può recuperare controllo e margine.</h2>
           <p>
-            Non una presentazione generica: partiamo dal tuo metodo di lavoro e ti mostriamo
-            come Salon Pro può semplificarlo.
+            Partiamo dal tuo metodo di lavoro e ti mostriamo il percorso completo,
+            dall’agenda alla dashboard. Senza presentazioni generiche.
           </p>
           <div className={styles.demoSteps}>
             <div><span>01</span><p><strong>Conosciamo il salone</strong><small>Team, strumenti e priorità attuali.</small></p></div>
@@ -351,7 +461,7 @@ export default function HomePage() {
 
       <footer className={styles.footer}>
         <Brand compact />
-        <p>Il sistema operativo per parrucchieri che vogliono più controllo e margine.</p>
+        <p>Il sistema operativo per parrucchieri che vogliono più controllo e margine. Un prodotto Univibe Group S.r.l.s.</p>
         <div>
           <Link href="/login">Accesso clienti</Link>
           <a href="#demo">Richiedi una demo</a>
