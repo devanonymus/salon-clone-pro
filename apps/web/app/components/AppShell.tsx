@@ -81,6 +81,7 @@ function getServerSessionSnapshot() {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const isPublicRoute = pathname === "/" || pathname === "/login";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -108,7 +109,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     : [];
 
   useEffect(() => {
-    if (pathname !== "/login" && !window.localStorage.getItem("salonpro_token") && !window.localStorage.getItem("token")) {
+    if (!isPublicRoute && !window.localStorage.getItem("salonpro_token") && !window.localStorage.getItem("token")) {
       window.location.replace("/login");
       return;
     }
@@ -122,9 +123,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [pathname]);
+  }, [isPublicRoute, pathname]);
 
-  if (pathname === "/login") {
+  if (isPublicRoute) {
     return <>{children}</>;
   }
 
