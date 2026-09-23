@@ -21,7 +21,7 @@ export default function LeadForm() {
 
     try {
       setState("submitting");
-      const response = await fetch("/__forms.html", {
+      const response = await fetch("/", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: body.toString(),
@@ -51,7 +51,15 @@ export default function LeadForm() {
           <button onClick={() => setState("idle")} type="button">Invia un’altra richiesta</button>
         </div>
       ) : (
-        <form className={styles.leadForm} name="richiesta-demo" onSubmit={handleSubmit}>
+        <form
+          action="/"
+          className={styles.leadForm}
+          data-netlify="true"
+          data-netlify-honeypot="bot-field"
+          method="POST"
+          name="richiesta-demo"
+          onSubmit={handleSubmit}
+        >
           <input name="form-name" type="hidden" value="richiesta-demo" />
           <input name="source" type="hidden" value="landing-salon-pro" />
           <p className={styles.honeypot}>
