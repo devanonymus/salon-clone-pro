@@ -61,6 +61,7 @@ export default function LeadForm() {
           onSubmit={handleSubmit}
         >
           <input name="form-name" type="hidden" value="richiesta-demo" />
+          <input data-remove-prefix="" name="subject" type="hidden" value="Nuova richiesta demo Salon Pro" />
           <input name="source" type="hidden" value="landing-salon-pro" />
           <p className={styles.honeypot}>
             <label>Non compilare: <input name="bot-field" tabIndex={-1} /></label>
