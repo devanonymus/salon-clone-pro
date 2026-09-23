@@ -191,6 +191,7 @@ export default function HomePage() {
         <nav aria-label="Navigazione sito" className={styles.nav}>
           <a href="#perche">Perché Salon Pro</a>
           <a href="#prodotto">Funzionalità</a>
+          <a href="#crescita">Crescita</a>
           <a href="#faq">FAQ</a>
         </nav>
         <div className={styles.headerActions}>
@@ -369,6 +370,112 @@ export default function HomePage() {
           <AppIcon name="check" size={20} />
           <p><strong>Meno strumenti separati.</strong><span>Più continuità tra reception, team e titolare.</span></p>
         </div>
+      </section>
+
+      <section className={styles.growthSection} id="crescita">
+        <div className={styles.growthHeading}>
+          <div>
+            <span className={styles.sectionKicker}>La differenza tra gestire e guidare</span>
+            <h2>Salon Pro non registra soltanto.<br /><em>Analizza, fidelizza e attiva.</em></h2>
+          </div>
+          <p>
+            I dati del lavoro quotidiano diventano indicazioni operative, percorsi loyalty
+            e azioni di marketing collegate al cliente giusto.
+          </p>
+        </div>
+
+        <div className={styles.growthGrid}>
+          <article className={`${styles.growthCard} ${styles.coachCard}`}>
+            <div className={styles.growthCardTop}>
+              <span><AppIcon name="coach" size={24} /></span>
+              <small>01 · Business Coach</small>
+            </div>
+            <div className={styles.growthCardCopy}>
+              <span className={styles.growthStatus}><i /> Dati reali del salone</span>
+              <h3>Il report non ti dice solo com’è andata. Ti dice cosa fare oggi.</h3>
+              <p>
+                Appuntamenti, incassi, fish medio, costi e utile reale diventano un piano
+                operativo con priorità concrete per il titolare e il team.
+              </p>
+            </div>
+            <div className={styles.coachPreview} aria-label="Esempio indicatori Business Coach">
+              <div><small>Utile reale</small><strong>Margine leggibile</strong></div>
+              <div><small>Fish medio</small><strong>Valore da far crescere</strong></div>
+              <div className={styles.coachAction}>
+                <AppIcon name="sparkle" size={18} />
+                <p><small>Azione suggerita</small><strong>Recupera clienti senza appuntamento</strong></p>
+              </div>
+            </div>
+            <ul>
+              <li><AppIcon name="check" size={16} /> KPI economici e operativi nello stesso quadro</li>
+              <li><AppIcon name="check" size={16} /> Focus giornaliero, settimanale e mensile</li>
+              <li><AppIcon name="check" size={16} /> Azioni suggerite in base ad agenda e vendite</li>
+            </ul>
+          </article>
+
+          <article className={`${styles.growthCard} ${styles.loyaltyCard}`}>
+            <div className={styles.growthCardTop}>
+              <span><AppIcon name="wheel" size={24} /></span>
+              <small>02 · Loyalty</small>
+            </div>
+            <div className={styles.growthCardCopy}>
+              <span className={styles.growthStatus}><i /> Esperienza cliente</span>
+              <h3>Ogni premio diventa un motivo concreto per tornare.</h3>
+              <p>
+                Card, percorsi, premi e storico cliente lavorano insieme per dare continuità
+                alla relazione oltre il singolo appuntamento.
+              </p>
+            </div>
+            <div className={styles.loyaltyPreview} aria-label="Esempio percorso Loyalty">
+              <div><span><AppIcon name="clients" size={18} /></span><p><small>Cliente</small><strong>Storico collegato</strong></p></div>
+              <i />
+              <div><span><AppIcon name="wheel" size={18} /></span><p><small>Premio</small><strong>Esperienza memorabile</strong></p></div>
+              <i />
+              <div><span><AppIcon name="agenda" size={18} /></span><p><small>Ritorno</small><strong>Nuova visita</strong></p></div>
+            </div>
+            <ul>
+              <li><AppIcon name="check" size={16} /> Card e percorsi pronti anche in cassa</li>
+              <li><AppIcon name="check" size={16} /> Premi salvati nello storico cliente</li>
+              <li><AppIcon name="check" size={16} /> Follow-up collegato alla prossima visita</li>
+            </ul>
+          </article>
+
+          <article className={`${styles.growthCard} ${styles.automationCard}`}>
+            <div className={styles.growthCardTop}>
+              <span><AppIcon name="marketing" size={24} /></span>
+              <small>03 · Marketing automatico</small>
+            </div>
+            <div className={styles.growthCardCopy}>
+              <span className={styles.growthStatus}><i /> Flussi configurati</span>
+              <h3>Il messaggio giusto parte dal lavoro già fatto in salone.</h3>
+              <p>
+                Card, premi, prebooking e clienti da ricontattare alimentano follow-up
+                organizzati, con messaggi personalizzati e meno passaggi manuali.
+              </p>
+            </div>
+            <div className={styles.automationPreview} aria-label="Esempio flusso marketing automatico">
+              <div><span>Trigger</span><strong>Cliente da recuperare</strong></div>
+              <AppIcon name="arrow" size={17} />
+              <div><span>Messaggio</span><strong>Template personalizzato</strong></div>
+              <AppIcon name="arrow" size={17} />
+              <div><span>Azione</span><strong>Follow-up WhatsApp*</strong></div>
+            </div>
+            <ul>
+              <li><AppIcon name="check" size={16} /> Template personalizzati per il salone</li>
+              <li><AppIcon name="check" size={16} /> Dati cliente e percorso nello stesso flusso</li>
+              <li><AppIcon name="check" size={16} /> Automazione dei passaggi configurati</li>
+            </ul>
+          </article>
+        </div>
+
+        <div className={styles.growthBottom}>
+          <div>
+            <AppIcon name="sparkle" size={22} />
+            <p><strong>Gestisce. Analizza. Attiva.</strong><span>Il salone continua a lavorare. Salon Pro continua a trasformare i dati in opportunità.</span></p>
+          </div>
+          <a className={styles.primaryCta} href="#demo">Voglio vedere come funziona <AppIcon name="arrow" size={18} /></a>
+        </div>
+        <small className={styles.growthDisclaimer}>* L’invio tramite WhatsApp richiede configurazione dedicata del canale e consenso del cliente.</small>
       </section>
 
       <section className={styles.outcomeSection}>
