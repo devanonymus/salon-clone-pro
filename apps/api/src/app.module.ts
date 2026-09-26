@@ -12,6 +12,7 @@ import { ClientAwardsModule } from './client-awards/client-awards.module';
 import { FiscalModule } from './fiscal/fiscal.module';
 import { HealthController } from './health/health.controller';
 import { InventoryModule } from './inventory/inventory.module';
+import { LeadsModule } from './leads/leads.module';
 import { MarketingCardsModule } from './marketing-cards/marketing-cards.module';
 import { RequestIdMiddleware } from './observability/request-id.middleware';
 import { HttpLoggingMiddleware } from './observability/http-logging.middleware';
@@ -31,6 +32,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     SalesModule,
     StaffModule,
     InventoryModule,
+    LeadsModule,
     ServicePricesModule,
     CoachModule,
     MarketingCardsModule,

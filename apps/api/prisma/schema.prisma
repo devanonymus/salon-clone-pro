@@ -501,3 +501,32 @@ model CoachPrebookingResult {
   @@index([tenantId, dateKey, updatedAt], map: "CoachPrebooking_tenant_date_updated_idx")
   @@schema("app")
 }
+
+model Lead {
+  id                String   @id @default(uuid())
+  source            String
+  stage             String   @default("NEW")
+  name              String
+  salon             String
+  phone             String
+  email             String
+  teamSize          String?
+  currentManagement String?
+  answers           Json?
+  score             Int?
+  categoryScores    Json?
+  utmSource         String?
+  utmMedium         String?
+  utmCampaign       String?
+  utmContent        String?
+  utmTerm           String?
+  referrer          String?
+  privacyAccepted   Boolean
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([source, stage, createdAt], map: "Lead_source_stage_created_idx")
+  @@index([email, createdAt], map: "Lead_email_created_idx")
+  @@index([phone, createdAt], map: "Lead_phone_created_idx")
+  @@schema("app")
+}

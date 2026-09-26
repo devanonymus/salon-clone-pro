@@ -81,7 +81,13 @@ function getServerSessionSnapshot() {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublicRoute = pathname === "/" || pathname === "/login";
+  const isPublicRoute = [
+    "/",
+    "/login",
+    "/salon-score",
+    "/grazie",
+    "/privacy",
+  ].includes(pathname);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");

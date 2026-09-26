@@ -16,6 +16,8 @@ async function bootstrap() {
   );
 
   const defaultOrigins = [
+    'https://gestionalesalonpro.com',
+    'https://www.gestionalesalonpro.com',
     'https://web-production-7d41a3.up.railway.app',
     'https://app.acquavivastrategic.it',
     'http://localhost:3000',

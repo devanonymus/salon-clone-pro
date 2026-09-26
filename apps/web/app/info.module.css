@@ -1,0 +1,82 @@
+.infoPage {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: clamp(30px, 6vw, 80px) 20px;
+  background:
+    radial-gradient(circle at 80% 10%, rgba(137, 100, 236, 0.16), transparent 32%),
+    #11121b;
+  color: #f7f5f9;
+}
+
+.thankYouCard,
+.legalCard {
+  width: min(100%, 900px);
+  padding: clamp(28px, 6vw, 72px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  background: rgba(25, 26, 39, 0.94);
+  box-shadow: 0 36px 100px rgba(0, 0, 0, 0.32);
+}
+
+.successIcon {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  margin-bottom: 24px;
+  place-items: center;
+  border-radius: 21px;
+  background: rgba(56, 199, 131, 0.12);
+  color: #64dda0;
+}
+
+.eyebrow {
+  color: #b999f7;
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.thankYouCard h1,
+.legalCard h1 {
+  margin: 14px 0 0;
+  color: #faf9fb;
+  font-size: clamp(38px, 6vw, 68px);
+  font-weight: 690;
+  letter-spacing: -0.058em;
+  line-height: 1;
+}
+
+.thankYouCard > p {
+  max-width: 700px;
+  margin: 24px 0 0;
+  color: #d3ced9;
+  font-size: 17px;
+  line-height: 1.72;
+}
+
+.nextSteps { display: grid; gap: 10px; margin-top: 34px; }
+.nextSteps > div { display: flex; align-items: center; gap: 15px; padding: 15px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; background: rgba(255, 255, 255, 0.022); }
+.nextSteps b { display: grid; width: 38px; height: 38px; place-items: center; flex: 0 0 38px; border-radius: 11px; background: rgba(137, 100, 236, 0.12); color: #b999f7; font-size: 11px; }
+.nextSteps span { display: grid; gap: 4px; }
+.nextSteps strong { color: #f0edf3; font-size: 14px; }
+.nextSteps small { color: #bdb7c3; font-size: 12px; }
+
+.infoActions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+.primaryAction, .secondaryAction { display: inline-flex; min-height: 52px; align-items: center; justify-content: center; gap: 18px; padding: 0 18px; border-radius: 12px; font-size: 13px; font-weight: 740; text-decoration: none; }
+.primaryAction { background: linear-gradient(135deg, #8964ec, #9e71f2); color: white; }
+.secondaryAction { border: 1px solid rgba(255, 255, 255, 0.12); color: #e1dce5; }
+
+.backLink { display: inline-block; margin-bottom: 34px; color: #c6aafa; font-size: 13px; text-decoration: none; }
+.legalCard h1 { max-width: 760px; font-size: clamp(38px, 5vw, 58px); }
+.updated { margin: 18px 0 38px; color: #aaa4b2; font-size: 12px; }
+.legalCard section { padding: 24px 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.legalCard h2 { margin: 0 0 10px; color: #f1eef4; font-size: 20px; }
+.legalCard section p { margin: 0; color: #d0cad5; font-size: 14px; line-height: 1.75; }
+.legalCard section a { color: #c6aafa; }
+
+@media (max-width: 640px) {
+  .thankYouCard, .legalCard { border-radius: 20px; }
+  .infoActions { align-items: stretch; flex-direction: column; }
+}

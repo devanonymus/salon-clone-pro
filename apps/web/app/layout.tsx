@@ -1,5 +1,6 @@
 import "./globals.css";
 import AppShell from "./components/AppShell";
+import AnalyticsScripts from "./components/AnalyticsScripts";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="it">
       <body>
         <AppShell>{children}</AppShell>
+        <AnalyticsScripts />
       </body>
     </html>
   );

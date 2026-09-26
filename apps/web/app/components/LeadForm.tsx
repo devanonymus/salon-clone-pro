@@ -1,35 +1,56 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppIcon from "./AppIcon";
+import { trackEvent } from "../../src/lib/analytics";
+import {
+  getLeadAttribution,
+  submitPublicLead,
+} from "../../src/lib/public-leads";
 import styles from "../landing.module.css";
 
-type SubmitState = "idle" | "submitting" | "success" | "error";
+type SubmitState = "idle" | "submitting" | "error";
+
+function readString(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
 
 export default function LeadForm() {
+  const router = useRouter();
   const [state, setState] = useState<SubmitState>("idle");
+  const started = useRef(false);
+
+  function trackStart() {
+    if (started.current) return;
+    started.current = true;
+    trackEvent("demo_form_start", { form: "richiesta-demo" });
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const body = new URLSearchParams();
-
-    formData.forEach((value, key) => {
-      if (typeof value === "string") body.append(key, value);
-    });
 
     try {
       setState("submitting");
-      const response = await fetch("/", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: body.toString(),
+      await submitPublicLead("richiesta-demo", {
+        leadSource: "demo",
+        name: readString(formData, "nome"),
+        salon: readString(formData, "salone"),
+        phone: readString(formData, "telefono"),
+        email: readString(formData, "email"),
+        teamSize: readString(formData, "team"),
+        currentManagement: readString(formData, "gestione-attuale"),
+        website: readString(formData, "bot-field"),
+        privacyAccepted: true,
+        ...getLeadAttribution(),
       });
 
-      if (!response.ok) throw new Error("Invio non riuscito");
+      trackEvent("demo_form_submit", { form: "richiesta-demo" });
       form.reset();
-      setState("success");
+      router.push("/grazie?source=demo");
     } catch {
       setState("error");
     }
@@ -39,77 +60,91 @@ export default function LeadForm() {
     <div className={styles.formCard}>
       <div className={styles.formHeading}>
         <span><i /> Demo riservata ai professionisti</span>
-        <h3>Prenota la demo guidata.</h3>
-        <p>Pochi dati, poi ti ricontattiamo noi per scegliere il momento migliore.</p>
+        <h3>Vedi Salon Pro applicato al tuo salone.</h3>
+        <p>
+          Partiamo da come lavori oggi e mostriamo soltanto ciò che può
+          semplificarti davvero la gestione.
+        </p>
       </div>
 
-      {state === "success" ? (
-        <div className={styles.formSuccess} role="status">
-          <span><AppIcon name="check" size={28} /></span>
-          <h3>Richiesta ricevuta.</h3>
-          <p>Ti contatteremo per capire le esigenze del tuo salone e fissare la demo.</p>
-          <button onClick={() => setState("idle")} type="button">Invia un’altra richiesta</button>
-        </div>
-      ) : (
-        <form
-          action="/"
-          className={styles.leadForm}
-          data-netlify="true"
-          data-netlify-honeypot="bot-field"
-          method="POST"
-          name="richiesta-demo"
-          onSubmit={handleSubmit}
-        >
-          <input name="form-name" type="hidden" value="richiesta-demo" />
-          <input data-remove-prefix="" name="subject" type="hidden" value="Nuova richiesta demo Salon Pro" />
-          <input name="source" type="hidden" value="landing-salon-pro" />
-          <p className={styles.honeypot}>
-            <label>Non compilare: <input name="bot-field" tabIndex={-1} /></label>
-          </p>
+      <form
+        action="/"
+        className={styles.leadForm}
+        data-netlify="true"
+        data-netlify-honeypot="bot-field"
+        method="POST"
+        name="richiesta-demo"
+        onFocusCapture={trackStart}
+        onSubmit={handleSubmit}
+      >
+        <input name="form-name" type="hidden" value="richiesta-demo" />
+        <input data-remove-prefix="" name="subject" type="hidden" value="Nuova richiesta demo Salon Pro" />
+        <input name="lead-source" type="hidden" value="demo" />
+        <input name="stage" type="hidden" value="NEW" />
+        <p className={styles.honeypot}>
+          <label>Non compilare: <input name="bot-field" tabIndex={-1} /></label>
+        </p>
 
-          <div className={styles.formGrid}>
-            <label>
-              <span>Nome e cognome *</span>
-              <input autoComplete="name" name="nome" placeholder="Come ti chiami?" required />
-            </label>
-            <label>
-              <span>Nome del salone *</span>
-              <input autoComplete="organization" name="salone" placeholder="Il tuo salone" required />
-            </label>
-            <label>
-              <span>Telefono / WhatsApp *</span>
-              <input autoComplete="tel" inputMode="tel" name="telefono" placeholder="Es. 333 123 4567" required type="tel" />
-            </label>
-            <label>
-              <span>Dimensione del team *</span>
-              <select defaultValue="" name="team" required>
-                <option disabled value="">Seleziona</option>
-                <option value="Solo titolare">Solo titolare</option>
-                <option value="2-3 persone">2–3 persone</option>
-                <option value="4-6 persone">4–6 persone</option>
-                <option value="7+ persone">7+ persone</option>
-              </select>
-            </label>
-          </div>
-
-          <label className={styles.consent}>
-            <input name="consenso-ricontatto" required type="checkbox" value="si" />
-            <span>Acconsento a essere ricontattato in merito alla richiesta di demo.</span>
+        <div className={styles.formGrid}>
+          <label>
+            <span>Nome e cognome *</span>
+            <input autoComplete="name" name="nome" placeholder="Come ti chiami?" required />
           </label>
+          <label>
+            <span>Nome del salone *</span>
+            <input autoComplete="organization" name="salone" placeholder="Il tuo salone" required />
+          </label>
+          <label>
+            <span>Telefono / WhatsApp *</span>
+            <input autoComplete="tel" inputMode="tel" name="telefono" placeholder="Es. 333 123 4567" required type="tel" />
+          </label>
+          <label>
+            <span>Email *</span>
+            <input autoComplete="email" inputMode="email" name="email" placeholder="nome@salone.it" required type="email" />
+          </label>
+          <label>
+            <span>Numero collaboratori *</span>
+            <select defaultValue="" name="team" required>
+              <option disabled value="">Seleziona</option>
+              <option value="Solo io">Solo io</option>
+              <option value="2-3">2–3</option>
+              <option value="4-6">4–6</option>
+              <option value="7+">7+</option>
+            </select>
+          </label>
+          <label>
+            <span>Come gestisci oggi il salone?</span>
+            <select defaultValue="" name="gestione-attuale">
+              <option value="">Facoltativo</option>
+              <option value="Agenda cartacea">Agenda cartacea</option>
+              <option value="WhatsApp e telefono">WhatsApp e telefono</option>
+              <option value="Fogli o calendari">Fogli o calendari</option>
+              <option value="Altro gestionale">Altro gestionale</option>
+              <option value="Piu strumenti">Più strumenti</option>
+            </select>
+          </label>
+        </div>
 
-          {state === "error" ? (
-            <p className={styles.formError} role="alert">
-              Non siamo riusciti a inviare la richiesta. Riprova tra qualche istante.
-            </p>
-          ) : null}
+        <label className={styles.consent}>
+          <input name="privacy-accettata" required type="checkbox" value="si" />
+          <span>
+            Ho letto l’<a href="/privacy" target="_blank">informativa privacy</a> e chiedo di
+            essere ricontattato in merito alla demo.
+          </span>
+        </label>
 
-          <button className={styles.formSubmit} disabled={state === "submitting"} type="submit">
-            <span>{state === "submitting" ? "Invio in corso…" : "Voglio vedere Salon Pro"}</span>
-            <AppIcon name={state === "submitting" ? "sparkle" : "arrow"} size={18} />
-          </button>
-          <small className={styles.formMicrocopy}>6 minuti · Nessun impegno · Nessuna chiamata automatica</small>
-        </form>
-      )}
+        {state === "error" ? (
+          <p className={styles.formError} role="alert">
+            Non siamo riusciti a inviare la richiesta. Riprova tra qualche istante.
+          </p>
+        ) : null}
+
+        <button className={styles.formSubmit} disabled={state === "submitting"} type="submit">
+          <span>{state === "submitting" ? "Invio in corso…" : "Voglio vedere Salon Pro"}</span>
+          <AppIcon name={state === "submitting" ? "sparkle" : "arrow"} size={18} />
+        </button>
+        <small className={styles.formMicrocopy}>Demo gratuita · Nessun impegno · Nessuna chiamata automatica</small>
+      </form>
     </div>
   );
 }
