@@ -6,6 +6,7 @@ import AppIcon from "./AppIcon";
 import { trackEvent } from "../../src/lib/analytics";
 import {
   getLeadAttribution,
+  PUBLIC_LEAD_FORM_NAME,
   submitPublicLead,
 } from "../../src/lib/public-leads";
 import styles from "../landing.module.css";
@@ -25,7 +26,7 @@ export default function LeadForm() {
   function trackStart() {
     if (started.current) return;
     started.current = true;
-    trackEvent("demo_form_start", { form: "richiesta-demo" });
+    trackEvent("demo_form_start", { form: PUBLIC_LEAD_FORM_NAME, source: "demo" });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -35,7 +36,7 @@ export default function LeadForm() {
 
     try {
       setState("submitting");
-      await submitPublicLead("richiesta-demo", {
+      await submitPublicLead({
         leadSource: "demo",
         name: readString(formData, "nome"),
         salon: readString(formData, "salone"),
@@ -48,7 +49,7 @@ export default function LeadForm() {
         ...getLeadAttribution(),
       });
 
-      trackEvent("demo_form_submit", { form: "richiesta-demo" });
+      trackEvent("demo_form_submit", { form: PUBLIC_LEAD_FORM_NAME, source: "demo" });
       form.reset();
       router.push("/grazie?source=demo");
     } catch {
@@ -68,16 +69,16 @@ export default function LeadForm() {
       </div>
 
       <form
-        action="/"
+        action="/__forms.html"
         className={styles.leadForm}
         data-netlify="true"
         data-netlify-honeypot="bot-field"
         method="POST"
-        name="richiesta-demo"
+        name={PUBLIC_LEAD_FORM_NAME}
         onFocusCapture={trackStart}
         onSubmit={handleSubmit}
       >
-        <input name="form-name" type="hidden" value="richiesta-demo" />
+        <input name="form-name" type="hidden" value={PUBLIC_LEAD_FORM_NAME} />
         <input data-remove-prefix="" name="subject" type="hidden" value="Nuova richiesta demo Salon Pro" />
         <input name="lead-source" type="hidden" value="demo" />
         <input name="stage" type="hidden" value="NEW" />

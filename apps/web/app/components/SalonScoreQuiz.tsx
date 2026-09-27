@@ -6,6 +6,7 @@ import AppIcon from "./AppIcon";
 import { trackEvent } from "../../src/lib/analytics";
 import {
   getLeadAttribution,
+  PUBLIC_LEAD_FORM_NAME,
   submitPublicLead,
 } from "../../src/lib/public-leads";
 import {
@@ -86,7 +87,7 @@ export default function SalonScoreQuiz() {
 
     try {
       setSubmitState("submitting");
-      await submitPublicLead("salon-score", {
+      await submitPublicLead({
         leadSource: "salon_score",
         name: readString(formData, "nome"),
         salon: readString(formData, "salone"),
@@ -190,14 +191,15 @@ export default function SalonScoreQuiz() {
             </div>
 
             <form
+              action="/__forms.html"
               className={styles.scoreLeadForm}
               data-netlify="true"
               data-netlify-honeypot="bot-field"
               method="POST"
-              name="salon-score"
+              name={PUBLIC_LEAD_FORM_NAME}
               onSubmit={handleLead}
             >
-              <input name="form-name" type="hidden" value="salon-score" />
+              <input name="form-name" type="hidden" value={PUBLIC_LEAD_FORM_NAME} />
               <input name="lead-source" type="hidden" value="salon_score" />
               <input name="stage" type="hidden" value="NEW" />
               <input name="score" type="hidden" value={result.score} />

@@ -1,6 +1,6 @@
-import { API_URL } from "./api";
-
 export type LeadSource = "demo" | "salon_score";
+
+export const PUBLIC_LEAD_FORM_NAME = "salonpro-lead";
 
 export type LeadAttribution = {
   utmSource?: string;
@@ -92,20 +92,17 @@ function netlifyFields(payload: PublicLeadPayload) {
   };
 }
 
-async function submitToNetlify(
-  formName: "richiesta-demo" | "salon-score",
-  payload: PublicLeadPayload,
-) {
+async function submitToNetlify(payload: PublicLeadPayload) {
   const body = new URLSearchParams({
-    "form-name": formName,
+    "form-name": PUBLIC_LEAD_FORM_NAME,
     subject:
-      formName === "salon-score"
+      payload.leadSource === "salon_score"
         ? "Nuovo Salon Score completato"
         : "Nuova richiesta demo Salon Pro",
     ...netlifyFields(payload),
   });
 
-  const response = await fetch("/", {
+  const response = await fetch("/__forms.html", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -114,27 +111,6 @@ async function submitToNetlify(
   if (!response.ok) throw new Error("Invio del contatto non riuscito");
 }
 
-async function mirrorToLeadApi(payload: PublicLeadPayload) {
-  const response = await fetch(`${API_URL}/leads`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error("Salvataggio CRM non riuscito");
-}
-
-export async function submitPublicLead(
-  formName: "richiesta-demo" | "salon-score",
-  payload: PublicLeadPayload,
-) {
-  await submitToNetlify(formName, payload);
-
-  // Netlify remains the delivery-safe source until the Railway migration is live.
-  // The CRM mirror is intentionally best-effort so a temporary API issue never loses a lead.
-  try {
-    await mirrorToLeadApi(payload);
-    return { apiStored: true };
-  } catch {
-    return { apiStored: false };
-  }
+export async function submitPublicLead(payload: PublicLeadPayload) {
+  await submitToNetlify(payload);
 }
