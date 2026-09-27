@@ -8,13 +8,16 @@
   --copy-soft: #beb8c4;
   --purple: #9e71f2;
   min-height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden;
   background: var(--bg);
   color: #f8f7fa;
 }
 
 .landing a { text-decoration: none; }
 .landing h1, .landing h2, .landing h3, .landing p { margin-top: 0; }
+.landing h1, .landing h2, .landing h3 { text-wrap: balance; }
+.landing p { text-wrap: pretty; }
+.heroCopy, .productVisual, .problemCopy, .problemList, .productHeading > *, .analyticsSection > *, .scoreSection > *, .demoSection > *, .faqSection > *, .finalCta > * { min-width: 0; }
 .productSection, .functionsSection, .demoSection, .faqSection { scroll-margin-top: 88px; }
 
 .header {
@@ -297,19 +300,22 @@
   .hero { min-height: auto; }
   .heroContent { grid-template-columns: 1fr; }
   .heroCopy { max-width: 780px; }
-  .productVisual { width: 94%; margin-left: auto; transform: none; }
+  .productVisual { width: 100%; margin-inline: auto; transform: none; }
   .promiseStrip { grid-template-columns: repeat(3, auto); padding: 25px 0; }
   .promiseStrip span { grid-column: 1 / -1; justify-self: start; text-align: left; }
   .problemSection, .analyticsSection, .scoreSection, .demoSection, .faqSection, .finalCta { grid-template-columns: 1fr; }
   .beforeAfterGrid { grid-template-columns: 1fr; gap: 14px; }
   .transformArrow { min-height: 45px; transform: rotate(90deg); }
-  .benefitSection, .growthGrid { grid-template-columns: 1fr; }
+  .benefitSection, .growthGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .benefitSection article:last-child, .growthCard:last-child { grid-column: 1 / -1; }
   .benefitSection article { min-height: 230px; }
   .productHeading { grid-template-columns: 1fr; gap: 24px; }
   .productStage { grid-template-columns: 1fr; }
   .flowRail { grid-template-columns: repeat(5, 1fr); }
   .flowRail > div { min-height: 100px; align-items: flex-start; flex-direction: column; }
   .featureGrid { grid-template-columns: repeat(2, 1fr); }
+  .proofGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .proofGrid article:last-child { grid-column: 1 / -1; }
   .growthCard { min-height: 280px; }
   .scoreSection { padding: 50px; }
   .scoreVisual { max-width: 620px; }
@@ -329,13 +335,13 @@
   .brandText small { display: none; }
   .headerCta { display: none; }
   .loginLink { padding-right: 4px; }
-  .hero { padding: 72px 17px 90px; }
-  .heroContent { gap: 76px; }
-  .heroCopy h1 { font-size: clamp(52px, 15vw, 68px); }
-  .heroCopy > p:not(.riskReversal) { font-size: 17px; }
+  .hero { padding: 58px 17px 82px; }
+  .heroContent { gap: 68px; }
+  .heroCopy h1 { font-size: clamp(44px, 14vw, 58px); line-height: 0.96; }
+  .heroCopy > p:not(.riskReversal) { margin-top: 24px; font-size: 16px; }
   .heroActions { align-items: stretch; flex-direction: column; }
   .primaryCta, .secondaryCta { width: 100%; }
-  .heroAssurances { display: grid; grid-template-columns: 1fr 1fr; }
+  .heroAssurances { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 12px; }
   .riskReversal { font-size: 11px; }
   .productVisual { width: 100%; border-radius: 15px; }
   .visualTopbar { min-height: 40px; }
@@ -347,43 +353,61 @@
   .promiseStrip strong { font-size: 14px; text-align: center; }
   .promiseStrip strong::after { display: none; }
   .promiseStrip span { font-size: 12px; }
-  .problemSection { padding: 100px 0; gap: 48px; }
-  .problemCopy h2, .sectionHeading h2, .productHeading h2, .analyticsCopy h2, .growthHeading h2, .scoreCopy h2, .demoCopy h2, .faqHeading h2, .finalCta h2 { font-size: clamp(38px, 11vw, 50px); }
+  .problemSection { padding: 82px 0; gap: 42px; }
+  .problemCopy h2, .sectionHeading h2, .productHeading h2, .analyticsCopy h2, .growthHeading h2, .scoreCopy h2, .demoCopy h2, .faqHeading h2, .finalCta h2 { font-size: clamp(36px, 10.5vw, 46px); line-height: 1.02; }
   .problemCopy > p, .productHeading > p, .analyticsCopy > p, .growthHeading > p, .scoreCopy > p, .demoCopy > p, .finalCta p { font-size: 15px; }
   .sectionHeading { margin-bottom: 38px; text-align: left; }
-  .beforeCard, .afterCard { min-height: 370px; padding: 25px; }
+  .beforeCard, .afterCard { min-height: 0; padding: 25px; }
   .systemMap { grid-template-columns: 1fr; }
   .beforeAfterStatement { font-size: 16px; text-align: left; }
-  .benefitSection { gap: 10px; }
-  .productStageScreen { min-height: 280px; }
-  .productStageScreen img { min-width: 700px; }
+  .benefitSection, .growthGrid { grid-template-columns: 1fr; gap: 10px; }
+  .benefitSection article:last-child, .growthCard:last-child { grid-column: auto; }
+  .benefitSection article { min-height: 0; }
+  .productStageScreen { min-height: 0; }
+  .productStageScreen img { min-width: 0; height: auto; object-fit: contain; }
   .flowRail { grid-template-columns: 1fr; }
   .flowRail > div { min-height: 68px; align-items: center; flex-direction: row; }
   .featureGrid { grid-template-columns: 1fr; }
-  .featureCard { min-height: 230px; }
+  .featureCard { min-height: 0; }
   .analyticsSection { gap: 46px; }
   .coachVisual { padding: 20px; }
-  .growthCard { min-height: 260px; padding: 25px; }
+  .growthCard { min-height: 0; padding: 25px; }
   .scoreSection { gap: 44px; padding: 34px 22px; border-radius: 22px; }
   .scoreVisual { grid-template-columns: 1fr; }
   .scoreRing { width: 145px; height: 145px; padding-top: 40px; }
   .scoreBars { width: 100%; }
   .objectionGrid { grid-template-columns: 1fr; }
-  .objectionGrid article { min-height: 210px; }
+  .objectionGrid article { min-height: 0; }
   .demoSection { padding: 68px 15px 15px; border-radius: 22px; }
   .demoCopy { padding: 0 8px; }
   .formCard { border-radius: 18px; }
   .formGrid { grid-template-columns: 1fr; }
+  .leadForm input:not([type="checkbox"]), .leadForm select { font-size: 16px; }
   .proofGrid { grid-template-columns: 1fr; }
+  .proofGrid article:last-child { grid-column: auto; }
   .faqSection { padding-bottom: 110px; }
   .faqList summary { font-size: 14px; }
-  .finalCta { min-height: 480px; margin-bottom: 40px; padding: 34px 24px; }
-  .footer { grid-template-columns: 1fr; padding-bottom: 100px; }
+  .faqList details p { margin-right: 0; }
+  .finalCta { min-height: 0; margin-bottom: 40px; padding: 34px 24px; }
+  .footer { grid-template-columns: 1fr; padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
   .footer > div { flex-wrap: wrap; justify-content: flex-start; }
-  .mobileCta { position: fixed; z-index: 60; right: 10px; bottom: 10px; left: 10px; display: grid; min-height: 54px; grid-template-columns: 1fr auto; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; background: #1d1e2c; box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42); }
+  .mobileCta { position: fixed; z-index: 60; right: 10px; bottom: max(10px, env(safe-area-inset-bottom)); left: 10px; display: grid; min-height: 54px; grid-template-columns: minmax(0, 1fr) auto; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; background: #1d1e2c; box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42); }
   .mobileCta a { display: grid; min-height: 54px; place-items: center; padding: 0 16px; color: #fff; font-size: 12px; font-weight: 760; }
   .mobileCta a:first-child { background: linear-gradient(135deg, #8964ec, #9e71f2); }
   .mobileCta a:last-child { border-left: 1px solid rgba(255, 255, 255, 0.1); color: #d8cced; }
+}
+
+@media (max-width: 380px) {
+  .header { padding-inline: 12px; }
+  .brand { gap: 9px; }
+  .loginLink { padding-left: 8px; font-size: 11px; }
+  .hero { padding-inline: 14px; }
+  .heroAssurances { grid-template-columns: 1fr; }
+  .promiseStrip, .problemSection, .beforeAfterSection, .benefitSection, .productSection, .functionsSection, .analyticsSection, .growthSection, .scoreSection, .objectionSection, .demoSection, .proofSection, .faqSection, .finalCta, .footer { width: calc(100% - 24px); }
+  .scoreSection { padding-inline: 18px; }
+  .demoSection { padding-inline: 10px; }
+  .formCard { padding: 22px 18px; }
+  .mobileCta a { padding-inline: 12px; font-size: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
