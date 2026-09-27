@@ -61,11 +61,8 @@ export default function LeadForm() {
     <div className={styles.formCard}>
       <div className={styles.formHeading}>
         <span><i /> Demo riservata ai professionisti</span>
-        <h3>Vedi Salon Pro applicato al tuo salone.</h3>
-        <p>
-          Partiamo da come lavori oggi e mostriamo soltanto ciò che può
-          semplificarti davvero la gestione.
-        </p>
+        <h3>Raccontaci come lavori oggi.</h3>
+        <p>Ti mostriamo solo ciò che può servirti davvero.</p>
       </div>
 
       <form

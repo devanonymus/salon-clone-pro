@@ -4,6 +4,7 @@ import Link from "next/link";
 import AppIcon, { type AppIconName } from "./components/AppIcon";
 import LandingAnalytics from "./components/LandingAnalytics";
 import LeadForm from "./components/LeadForm";
+import StickyConversionBar from "./components/StickyConversionBar";
 import VerifiedProofSection, {
   type VerifiedSalonStory,
 } from "./components/VerifiedProofSection";
@@ -30,9 +31,7 @@ const problems = [
   "Clienti che spariscono senza che nessuno se ne accorga",
   "Magazzino controllato a memoria",
   "Difficoltà nel leggere il lavoro di ogni collaboratore",
-  "Incassi e vendite capiti soltanto a fine mese",
   "Marketing fatto senza sapere chi contattare",
-  "Informazioni sparse tra fogli, chat e software diversi",
 ];
 
 const modules: Array<{ icon: AppIconName; title: string; copy: string }> = [
@@ -44,12 +43,12 @@ const modules: Array<{ icon: AppIconName; title: string; copy: string }> = [
   {
     icon: "clients",
     title: "Clienti",
-    copy: "Ogni cliente ha una storia: appuntamenti, servizi, preferenze e valore.",
+    copy: "Individua chi non torna e crea azioni di recupero partendo dallo storico reale.",
   },
   {
     icon: "team",
     title: "Team",
-    copy: "Capisci come sta lavorando il team senza aspettare la fine del mese.",
+    copy: "Confronta carico di lavoro e produttività senza aspettare la fine del mese.",
   },
   {
     icon: "cash",
@@ -59,7 +58,7 @@ const modules: Array<{ icon: AppIconName; title: string; copy: string }> = [
   {
     icon: "package",
     title: "Magazzino",
-    copy: "Scorte e movimenti sotto controllo prima che un prodotto finisca.",
+    copy: "Riduci rotture di stock e acquisti alla cieca controllando scorte e movimenti.",
   },
   {
     icon: "marketing",
@@ -115,6 +114,11 @@ const objections = [
 ];
 
 const faqs = [
+  {
+    question: "Quanto costa?",
+    answer:
+      "Dipende dalla configurazione e dalle esigenze del salone. La demo serve anche a capire quale soluzione ha senso per la tua realtà, senza impegno.",
+  },
   {
     question: "Salon Pro è soltanto un’agenda online?",
     answer:
@@ -207,7 +211,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <section className={styles.hero}>
+      <section className={styles.hero} data-hero>
         <div className={styles.heroGlow} />
         <div className={styles.heroContent}>
           <div className={styles.heroCopy}>
@@ -216,10 +220,13 @@ export default function HomePage() {
               Il sistema operativo del tuo salone
             </span>
             <h1>Il tuo salone cresce.<br /><em>Il caos no.</em></h1>
-            <p>
-              Salon Pro riunisce appuntamenti, clienti, team, vendite,
-              magazzino e marketing in un unico sistema. Tu ritrovi il controllo
-              per gestire meglio e crescere con più consapevolezza.
+            <p className={styles.heroOutcome}>
+              Sai sempre chi arriva, quanto incassi, cosa vende il team e quali
+              clienti stanno smettendo di tornare.
+            </p>
+            <p className={styles.heroSupport}>
+              Agenda, clienti, team, vendite, magazzino e marketing lavorano
+              finalmente nello stesso sistema.
             </p>
             <div className={styles.heroActions}>
               <a
@@ -278,9 +285,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section aria-label="Promessa Salon Pro" className={styles.promiseStrip}>
-        <strong>Gestisci.</strong><strong>Controlla.</strong><strong>Cresci.</strong>
-        <span>Non servono più strumenti. Serve vedere il salone come un unico sistema.</span>
+      <section aria-label="Elementi collegati in Salon Pro" className={styles.productProofStrip}>
+        <div>
+          <span><AppIcon name="agenda" size={20} /></span>
+          <p><small>Operatività</small><strong>Agenda unica</strong></p>
+        </div>
+        <div>
+          <span><AppIcon name="clients" size={20} /></span>
+          <p><small>Relazione</small><strong>Clienti con storico</strong></p>
+        </div>
+        <div>
+          <span><AppIcon name="trend" size={20} /></span>
+          <p><small>Controllo</small><strong>Team e vendite collegati</strong></p>
+        </div>
       </section>
 
       <section className={styles.problemSection}>
@@ -313,27 +330,26 @@ export default function HomePage() {
             <span className={styles.stateLabel}>Prima</span>
             <h3>Informazioni sparse</h3>
             <div className={styles.toolCloud}>
-              {["WhatsApp", "Agenda", "Excel", "Cassa", "Appunti", "Telefono"].map((tool) => (
+              {["WhatsApp", "Agenda", "Excel", "Cassa", "Appunti"].map((tool) => (
                 <span key={tool}>{tool}</span>
               ))}
             </div>
-            <p>Più strumenti, più passaggi, meno visione d’insieme.</p>
+            <p>Informazioni da cercare e ricostruire ogni volta.</p>
           </article>
           <div className={styles.transformArrow}><AppIcon name="arrow" size={24} /></div>
           <article className={styles.afterCard}>
             <span className={styles.stateLabel}>Dopo</span>
-            <h3>Salon Pro</h3>
-            <div className={styles.systemMap}>
-              {["Agenda", "Clienti", "Team", "Vendite", "Prodotti", "Marketing"].map((tool) => (
-                <span key={tool}><AppIcon name="check" size={15} />{tool}</span>
-              ))}
+            <h3>Un solo sistema</h3>
+            <div className={styles.unifiedSystem}>
+              <span><AppIcon name="dashboard" size={25} /></span>
+              <p><small>Tutto collegato</small><strong>Salon Pro</strong></p>
             </div>
-            <p>Un unico flusso: ogni attività aggiorna ciò che il titolare deve sapere.</p>
+            <p>Meno passaggi. Più visione d’insieme.</p>
           </article>
         </div>
         <p className={styles.beforeAfterStatement}>
-          Non significa lavorare di più con un altro software. Significa
-          eliminare strumenti, passaggi e informazioni sparse.
+          Dall’appuntamento all’incasso, ogni operazione aggiorna la stessa
+          visione del salone.
         </p>
       </section>
 
@@ -422,6 +438,9 @@ export default function HomePage() {
         <div className={styles.analyticsCopy}>
           <span className={styles.sectionKicker}>Business Coach e Analytics</span>
           <h2>Non guardare solo quanto hai incassato. <em>Capisci perché.</em></h2>
+          <strong className={styles.decisionLine}>
+            Il punto non è avere più numeri. È sapere quale decisione prendere domani mattina.
+          </strong>
           <p>
             Salon Pro trasforma appuntamenti, vendite e costi in informazioni
             semplici. Il Business Coach porta in primo piano priorità e azioni,
@@ -488,10 +507,10 @@ export default function HomePage() {
         </div>
         <div className={styles.scoreCopy}>
           <span className={styles.sectionKicker}>Check-up gratuito</span>
-          <h2>Quanto è davvero sotto controllo il tuo salone?</h2>
+          <h2>In 2 minuti scopri dove stai perdendo controllo, tempo e opportunità.</h2>
           <p>
-            Rispondi a otto domande e scopri in quali aree stai lavorando bene
-            e dove puoi recuperare tempo, controllo e opportunità.
+            Ricevi un punteggio su organizzazione, clienti, team, magazzino e
+            marketing, con indicazioni pratiche per ogni area.
           </p>
           <Link
             className={styles.primaryCta}
@@ -518,6 +537,30 @@ export default function HomePage() {
               <p>{item.answer}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className={styles.fitSection}>
+        <div className={styles.sectionHeading}>
+          <span className={styles.sectionKicker}>Una scelta consapevole</span>
+          <h2>Salon Pro non è per tutti. Ed è un vantaggio.</h2>
+        </div>
+        <div className={styles.fitGrid}>
+          <article className={styles.fitCardPositive}>
+            <span className={styles.fitLabel}>Salon Pro fa per te se</span>
+            <ul>
+              <li><AppIcon name="check" size={18} /><span>Vuoi più controllo su ciò che accade ogni giorno.</span></li>
+              <li><AppIcon name="check" size={18} /><span>Hai un team o vuoi far crescere il salone.</span></li>
+              <li><AppIcon name="check" size={18} /><span>Vuoi unire strumenti, dati e attività in un unico flusso.</span></li>
+            </ul>
+          </article>
+          <article className={styles.fitCardNegative}>
+            <span className={styles.fitLabel}>Probabilmente non fa per te se</span>
+            <ul>
+              <li><AppIcon name="x" size={18} /><span>Cerchi soltanto un’agenda base gratuita.</span></li>
+              <li><AppIcon name="x" size={18} /><span>Non vuoi cambiare alcun processo, anche quando ti fa perdere tempo.</span></li>
+            </ul>
+          </article>
         </div>
       </section>
 
@@ -587,10 +630,7 @@ export default function HomePage() {
         </div>
       </footer>
 
-      <div className={styles.mobileCta}>
-        <a data-analytics-event="hero_demo_click" data-analytics-location="mobile_sticky" href="#demo">Richiedi demo</a>
-        <Link data-analytics-event="hero_score_click" data-analytics-location="mobile_sticky" href="/salon-score">Salon Score</Link>
-      </div>
+      <StickyConversionBar />
     </main>
   );
 }

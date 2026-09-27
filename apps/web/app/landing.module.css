@@ -17,7 +17,7 @@
 .landing h1, .landing h2, .landing h3, .landing p { margin-top: 0; }
 .landing h1, .landing h2, .landing h3 { text-wrap: balance; }
 .landing p { text-wrap: pretty; }
-.heroCopy, .productVisual, .problemCopy, .problemList, .productHeading > *, .analyticsSection > *, .scoreSection > *, .demoSection > *, .faqSection > *, .finalCta > * { min-width: 0; }
+.heroCopy, .productVisual, .problemCopy, .problemList, .productHeading > *, .analyticsSection > *, .scoreSection > *, .fitSection > *, .demoSection > *, .faqSection > *, .finalCta > * { min-width: 0; }
 .productSection, .functionsSection, .demoSection, .faqSection { scroll-margin-top: 88px; }
 
 .header {
@@ -72,7 +72,8 @@
 .liveDot { width: 7px; height: 7px; border-radius: 50%; background: #53d995; box-shadow: 0 0 0 4px rgba(83, 217, 149, 0.09); }
 .heroCopy h1 { margin: 24px 0 0; color: #fbfafc; font-size: clamp(58px, 6vw, 96px); font-weight: 690; letter-spacing: -0.068em; line-height: 0.92; }
 .heroCopy h1 em { color: #a982f3; font-style: normal; }
-.heroCopy > p:not(.riskReversal) { max-width: 650px; margin: 30px 0 0; color: #e0dce4; font-size: clamp(17px, 1.35vw, 20px); line-height: 1.65; }
+.heroOutcome { max-width: 670px; margin: 29px 0 0; color: #f0ecf3; font-size: clamp(18px, 1.45vw, 21px); font-weight: 590; line-height: 1.55; }
+.heroSupport { max-width: 620px; margin: 14px 0 0; color: #c9c3ce; font-size: 14px; line-height: 1.6; }
 .heroActions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
 .primaryCta, .secondaryCta { display: inline-flex; min-height: 54px; align-items: center; justify-content: center; gap: 20px; padding: 0 20px; border-radius: 13px; font-size: 13px; font-weight: 760; transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; }
 .primaryCta { border: 1px solid rgba(255, 255, 255, 0.12); background: linear-gradient(135deg, #8964ec, #a275f1); box-shadow: 0 16px 36px rgba(137, 100, 236, 0.22); color: #fff; }
@@ -101,13 +102,14 @@
 .visualBadgeOne { top: -38px; right: 24px; }
 .visualBadgeTwo { bottom: -38px; left: 24px; }
 
-.promiseStrip { display: grid; width: min(calc(100% - 44px), 1340px); min-height: 100px; grid-template-columns: auto auto auto 1fr; align-items: center; gap: clamp(20px, 3vw, 44px); margin: 0 auto; border-bottom: 1px solid var(--border); }
-.promiseStrip strong { color: #f7f5f9; font-size: 16px; letter-spacing: -0.03em; }
-.promiseStrip strong::after { margin-left: clamp(20px, 3vw, 44px); color: #755caf; content: "·"; }
-.promiseStrip strong:nth-child(3)::after { display: none; }
-.promiseStrip span { justify-self: end; max-width: 500px; color: #c7c1cc; font-size: 13px; line-height: 1.55; text-align: right; }
+.productProofStrip { display: grid; width: min(calc(100% - 44px), 1340px); grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 22px auto 0; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+.productProofStrip > div { display: flex; min-width: 0; align-items: center; gap: 13px; padding: 16px 18px; border: 1px solid rgba(255, 255, 255, 0.085); border-radius: 15px; background: rgba(255, 255, 255, 0.022); }
+.productProofStrip > div > span { display: grid; width: 42px; height: 42px; place-items: center; flex: 0 0 42px; border-radius: 12px; background: rgba(137, 100, 236, 0.1); color: #a985f4; }
+.productProofStrip p { display: grid; gap: 3px; margin: 0; }
+.productProofStrip small { color: #9f98a7; font-size: 9px; font-weight: 720; letter-spacing: 0.1em; text-transform: uppercase; }
+.productProofStrip strong { color: #f1edf4; font-size: 14px; letter-spacing: -0.02em; }
 
-.problemSection, .beforeAfterSection, .benefitSection, .productSection, .functionsSection, .analyticsSection, .growthSection, .scoreSection, .objectionSection, .demoSection, .proofSection, .faqSection, .finalCta { width: min(calc(100% - 44px), 1340px); margin-right: auto; margin-left: auto; }
+.problemSection, .beforeAfterSection, .benefitSection, .productSection, .functionsSection, .analyticsSection, .growthSection, .scoreSection, .objectionSection, .fitSection, .demoSection, .proofSection, .faqSection, .finalCta { width: min(calc(100% - 44px), 1340px); margin-right: auto; margin-left: auto; }
 
 .problemSection { display: grid; grid-template-columns: 0.85fr 1.15fr; align-items: start; gap: clamp(60px, 9vw, 140px); padding: clamp(110px, 12vw, 180px) 0; }
 .sectionKicker { display: inline-block; color: #b898f5; font-size: 11px; font-weight: 780; letter-spacing: 0.13em; text-transform: uppercase; }
@@ -133,6 +135,11 @@
 .systemMap { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .systemMap span { display: flex; min-height: 54px; align-items: center; gap: 9px; padding: 0 14px; border: 1px solid rgba(158, 113, 242, 0.17); border-radius: 12px; background: rgba(137, 100, 236, 0.07); color: #ece8f0; font-size: 13px; }
 .systemMap svg { color: #a985f4; }
+.unifiedSystem { display: flex; min-height: 132px; align-items: center; gap: 17px; padding: 22px; border: 1px solid rgba(158, 113, 242, 0.25); border-radius: 18px; background: linear-gradient(135deg, rgba(137, 100, 236, 0.13), rgba(137, 100, 236, 0.035)); }
+.unifiedSystem > span { display: grid; width: 58px; height: 58px; place-items: center; flex: 0 0 58px; border-radius: 16px; background: linear-gradient(135deg, #8964ec, #a275f1); box-shadow: 0 15px 32px rgba(137, 100, 236, 0.24); color: #fff; }
+.unifiedSystem p { display: grid; gap: 5px; margin: 0; }
+.unifiedSystem small { color: #bfa6f0; font-size: 9px; font-weight: 760; letter-spacing: 0.12em; text-transform: uppercase; }
+.unifiedSystem strong { color: #fff; font-size: 25px; letter-spacing: -0.045em; }
 .beforeCard > p, .afterCard > p { margin: 35px 0 0; color: #c6c0cb; font-size: 14px; line-height: 1.65; }
 .transformArrow { display: grid; place-items: center; color: #9e71f2; }
 .transformArrow svg { filter: drop-shadow(0 0 12px rgba(158, 113, 242, 0.4)); }
@@ -172,6 +179,7 @@
 
 .analyticsSection { display: grid; grid-template-columns: 1fr 0.9fr; align-items: center; gap: clamp(60px, 9vw, 130px); padding-bottom: clamp(110px, 12vw, 180px); }
 .analyticsCopy h2 em { color: #a982f3; font-style: normal; }
+.decisionLine { display: block; max-width: 680px; margin-top: 25px; padding-left: 16px; border-left: 2px solid rgba(158, 113, 242, 0.55); color: #f1edf4; font-size: 18px; font-weight: 650; line-height: 1.55; }
 .analyticsCopy > p { max-width: 670px; margin: 27px 0 0; color: var(--copy); font-size: 16px; line-height: 1.72; }
 .metricCloud { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
 .metricCloud span { padding: 10px 13px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 99px; background: rgba(255, 255, 255, 0.025); color: #d7d1dc; font-size: 11px; }
@@ -219,6 +227,20 @@
 .objectionGrid article > span { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 11px; background: rgba(56, 199, 131, 0.08); color: #61d99d; }
 .objectionGrid h3 { margin: 34px 0 11px; color: #f2eff4; font-size: 21px; letter-spacing: -0.035em; }
 .objectionGrid p { margin: 0; color: var(--copy); font-size: 13px; line-height: 1.68; }
+
+.fitSection { padding-bottom: clamp(110px, 12vw, 180px); }
+.fitGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.fitCardPositive, .fitCardNegative { min-height: 320px; padding: clamp(28px, 4vw, 44px); border: 1px solid var(--border); border-radius: 22px; background: var(--surface); }
+.fitCardPositive { border-color: rgba(83, 217, 149, 0.2); background: radial-gradient(circle at 100% 0%, rgba(83, 217, 149, 0.075), transparent 38%), var(--surface); }
+.fitCardNegative { background: radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.04), transparent 38%), var(--surface); }
+.fitLabel { display: block; color: #f1eef4; font-size: clamp(21px, 2vw, 28px); font-weight: 690; letter-spacing: -0.04em; }
+.fitCardPositive .fitLabel { color: #8be4b9; }
+.fitCardNegative .fitLabel { color: #c3bdc8; }
+.fitGrid ul { display: grid; gap: 14px; margin: 28px 0 0; padding: 0; list-style: none; }
+.fitGrid li { display: flex; align-items: flex-start; gap: 12px; color: #ded9e2; font-size: 14px; line-height: 1.55; }
+.fitGrid li svg { flex: 0 0 auto; margin-top: 2px; }
+.fitCardPositive li svg { color: #61d99d; }
+.fitCardNegative li svg { color: #91899a; }
 
 .demoSection { display: grid; grid-template-columns: 0.88fr 1.12fr; gap: clamp(56px, 8vw, 120px); margin-bottom: clamp(110px, 12vw, 180px); padding: clamp(70px, 8vw, 110px) clamp(24px, 5vw, 72px); border: 1px solid var(--border-purple); border-radius: 30px; background: radial-gradient(circle at 10% 0%, rgba(137, 100, 236, 0.13), transparent 35%), #171823; box-shadow: 0 40px 100px rgba(0, 0, 0, 0.22); }
 .demoCopy > p { max-width: 590px; margin: 25px 0 0; color: var(--copy); font-size: 16px; line-height: 1.72; }
@@ -284,6 +306,21 @@
 .footer > div { display: flex; align-items: center; justify-content: flex-end; gap: 21px; color: #c0bac5; font-size: 10px; }
 .footer a:hover { color: #b999f7; }
 .mobileCta { display: none; }
+.desktopCta { display: none; }
+
+@keyframes stickyIn {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (min-width: 961px) {
+  .desktopCta { position: fixed; z-index: 55; bottom: 18px; left: 50%; display: grid; min-width: 500px; min-height: 58px; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px; padding: 8px 9px 8px 18px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 16px; background: rgba(26, 27, 40, 0.9); box-shadow: 0 18px 54px rgba(0, 0, 0, 0.42); backdrop-filter: blur(18px); animation: stickyIn 220ms ease-out both; }
+  .desktopCta strong { color: #f6f3f8; font-size: 13px; letter-spacing: -0.02em; }
+  .desktopCta > span { width: 1px; height: 24px; justify-self: start; background: rgba(255, 255, 255, 0.1); }
+  .desktopCta a { display: grid; min-height: 40px; place-items: center; padding: 0 16px; border-radius: 10px; color: #ddd5e6; font-size: 12px; font-weight: 760; }
+  .desktopCta a:nth-of-type(1) { background: linear-gradient(135deg, #8964ec, #9e71f2); color: #fff; }
+  .desktopCta a:nth-of-type(2) { border: 1px solid rgba(158, 113, 242, 0.23); background: rgba(137, 100, 236, 0.07); }
+}
 
 @media (max-width: 1180px) {
   .header { grid-template-columns: 1fr auto; }
@@ -301,8 +338,6 @@
   .heroContent { grid-template-columns: 1fr; }
   .heroCopy { max-width: 780px; }
   .productVisual { width: 100%; margin-inline: auto; transform: none; }
-  .promiseStrip { grid-template-columns: repeat(3, auto); padding: 25px 0; }
-  .promiseStrip span { grid-column: 1 / -1; justify-self: start; text-align: left; }
   .problemSection, .analyticsSection, .scoreSection, .demoSection, .faqSection, .finalCta { grid-template-columns: 1fr; }
   .beforeAfterGrid { grid-template-columns: 1fr; gap: 14px; }
   .transformArrow { min-height: 45px; transform: rotate(90deg); }
@@ -316,6 +351,8 @@
   .featureGrid { grid-template-columns: repeat(2, 1fr); }
   .proofGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .proofGrid article:last-child { grid-column: 1 / -1; }
+  .fitGrid { grid-template-columns: 1fr; }
+  .fitCardPositive, .fitCardNegative { min-height: 0; }
   .growthCard { min-height: 280px; }
   .scoreSection { padding: 50px; }
   .scoreVisual { max-width: 620px; }
@@ -338,7 +375,8 @@
   .hero { padding: 58px 17px 82px; }
   .heroContent { gap: 68px; }
   .heroCopy h1 { font-size: clamp(44px, 14vw, 58px); line-height: 0.96; }
-  .heroCopy > p:not(.riskReversal) { margin-top: 24px; font-size: 16px; }
+  .heroOutcome { margin-top: 24px; font-size: 17px; line-height: 1.5; }
+  .heroSupport { margin-top: 11px; font-size: 13px; }
   .heroActions { align-items: stretch; flex-direction: column; }
   .primaryCta, .secondaryCta { width: 100%; }
   .heroAssurances { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 12px; }
@@ -348,17 +386,17 @@
   .visualBadge { min-width: 154px; padding: 9px 10px; }
   .visualBadgeOne { top: -36px; right: 10px; }
   .visualBadgeTwo { bottom: -38px; left: 10px; }
-  .promiseStrip, .problemSection, .beforeAfterSection, .benefitSection, .productSection, .functionsSection, .analyticsSection, .growthSection, .scoreSection, .objectionSection, .demoSection, .proofSection, .faqSection, .finalCta, .footer { width: calc(100% - 30px); }
-  .promiseStrip { grid-template-columns: repeat(3, 1fr); gap: 9px; }
-  .promiseStrip strong { font-size: 14px; text-align: center; }
-  .promiseStrip strong::after { display: none; }
-  .promiseStrip span { font-size: 12px; }
+  .productProofStrip, .problemSection, .beforeAfterSection, .benefitSection, .productSection, .functionsSection, .analyticsSection, .growthSection, .scoreSection, .objectionSection, .fitSection, .demoSection, .proofSection, .faqSection, .finalCta, .footer { width: calc(100% - 30px); }
+  .productProofStrip { grid-template-columns: 1fr; gap: 8px; margin-top: 15px; padding-bottom: 15px; }
+  .productProofStrip > div { padding: 13px 14px; }
+  .productProofStrip > div > span { width: 38px; height: 38px; flex-basis: 38px; }
   .problemSection { padding: 82px 0; gap: 42px; }
   .problemCopy h2, .sectionHeading h2, .productHeading h2, .analyticsCopy h2, .growthHeading h2, .scoreCopy h2, .demoCopy h2, .faqHeading h2, .finalCta h2 { font-size: clamp(36px, 10.5vw, 46px); line-height: 1.02; }
   .problemCopy > p, .productHeading > p, .analyticsCopy > p, .growthHeading > p, .scoreCopy > p, .demoCopy > p, .finalCta p { font-size: 15px; }
   .sectionHeading { margin-bottom: 38px; text-align: left; }
   .beforeCard, .afterCard { min-height: 0; padding: 25px; }
   .systemMap { grid-template-columns: 1fr; }
+  .unifiedSystem { min-height: 110px; padding: 18px; }
   .beforeAfterStatement { font-size: 16px; text-align: left; }
   .benefitSection, .growthGrid { grid-template-columns: 1fr; gap: 10px; }
   .benefitSection article:last-child, .growthCard:last-child { grid-column: auto; }
@@ -370,6 +408,7 @@
   .featureGrid { grid-template-columns: 1fr; }
   .featureCard { min-height: 0; }
   .analyticsSection { gap: 46px; }
+  .decisionLine { font-size: 16px; }
   .coachVisual { padding: 20px; }
   .growthCard { min-height: 0; padding: 25px; }
   .scoreSection { gap: 44px; padding: 34px 22px; border-radius: 22px; }
@@ -378,6 +417,8 @@
   .scoreBars { width: 100%; }
   .objectionGrid { grid-template-columns: 1fr; }
   .objectionGrid article { min-height: 0; }
+  .fitGrid { gap: 10px; }
+  .fitCardPositive, .fitCardNegative { padding: 25px; }
   .demoSection { padding: 68px 15px 15px; border-radius: 22px; }
   .demoCopy { padding: 0 8px; }
   .formCard { border-radius: 18px; }
@@ -403,7 +444,7 @@
   .loginLink { padding-left: 8px; font-size: 11px; }
   .hero { padding-inline: 14px; }
   .heroAssurances { grid-template-columns: 1fr; }
-  .promiseStrip, .problemSection, .beforeAfterSection, .benefitSection, .productSection, .functionsSection, .analyticsSection, .growthSection, .scoreSection, .objectionSection, .demoSection, .proofSection, .faqSection, .finalCta, .footer { width: calc(100% - 24px); }
+  .productProofStrip, .problemSection, .beforeAfterSection, .benefitSection, .productSection, .functionsSection, .analyticsSection, .growthSection, .scoreSection, .objectionSection, .fitSection, .demoSection, .proofSection, .faqSection, .finalCta, .footer { width: calc(100% - 24px); }
   .scoreSection { padding-inline: 18px; }
   .demoSection { padding-inline: 10px; }
   .formCard { padding: 22px 18px; }
@@ -412,4 +453,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .primaryCta, .secondaryCta, .productVisual { transform: none !important; transition: none; }
+  .desktopCta { animation: none; transform: translateX(-50%); }
 }
