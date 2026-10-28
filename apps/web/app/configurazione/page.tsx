@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ModuleHeader, ModuleMetrics } from "../components/ModuleHeader";
 import ops from "../operations.module.css";
-import { API_URL } from "../../src/lib/api";
+import { API_URL, clearToken } from "../../src/lib/api";
 
 type Tab =
   | "pdfcard"
@@ -308,8 +308,8 @@ export default function ConfigurazionePage() {
     try {
       setMessage("");
 
-      if (!ownerPin.trim() || ownerPin.trim().length < 4) {
-        setMessage("⚠️ Inserisci un PIN titolare di almeno 4 cifre.");
+      if (!/^\d{6,12}$/.test(ownerPin.trim())) {
+        setMessage("Inserisci un nuovo PIN da 6 a 12 cifre.");
         return;
       }
 
@@ -325,6 +325,8 @@ export default function ConfigurazionePage() {
 
       setOwnerPin("");
       setMessage("✅ PIN titolare aggiornato correttamente.");
+      clearToken();
+      router.replace("/login");
     } catch (err: any) {
       setMessage(`⚠️ ${err.message || "Errore aggiornamento PIN"}`);
     } finally {
@@ -332,17 +334,23 @@ export default function ConfigurazionePage() {
     }
   }
 
-  function runDiagnostic() {
+  async function runDiagnostic() {
+    setDiagnosticResult("Verifica del backend e del database in corso…");
+    let available = false;
+    try {
+      const response = await fetch(API_URL + "/health/ready", {
+        cache: "no-store", signal: AbortSignal.timeout(8000),
+      });
+      const result = await response.json();
+      available = response.ok && result.status === "ready" && result.checks?.database === "up";
+    } catch { /* A failed probe must not be reported as a successful check. */ }
     setDiagnosticResult(
       [
-        "✅ Database connesso",
-        "✅ Auth JWT attiva",
-        "✅ Multi-salone attivo",
-        `✅ WhatsApp: ${waEnabled ? "attivo" : "non attivo"}`,
-        `✅ Phone Number ID: ${waPhoneNumberId || "non configurato"}`,
-        `✅ Token WhatsApp: ${waHasToken ? "presente" : "mancante"}`,
+        available ? "Backend e database raggiungibili al momento della verifica." : "Backend o database non verificabili. Contatta l’assistenza.",
+        "Autenticazione e isolamento dei saloni richiedono controlli dedicati: questa prova non li certifica.",
+        waEnabled && waHasToken ? "WhatsApp configurato. L’invio effettivo va verificato separatamente." : "WhatsApp non configurato completamente.",
         `${fiscalSimulated ? "⚠️" : "✅"} Cassa fiscale: ${fiscalMode} - ${fiscalMessage}`,
-        `✅ Listino servizi: ${services.length} servizi attivi`,
+        `Listino caricato nell’interfaccia: ${services.length} servizi.`,
       ].join("\n"),
     );
   }

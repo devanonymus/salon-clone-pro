@@ -52,7 +52,7 @@ export class ClientsService {
       try {
         await this.prisma.$transaction(async (tx) => {
           await tx.clientGlobal.update({
-            where: { id: clientGlobalId },
+            where: { id: clientGlobalId, ownerTenantId: tenantId },
             data: {
               ...(body.name !== undefined ? { name: body.name } : {}),
               ...(body.phone !== undefined ? { phone: body.phone } : {}),
@@ -146,34 +146,30 @@ export class ClientsService {
   }
 
   async createQuick(tenantId: string, name: string, phone: string) {
-    const clientGlobal = await this.prisma.clientGlobal.upsert({
-      where: { phone },
-      update: {
-        name,
-      },
-      create: {
-        name,
-        phone,
-      },
-    });
-
-    return this.prisma.clientTenant.upsert({
-      where: {
-        tenantId_clientGlobalId: {
+    return this.prisma.$transaction(async (tx) => {
+      const clientGlobal = await tx.clientGlobal.upsert({
+        where: { ownerTenantId_phone: { ownerTenantId: tenantId, phone } },
+        update: { name },
+        create: { name, phone, ownerTenantId: tenantId },
+      });
+      return tx.clientTenant.upsert({
+        where: {
+          tenantId_clientGlobalId: {
+            tenantId,
+            clientGlobalId: clientGlobal.id,
+          },
+        },
+        update: {
+          archived: false,
+        },
+        create: {
           tenantId,
           clientGlobalId: clientGlobal.id,
         },
-      },
-      update: {
-        archived: false,
-      },
-      create: {
-        tenantId,
-        clientGlobalId: clientGlobal.id,
-      },
-      include: {
-        clientGlobal: true,
-      },
+        include: {
+          clientGlobal: true,
+        },
+      });
     });
   }
 }
