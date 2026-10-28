@@ -13,6 +13,13 @@ model Tenant {
   code      String   @unique
   createdAt DateTime @default(now())
 
+  salonProfile           SalonProfile?
+  technicianAssignments  TechnicianAssignment[]
+  platformDevices        PlatformDevice[]
+  platformConfigurations PlatformConfiguration[]
+  onboardingChecks       SalonOnboarding[]
+  interventions          TechnicalIntervention[]
+  platformInvitations    PlatformInvitation[]
   users                  User[]
   clients                Client[]
   clientTenants          ClientTenant[]
@@ -528,5 +535,180 @@ model Lead {
   @@index([source, stage, createdAt], map: "Lead_source_stage_created_idx")
   @@index([email, createdAt], map: "Lead_email_created_idx")
   @@index([phone, createdAt], map: "Lead_phone_created_idx")
+  @@schema("app")
+}
+
+enum PlatformRole {
+  SUPER_ADMIN
+  ADMIN
+  TECHNICIAN
+  @@schema("app")
+}
+enum SalonStatus {
+  BOZZA
+  IN_CONFIGURAZIONE
+  DA_COLLAUDARE
+  ATTIVO
+  SOSPESO
+  @@schema("app")
+}
+model PlatformAdmin {
+  id String @id @default(uuid())
+  email String @unique
+  name String
+  role PlatformRole @default(TECHNICIAN)
+  passwordHash String?
+  totpEncrypted String?
+  lastTotpStep BigInt @default(0)
+  active Boolean @default(true)
+  failedAttempts Int @default(0)
+  lockedUntil DateTime?
+  createdAt DateTime @default(now())
+  sessions PlatformSession[]
+  assignments TechnicianAssignment[]
+  invitations PlatformInvitation[]
+  @@schema("app")
+}
+model PlatformSession {
+  id String @id @default(uuid())
+  tokenHash String @unique
+  adminId String
+  admin PlatformAdmin @relation(fields:[adminId], references:[id])
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([adminId, expiresAt])
+  @@schema("app")
+}
+model SalonProfile {
+  tenantId String @id
+  tenant Tenant @relation(fields:[tenantId], references:[id])
+  businessName String
+  vatNumber String @unique
+  taxCode String?
+  address String
+  postalCode String
+  city String
+  province String
+  email String
+  phone String
+  ownerName String
+  ownerEmail String
+  plan String?
+  status SalonStatus @default(BOZZA)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, city])
+  @@schema("app")
+}
+model TechnicianAssignment {
+  adminId String
+  tenantId String
+  admin PlatformAdmin @relation(fields:[adminId], references:[id])
+  tenant Tenant @relation(fields:[tenantId], references:[id])
+  createdAt DateTime @default(now())
+  @@id([adminId, tenantId])
+  @@index([tenantId])
+  @@schema("app")
+}
+model PlatformConfiguration {
+  importedDevice PlatformDevice?
+  id String @id @default(uuid())
+  tenantId String
+  tenant Tenant @relation(fields:[tenantId], references:[id])
+  section String
+  data Json
+  secretsEncrypted String?
+  verifiedAt DateTime?
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId, section])
+  @@schema("app")
+}
+model SalonOnboarding {
+  id String @id @default(uuid())
+  tenantId String
+  tenant Tenant @relation(fields:[tenantId], references:[id])
+  key String
+  result String @default("PENDING")
+  notes String @default("")
+  checkedBy String?
+  checkedAt DateTime?
+  @@unique([tenantId,key])
+  @@schema("app")
+}
+model TechnicalIntervention {
+  id String @id @default(uuid())
+  tenantId String
+  tenant Tenant @relation(fields:[tenantId], references:[id])
+  adminId String
+  action String
+  notes String
+  createdAt DateTime @default(now())
+  @@index([tenantId,createdAt])
+  @@schema("app")
+}
+model PlatformAuditLog {
+  id String @id @default(uuid())
+  adminId String?
+  tenantId String?
+  action String
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+  @@schema("app")
+}
+model PlatformInvitation {
+  id String @id @default(uuid())
+  tokenHash String @unique
+  adminId String?
+  admin PlatformAdmin? @relation(fields:[adminId], references:[id])
+  tenantId String?
+  tenant Tenant? @relation(fields:[tenantId], references:[id])
+  purpose String
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  @@schema("app")
+}
+model PlatformMailOutbox {
+  id String @id @default(uuid())
+  recipient String
+  payloadEncrypted String
+  sentAt DateTime?
+  attempts Int @default(0)
+  createdAt DateTime @default(now())
+  @@index([sentAt,createdAt])
+  @@schema("app")
+}
+
+
+enum PhysicalCheckResult {
+  PENDING
+  PASS
+  FAIL
+  @@schema("app")
+}
+model PlatformDevice {
+  id String @id @default(uuid())
+  tenantId String
+  tenant Tenant @relation(fields:[tenantId],references:[id])
+  section String
+  label String
+  identity String
+  data Json
+  secretsEncrypted String?
+  legacyConfigurationId String? @unique
+  legacyConfiguration PlatformConfiguration? @relation(fields:[legacyConfigurationId],references:[id],onDelete:Restrict)
+  dueDate DateTime? @db.Date
+  physicalCheck PhysicalCheckResult @default(PENDING)
+  checkedAt DateTime?
+  checkedBy String?
+  checkNotes String @default("")
+  version Int @default(1)
+  archivedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId,section,label])
+  @@unique([tenantId,section,identity])
+  @@index([tenantId,archivedAt,dueDate])
   @@schema("app")
 }

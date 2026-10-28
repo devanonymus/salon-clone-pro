@@ -1,8 +1,17 @@
 import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
+import { PrismaService } from '../prisma.service';
 import { JwtGuard } from './jwt.guard';
 
 describe('JwtGuard', () => {
+  const prisma = {
+    salonProfile: { findUnique: jest.fn().mockResolvedValue(null) },
+    user: {
+      findFirst: jest
+        .fn()
+        .mockResolvedValue({ role: 'OWNER', username: 'admin' }),
+    },
+  } as unknown as PrismaService;
   const previousSecret = process.env.JWT_SECRET;
 
   afterEach(() => {
@@ -19,16 +28,16 @@ describe('JwtGuard', () => {
     };
   }
 
-  it('rejects requests without a bearer token', () => {
+  it('rejects requests without a bearer token', async () => {
     process.env.JWT_SECRET = 'test-secret-at-least-32-characters-long';
     const { executionContext } = context();
 
-    expect(() => new JwtGuard().canActivate(executionContext)).toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      new JwtGuard(prisma).canActivate(executionContext),
+    ).rejects.toThrow(UnauthorizedException);
   });
 
-  it('accepts a signed token with the expected claims', () => {
+  it('accepts a signed token with the expected claims', async () => {
     const secret = 'test-secret-at-least-32-characters-long';
     process.env.JWT_SECRET = secret;
     const token = jwt.sign(
@@ -47,7 +56,9 @@ describe('JwtGuard', () => {
     );
     const { request, executionContext } = context(`Bearer ${token}`);
 
-    expect(new JwtGuard().canActivate(executionContext)).toBe(true);
+    await expect(
+      new JwtGuard(prisma).canActivate(executionContext),
+    ).resolves.toBe(true);
     expect(request).toHaveProperty('user.tenantId', 'tenant-1');
   });
 });

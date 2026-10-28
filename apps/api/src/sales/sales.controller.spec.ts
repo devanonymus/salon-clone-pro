@@ -1,3 +1,4 @@
+import { PrismaService } from '../prisma.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { AuthRequest } from '../auth/auth-request';
 import { SalesController } from './sales.controller';
@@ -12,7 +13,10 @@ describe('SalesController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SalesController],
-      providers: [{ provide: SalesService, useValue: { create: createSale } }],
+      providers: [
+        { provide: PrismaService, useValue: {} },
+        { provide: SalesService, useValue: { create: createSale } },
+      ],
     }).compile();
 
     controller = module.get<SalesController>(SalesController);

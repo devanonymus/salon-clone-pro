@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import type {
   CreateFixedCostDto,
@@ -11,22 +12,29 @@ import type {
 export class CoachService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getSettings(tenantId: string) {
-    const existing = await this.prisma.coachSettings.findUnique({
+  async getSettings(
+    tenantId: string,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    const existing = await client.coachSettings.findUnique({
       where: { tenantId },
     });
 
     if (existing) return existing;
 
-    return this.prisma.coachSettings.create({
+    return client.coachSettings.create({
       data: { tenantId },
     });
   }
 
-  async updateSettings(tenantId: string, body: UpdateCoachSettingsDto) {
-    await this.getSettings(tenantId);
+  async updateSettings(
+    tenantId: string,
+    body: UpdateCoachSettingsDto,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    await this.getSettings(tenantId, client);
 
-    return this.prisma.coachSettings.update({
+    return client.coachSettings.update({
       where: { tenantId },
       data: {
         vatServicesPercent: this.num(body.vatServicesPercent),
