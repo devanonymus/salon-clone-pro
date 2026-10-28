@@ -55,13 +55,15 @@ export class JwtGuard implements CanActivate {
             tenantId: payload.tenantId,
             active: true,
           },
-          select: { role: true, username: true },
+          select: { role: true, username: true, authVersion: true },
         }),
       ]);
       if (
         !user ||
         user.role !== payload.role ||
         user.username !== payload.username ||
+        !Number.isInteger(payload.authVersion ?? 0) ||
+        (payload.authVersion ?? 0) !== user.authVersion ||
         profile?.status === 'SOSPESO'
       )
         throw new Error('Accesso revocato');

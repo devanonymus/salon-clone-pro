@@ -5,3 +5,4 @@
 
 [build.environment]
   NETLIFY_NEXT_SKEW_PROTECTION = "true"
+  PNPM_FLAGS = "--frozen-lockfile"

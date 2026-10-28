@@ -47,6 +47,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Reject known high severity dependency advisories
+        run: pnpm audit --audit-level high
       - name: Reject unsafe migrations
         run: pnpm check:migrations
       - name: Validate Prisma schema
@@ -61,6 +63,8 @@ jobs:
         run: pnpm build:api
       - name: Verify admin migrations and persisted permissions
         run: pnpm test:admin-db
+      - name: Verify tenant isolation and credential revocation
+        run: pnpm test:security-db
       - name: API lint audit
         continue-on-error: true
         run: pnpm --filter api lint

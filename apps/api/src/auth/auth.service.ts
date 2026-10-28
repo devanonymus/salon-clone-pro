@@ -10,6 +10,7 @@ import bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import type { AuthUser } from './auth-user';
 import type { CreateSalonDto } from './auth.dto';
+const dummyPinHash = bcrypt.hashSync('invalid-account-placeholder', 12);
 
 @Injectable()
 export class AuthService {
@@ -151,19 +152,66 @@ export class AuthService {
     };
   }
 
-  async changePin(currentUser: AuthUser, pin: string) {
+  private async recordFailedAttempt(userId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const failed = await tx.user.update({
+        where: { id: userId },
+        data: { loginFailedAttempts: { increment: 1 } },
+        select: { loginFailedAttempts: true },
+      });
+      if (failed.loginFailedAttempts >= 5) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { loginLockedUntil: new Date(Date.now() + 15 * 60_000) },
+        });
+      }
+    });
+  }
+
+  async changePin(currentUser: AuthUser, pin: string, currentPin: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: currentUser.userId,
+        tenantId: currentUser.tenantId,
+        active: true,
+      },
+    });
+    const valid = await bcrypt.compare(
+      currentPin,
+      user?.pinHash || dummyPinHash,
+    );
+    if (
+      !user ||
+      (user.loginLockedUntil && user.loginLockedUntil > new Date())
+    ) {
+      throw new UnauthorizedException('Credenziali non valide');
+    }
+    if (!valid) {
+      await this.recordFailedAttempt(user.id);
+      throw new UnauthorizedException('Credenziali non valide');
+    }
     const pinHash = await bcrypt.hash(pin, 12);
     const updated = await this.prisma.user.updateMany({
       where: {
         id: currentUser.userId,
         tenantId: currentUser.tenantId,
         active: true,
+        authVersion: user.authVersion,
+        OR: [
+          { loginLockedUntil: null },
+          { loginLockedUntil: { lte: new Date() } },
+        ],
       },
-      data: { pinHash },
+      data: {
+        pinHash,
+        authVersion: { increment: 1 },
+        loginFailedAttempts: 0,
+        loginLockedUntil: null,
+      },
     });
 
     if (updated.count !== 1) {
-      throw new NotFoundException('Utente non trovato');
+      throw new UnauthorizedException('Credenziali non valide');
     }
 
     return { ok: true, message: 'PIN aggiornato correttamente' };
@@ -182,6 +230,7 @@ export class AuthService {
     });
 
     if (!tenant) {
+      await bcrypt.compare(pin, dummyPinHash);
       throw new UnauthorizedException('Credenziali non valide');
     }
 
@@ -200,15 +249,32 @@ export class AuthService {
       },
     });
 
-    if (!user) {
+    const valid = await bcrypt.compare(pin, user?.pinHash || dummyPinHash);
+    if (
+      !user ||
+      (user.loginLockedUntil && user.loginLockedUntil > new Date())
+    ) {
       throw new UnauthorizedException('Credenziali non valide');
     }
-
-    const valid = await bcrypt.compare(pin, user.pinHash);
-
     if (!valid) {
+      await this.recordFailedAttempt(user.id);
       throw new UnauthorizedException('Credenziali non valide');
     }
+    const claimed = await this.prisma.user.updateMany({
+      where: {
+        id: user.id,
+        tenantId: tenant.id,
+        active: true,
+        authVersion: user.authVersion,
+        OR: [
+          { loginLockedUntil: null },
+          { loginLockedUntil: { lte: new Date() } },
+        ],
+      },
+      data: { loginFailedAttempts: 0, loginLockedUntil: null },
+    });
+    if (claimed.count !== 1)
+      throw new UnauthorizedException('Credenziali non valide');
 
     const token = jwt.sign(
       {
@@ -216,6 +282,7 @@ export class AuthService {
         tenantId: tenant.id,
         role: user.role,
         username: user.username,
+        authVersion: user.authVersion,
       },
       process.env.JWT_SECRET,
       {

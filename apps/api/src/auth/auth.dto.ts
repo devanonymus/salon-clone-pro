@@ -52,15 +52,19 @@ export class CreateSalonDto {
   ownerUsername?: string;
 
   @IsString()
-  @MinLength(4)
+  @MinLength(12)
   @MaxLength(64)
   ownerPin!: string;
 }
 
 export class ChangePinDto {
   @IsString()
-  @Matches(/^\d{4,12}$/, {
-    message: 'Il PIN deve contenere da 4 a 12 cifre',
+  @Length(4, 64)
+  currentPin!: string;
+
+  @IsString()
+  @Matches(/^\d{6,12}$/, {
+    message: 'Il nuovo PIN deve contenere da 6 a 12 cifre',
   })
   pin!: string;
 }

@@ -321,7 +321,12 @@ export class PlatformService {
               username: profile.ownerEmail,
             },
           },
-          data: { pinHash: passwordHash, active: true },
+          data: {
+            pinHash: passwordHash, active: true,
+            authVersion: { increment: 1 },
+            loginFailedAttempts: 0,
+            loginLockedUntil: null,
+          },
         });
         await tx.salonOnboarding.update({
           where: {
