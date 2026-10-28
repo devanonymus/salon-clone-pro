@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { PlatformModule } from './platform/platform.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppointmentsModule } from './appointments/appointments.module';
@@ -24,6 +25,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
 @Module({
   imports: [
     DatabaseModule,
+    PlatformModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     AuthModule,
     WhatsappModule,

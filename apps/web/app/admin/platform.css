@@ -1,0 +1,468 @@
+.platform {
+  --ink: #182c32;
+  --muted: #617579;
+  --line: #dce4e4;
+  --accent: #116957;
+  color: var(--ink);
+  background: #f5f7f7;
+  min-height: 100vh;
+  font:
+    14px/1.6 Arial,
+    sans-serif;
+  display: flex;
+}
+.platform * {
+  box-sizing: border-box;
+}
+.platform aside {
+  width: 245px;
+  flex-shrink: 0;
+  background: #122c32;
+  color: #eaf1f0;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.platform .brand {
+  font-size: 26px;
+  font-weight: 700;
+  text-decoration: none;
+  color: white;
+  letter-spacing: -1px;
+}
+.platform .brand small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  font-weight: 400;
+  color: #9bb8b9;
+}
+.platform aside .muted {
+  color: #9bb8b9;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  margin: 40px 0 15px;
+}
+.platform nav {
+  display: flex;
+  gap: 8px;
+}
+.platform aside nav {
+  flex-direction: column;
+}
+.platform nav a {
+  padding: 12px 14px;
+  text-decoration: none;
+  color: #d2e1df;
+  border-radius: 7px;
+}
+.platform nav a[aria-current="page"] {
+  background: #28464a;
+  color: white;
+}
+.platform footer {
+  margin-top: auto;
+  padding-top: 60px;
+  display: grid;
+  gap: 8px;
+}
+.platform footer small {
+  color: #a2b9b9;
+}
+.platform main {
+  flex: 1;
+  min-width: 0;
+  padding: 0 42px 60px;
+}
+.platform header {
+  display: flex;
+  justify-content: space-between;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.platform .heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 36px 0 28px;
+}
+.platform h1 {
+  font-size: 30px;
+  line-height: 1.25;
+  letter-spacing: -1px;
+  margin: 8px 0 12px;
+}
+.platform h2 {
+  font-size: 19px;
+  letter-spacing: -0.4px;
+  margin: 0 0 20px;
+}
+.platform h3 {
+  font-size: 14px;
+}
+.platform .eyebrow {
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: bold;
+  color: var(--accent);
+}
+.platform .muted {
+  color: var(--muted);
+}
+.platform .metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin: 24px 0;
+}
+.platform .metrics article,
+.platform .panel {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 24px;
+}
+.platform .metrics p {
+  color: var(--muted);
+  margin: 0;
+}
+.platform .metrics strong {
+  display: block;
+  font-size: 38px;
+  font-weight: 500;
+  margin-top: 12px;
+}
+.platform .panel {
+  margin: 20px 0;
+}
+.platform .button,
+.platform button {
+  background: var(--accent);
+  color: white;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.platform button.secondary {
+  color: var(--ink);
+  background: #fff;
+  border-color: var(--line);
+}
+.platform button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.platform input,
+.platform select,
+.platform textarea {
+  border: 1px solid #c7d3d4;
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+  padding: 10px 12px;
+  font: inherit;
+  min-width: 0;
+  width: 100%;
+}
+.platform input:focus,
+.platform select:focus,
+.platform textarea:focus,
+.platform button:focus-visible,
+.platform a:focus-visible {
+  outline: 3px solid #78bfa9;
+  outline-offset: 2px;
+}
+.platform label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.platform .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+}
+.platform .toolbar,
+.platform .actions {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  margin: 20px 0;
+}
+.platform .toolbar input {
+  flex: 1;
+}
+.platform .toolbar select {
+  max-width: 230px;
+}
+.platform .toolbar label {
+  margin: 0;
+}
+.platform .table-wrap {
+  overflow-x: auto;
+}
+.platform table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  white-space: nowrap;
+}
+.platform th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 8px 12px 16px;
+}
+.platform td {
+  padding: 18px 12px;
+  border-top: 1px solid var(--line);
+}
+.platform td a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.platform .badge {
+  display: inline-block;
+  border: 1px solid #d5e5df;
+  background: #eef5f2;
+  color: #31604e;
+  padding: 4px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+.platform .tabs {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.platform .tabs button {
+  font-size: 12px;
+}
+.platform .notice {
+  background: #f7f3e9;
+  padding: 14px;
+  border-radius: 6px;
+  color: #695624;
+}
+.platform .check-row {
+  display: grid;
+  grid-template-columns: 150px 115px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.platform .check-row small {
+  grid-column: 1/-1;
+  color: var(--muted);
+}
+.platform .intervention {
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+  margin-top: 20px;
+  white-space: pre-wrap;
+}
+.platform .modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #142c36a0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.platform .modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  width: min(780px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+}
+.platform.public {
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+}
+.platform .auth-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 40px;
+  width: 480px;
+  max-width: 100%;
+}
+.platform .auth-card form {
+  display: grid;
+  gap: 8px;
+  margin-top: 30px;
+}
+.platform code {
+  overflow-wrap: anywhere;
+}
+.platform .skeleton {
+  padding: 60px;
+  background: #ecf1f0;
+  margin-top: 30px;
+  border-radius: 12px;
+  animation: pulse 1.5s infinite alternate;
+}
+@keyframes pulse {
+  to {
+    opacity: 0.5;
+  }
+}
+@media (max-width: 1000px) {
+  .platform aside {
+    width: 190px;
+    padding: 25px 16px;
+  }
+  .platform main {
+    padding: 0 22px 40px;
+  }
+  .platform .metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .platform .check-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .platform .heading {
+    align-items: start;
+  }
+}
+@media (max-width: 650px) {
+  .platform {
+    display: block;
+  }
+  .platform aside {
+    width: 100%;
+    min-height: 0;
+    padding: 18px;
+  }
+  .platform aside nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .platform aside .muted {
+    display: none;
+  }
+  .platform footer {
+    padding-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .platform footer button {
+    font-size: 11px;
+  }
+  .platform main {
+    padding: 0 16px 30px;
+  }
+  .platform header {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .platform h1 {
+    font-size: 25px;
+  }
+  .platform .metrics {
+    gap: 10px;
+  }
+  .platform .metrics article,
+  .platform .panel {
+    padding: 18px;
+  }
+  .platform .heading {
+    flex-direction: column;
+  }
+  .platform .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .platform .toolbar {
+    flex-wrap: wrap;
+  }
+  .platform .auth-card {
+    padding: 26px;
+  }
+  .platform .modal {
+    padding: 20px;
+  }
+  .platform .check-row {
+    grid-template-columns: 1fr;
+  }
+  .platform .check-row small {
+    grid-column: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .platform .skeleton {
+    animation: none;
+  }
+}
+.platform .device-modal {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 28px;
+  color: var(--ink);
+  width: min(780px, calc(100vw - 32px));
+  max-height: 90vh;
+  background: white;
+}
+.platform .device-modal::backdrop {
+  background: #142c36a0;
+}
+.platform .device-modal h3 {
+  font-size: 20px;
+  margin: 0 0 20px;
+}
+.platform .inline-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.platform .inline-check input {
+  width: auto;
+}
+.platform .device-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: 340px;
+}
+.platform .device-actions button {
+  font-size: 11px;
+  padding: 7px 10px;
+}
+.platform .device-check-meta {
+  display: block;
+  white-space: normal;
+  max-width: 240px;
+}
+.platform .device-notes {
+  white-space: pre-wrap;
+  max-width: 300px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.platform .badge-error {
+  background: #fff0ee;
+  color: #9d342b;
+  border-color: #f3c9c3;
+}
+.platform .deadline-table td {
+  white-space: normal;
+}

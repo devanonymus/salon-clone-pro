@@ -4,13 +4,16 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
 import * as jwt from 'jsonwebtoken';
 import type { AuthRequest } from './auth-request';
 import { USER_ROLES, type AuthUser } from './auth-user';
 
 @Injectable()
 export class JwtGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthRequest>();
     const authHeader = request.headers.authorization;
 
@@ -41,6 +44,27 @@ export class JwtGuard implements CanActivate {
         throw new Error('Payload token non valido');
       }
 
+      const [profile, user] = await Promise.all([
+        this.prisma.salonProfile.findUnique({
+          where: { tenantId: payload.tenantId },
+          select: { status: true },
+        }),
+        this.prisma.user.findFirst({
+          where: {
+            id: payload.userId,
+            tenantId: payload.tenantId,
+            active: true,
+          },
+          select: { role: true, username: true },
+        }),
+      ]);
+      if (
+        !user ||
+        user.role !== payload.role ||
+        user.username !== payload.username ||
+        profile?.status === 'SOSPESO'
+      )
+        throw new Error('Accesso revocato');
       request.user = payload as unknown as AuthUser;
       return true;
     } catch {

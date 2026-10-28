@@ -115,7 +115,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     : [];
 
   useEffect(() => {
-    if (!isPublicRoute && !window.localStorage.getItem("salonpro_token") && !window.localStorage.getItem("token")) {
+    if (!isPublicRoute && !pathname.startsWith("/admin") && !window.localStorage.getItem("salonpro_token") && !window.localStorage.getItem("token")) {
       window.location.replace("/login");
       return;
     }
@@ -131,7 +131,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [isPublicRoute, pathname]);
 
-  if (isPublicRoute) {
+  if (isPublicRoute || pathname.startsWith("/admin")) {
     return <>{children}</>;
   }
 

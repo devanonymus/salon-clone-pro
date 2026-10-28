@@ -59,6 +59,8 @@ jobs:
         run: pnpm test:e2e
       - name: Build Nest API
         run: pnpm build:api
+      - name: Verify admin migrations and persisted permissions
+        run: pnpm test:admin-db
       - name: API lint audit
         continue-on-error: true
         run: pnpm --filter api lint

@@ -16,7 +16,10 @@ export class AuthService {
   constructor(private prisma: PrismaService) {}
 
   async seed() {
-    if (process.env.ALLOW_DEMO_SEED !== 'true') {
+    if (
+      process.env.NODE_ENV === 'production' ||
+      process.env.ALLOW_DEMO_SEED !== 'true'
+    ) {
       throw new NotFoundException();
     }
 
@@ -181,6 +184,13 @@ export class AuthService {
     if (!tenant) {
       throw new UnauthorizedException('Credenziali non valide');
     }
+
+    const profile = await this.prisma.salonProfile.findUnique({
+      where: { tenantId: tenant.id },
+      select: { status: true },
+    });
+    if (profile?.status === 'SOSPESO')
+      throw new UnauthorizedException('Accesso salone sospeso');
 
     const user = await this.prisma.user.findFirst({
       where: {
