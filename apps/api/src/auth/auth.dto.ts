@@ -59,6 +59,10 @@ export class CreateSalonDto {
 
 export class ChangePinDto {
   @IsString()
+  @Length(4, 64)
+  currentPin!: string;
+
+  @IsString()
   @Matches(/^\d{6,12}$/, {
     message: 'Il nuovo PIN deve contenere da 6 a 12 cifre',
   })

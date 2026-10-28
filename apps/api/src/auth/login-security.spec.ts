@@ -103,6 +103,18 @@ describe('Salon login security', () => {
     );
   });
 
+  it('requires the existing PIN even with an authenticated owner identity', async () => {
+    await expect(
+      service.changePin(
+        { userId: user.id, tenantId: 'a', role: 'OWNER', username: 'owner' },
+        '87654321',
+        'wrong-pin',
+      ),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+    expect(db.user.update).toHaveBeenCalled();
+  });
+
   it('gives a generic error for unknown accounts', async () => {
     db.user.findFirst.mockResolvedValue(null);
     await expect(service.login('A', 'missing', '12345678')).rejects.toThrow(

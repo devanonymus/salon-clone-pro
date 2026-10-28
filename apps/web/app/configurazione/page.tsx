@@ -50,6 +50,7 @@ export default function ConfigurazionePage() {
   });
   const [ownerPin, setOwnerPin] = useState("");
   const [ownerPinSaving, setOwnerPinSaving] = useState(false);
+  const [currentOwnerPin, setCurrentOwnerPin] = useState("");
 
   const [waEnabled, setWaEnabled] = useState(false);
   const [waPhoneNumberId, setWaPhoneNumberId] = useState("");
@@ -308,6 +309,10 @@ export default function ConfigurazionePage() {
     try {
       setMessage("");
 
+      if (!currentOwnerPin) {
+        setMessage("Inserisci il PIN attuale per confermare la modifica.");
+        return;
+      }
       if (!/^\d{6,12}$/.test(ownerPin.trim())) {
         setMessage("Inserisci un nuovo PIN da 6 a 12 cifre.");
         return;
@@ -320,10 +325,12 @@ export default function ConfigurazionePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pin: ownerPin.trim(),
+          currentPin: currentOwnerPin,
         }),
       });
 
       setOwnerPin("");
+      setCurrentOwnerPin("");
       setMessage("✅ PIN titolare aggiornato correttamente.");
       clearToken();
       router.replace("/login");
@@ -536,6 +543,15 @@ export default function ConfigurazionePage() {
             <div style={{ marginTop: 24 }}>
               <SectionTitle kicker="Titolare" title="Cambia PIN titolare" />
               <div style={grid2}>
+                <input
+                  className="sp-input"
+                  type="password"
+                  aria-label="PIN attuale"
+                  autoComplete="current-password"
+                  placeholder="PIN attuale"
+                  value={currentOwnerPin}
+                  onChange={(e) => setCurrentOwnerPin(e.target.value)}
+                />
                 <input
                   className="sp-input"
                   type="password"

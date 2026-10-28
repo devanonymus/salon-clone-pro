@@ -29,7 +29,7 @@ Le identità ClientGlobal diventano di proprietà di un solo salone tramite owne
 
 Un vincolo univoco limita il telefono al singolo salone. Chiavi esterne composite impediscono di collegare vendite, premi o ClientTenant a un'identità appartenente a un salone diverso. La creazione rapida usa una transazione e la coppia salone e telefono.
 
-Gli utenti dei saloni ricevono una versione delle credenziali. Cambio PIN e reset del titolare incrementano tale versione; i JWT precedenti vengono rifiutati. I vecchi JWT senza versione restano compatibili solo con account mai ruotati, la cui versione è zero. Il login registra tentativi falliti nel database e blocca l'account per 15 minuti dopo almeno cinque errori. I nuovi PIN richiedono almeno sei cifre; i PIN esistenti restano utilizzabili fino al cambio.
+Gli utenti dei saloni ricevono una versione delle credenziali. Il cambio PIN richiede la conferma del PIN attuale, oltre alla sessione del titolare. Cambio PIN e reset del titolare incrementano la versione; i JWT precedenti vengono rifiutati. I vecchi JWT senza versione restano compatibili solo con account mai ruotati, la cui versione è zero. Login e verifica del PIN attuale registrano tentativi falliti nel database e bloccano l'account per 15 minuti dopo almeno cinque errori. I nuovi PIN richiedono almeno sei cifre; i PIN esistenti restano utilizzabili fino al cambio.
 
 La migrazione non elimina tabelle, colonne o dati, ma modifica relazioni e identificativi delle anagrafiche condivise. Non è compatibile con il vecchio codice di creazione clienti. Non applicarla con una pubblicazione ordinaria non coordinata.
 

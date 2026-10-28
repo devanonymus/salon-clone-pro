@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma.service';
+import bcrypt from 'bcryptjs';
 
 describe('AuthService', () => {
   let service: AuthService;
   const prisma = {
     user: {
+      findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
   };
@@ -24,6 +26,11 @@ describe('AuthService', () => {
 
   it('updates only the active user in the current tenant', async () => {
     prisma.user.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findFirst.mockResolvedValue({
+      pinHash: await bcrypt.hash('12345678', 12),
+      authVersion: 0,
+      loginLockedUntil: null,
+    });
 
     await expect(
       service.changePin(
@@ -33,7 +40,8 @@ describe('AuthService', () => {
           role: 'OWNER',
           username: 'admin',
         },
-        '1234',
+        '87654321',
+        '12345678',
       ),
     ).resolves.toEqual({ ok: true, message: 'PIN aggiornato correttamente' });
 

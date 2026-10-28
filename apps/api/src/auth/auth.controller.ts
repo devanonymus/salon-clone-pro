@@ -47,7 +47,8 @@ export class AuthController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles('OWNER')
   @Patch('me/pin')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   changePin(@Req() req: AuthRequest, @Body() body: ChangePinDto) {
-    return this.authService.changePin(req.user, body.pin);
+    return this.authService.changePin(req.user, body.pin, body.currentPin);
   }
 }
